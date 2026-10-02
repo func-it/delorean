@@ -1,0 +1,21 @@
+{
+  "id": "correction-de-quantite",
+  "note": "« x3, non pardon, x2 » : la quantité corrigée vaut, puis le 1 s'ajoute. Deux volets, -10 % ((15 × 2 + 15) × 0,9 = 40,50 €). Garde contre la première quantité gardée (54 €) ou les deux additionnées.",
+  "tags": [
+    "correction",
+    "quantite",
+    "remise",
+    "fr"
+  ],
+  "input": {
+    "cart": "Retour vers le futur 2 x3, non pardon, x2. Et le 1 aussi."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 4050,
+    "films": {
+      "bttf_1": 1,
+      "bttf_2": 2
+    }
+  }
+}

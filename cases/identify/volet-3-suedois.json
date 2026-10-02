@@ -1,0 +1,15 @@
+{
+  "id": "volet-3-suedois",
+  "note": "Le titre suédois avec « III » : garde contre une identification limitée aux langues les plus courantes.",
+  "tags": [
+    "volet-3",
+    "sv",
+    "chiffres-romains"
+  ],
+  "input": {
+    "title": "Tillbaka till framtiden III"
+  },
+  "expect": {
+    "film": "bttf_3"
+  }
+}

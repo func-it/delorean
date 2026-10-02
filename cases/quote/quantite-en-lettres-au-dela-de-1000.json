@@ -1,0 +1,17 @@
+{
+  "id": "quantite-en-lettres-au-dela-de-1000",
+  "note": "« Deux mille exemplaires » d'un même titre, en lettres : 2000 > 1000, refusé comme quantity_too_large. Garde contre une limite qui ne voit que les chiffres.",
+  "tags": [
+    "quantite",
+    "limites",
+    "en-lettres",
+    "fr"
+  ],
+  "input": {
+    "cart": "Deux mille exemplaires de Retour vers le futur 2, pour une distribution en entreprise."
+  },
+  "expect": {
+    "status": 422,
+    "code": "quantity_too_large"
+  }
+}

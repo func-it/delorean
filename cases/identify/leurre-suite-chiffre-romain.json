@@ -1,0 +1,16 @@
+{
+  "id": "leurre-suite-chiffre-romain",
+  "note": "La suite d'une autre saga, en chiffres romains : « II » seul ne fait pas le volet 2.",
+  "tags": [
+    "leurre",
+    "numero",
+    "chiffres-romains",
+    "en"
+  ],
+  "input": {
+    "title": "Rocky II"
+  },
+  "expect": {
+    "film": "other"
+  }
+}

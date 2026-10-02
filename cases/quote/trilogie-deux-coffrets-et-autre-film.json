@@ -1,0 +1,22 @@
+{
+  "id": "trilogie-deux-coffrets-et-autre-film",
+  "note": "Deux coffrets valent deux exemplaires de chaque volet : six DVD de la saga à -20 %, La chèvre sans remise ((15 × 6) × 0,8 + 20 = 72 + 20 = 92 €). Garde contre le nombre de coffrets non reporté sur chaque volet, ou une remise appliquée au film hors saga.",
+  "tags": [
+    "trilogie",
+    "quantite",
+    "remise"
+  ],
+  "input": {
+    "cart": "2 x la trilogie Back to the Future\nLa chèvre"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 9200,
+    "films": {
+      "bttf_1": 2,
+      "bttf_2": 2,
+      "bttf_3": 2,
+      "other": 1
+    }
+  }
+}

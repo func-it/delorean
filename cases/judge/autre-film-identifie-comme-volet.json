@@ -1,0 +1,28 @@
+{
+  "id": "autre-film-identifie-comme-volet",
+  "note": "« Toy Story 3 » identifié comme le volet 3 : un film hors saga facturé comme volet, et une remise de deux volets qui n'existe pas ((15 × 2) × 0,9 = 27 € au lieu de 15 + 20 = 35 €). identity doit voir la mauvaise identification ; asked n'a rien à redire, le film est bien demandé.",
+  "tags": [
+    "infidele",
+    "identification",
+    "fr"
+  ],
+  "input": {
+    "text": "Toy Story 3 et Retour vers le futur 2, s'il vous plaît.",
+    "lines": [
+      {
+        "title": "Toy Story 3",
+        "quantity": 1,
+        "film": "bttf_3"
+      },
+      {
+        "title": "Retour vers le futur 2",
+        "quantity": 1,
+        "film": "bttf_2"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": false,
+    "check": "identity"
+  }
+}

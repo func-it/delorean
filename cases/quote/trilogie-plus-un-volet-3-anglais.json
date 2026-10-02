@@ -1,0 +1,22 @@
+{
+  "id": "trilogie-plus-un-volet-3-anglais",
+  "note": "La trilogie et un exemplaire de plus du 3, en anglais : quatre DVD de la saga, trois volets distincts, -20 % sur les quatre ((15 × 4) × 0,8 = 48 €). Garde contre l'exemplaire en plus absorbé par le coffret (36 €).",
+  "tags": [
+    "trilogie",
+    "doublon",
+    "remise",
+    "en"
+  ],
+  "input": {
+    "cart": "The Back to the Future trilogy, plus one more copy of Part III for my sister."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 4800,
+    "films": {
+      "bttf_1": 1,
+      "bttf_2": 1,
+      "bttf_3": 2
+    }
+  }
+}

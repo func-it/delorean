@@ -1,0 +1,32 @@
+{
+  "id": "trilogie-developpee",
+  "note": "« la trilogie » lue comme ses trois volets, un exemplaire chacun : la règle du coffret. Aucun des trois titres n'est écrit dans le texte : asked et quantity doivent compter le coffret pour chacun de ses films. Garde contre une fausse alerte qui refuserait tout coffret.",
+  "tags": [
+    "fidele",
+    "trilogie",
+    "fr"
+  ],
+  "input": {
+    "text": "Je voudrais la trilogie Retour vers le futur",
+    "lines": [
+      {
+        "title": "Retour vers le futur 1",
+        "quantity": 1,
+        "film": "bttf_1"
+      },
+      {
+        "title": "Retour vers le futur 2",
+        "quantity": 1,
+        "film": "bttf_2"
+      },
+      {
+        "title": "Retour vers le futur 3",
+        "quantity": 1,
+        "film": "bttf_3"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": true
+  }
+}

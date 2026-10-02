@@ -1,0 +1,19 @@
+{
+  "id": "meme-volet-deux-ecritures",
+  "note": "Deux écritures du même volet font deux lignes mais un seul volet distinct : pas de remise (15 × 2 = 30 €). Garde contre un décompte des volets par titre au lieu de par film.",
+  "tags": [
+    "titres",
+    "remise",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 2\nBack to the Future II"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 3000,
+    "films": {
+      "bttf_2": 2
+    }
+  }
+}

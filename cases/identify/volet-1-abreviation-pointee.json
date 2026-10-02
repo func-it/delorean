@@ -1,0 +1,14 @@
+{
+  "id": "volet-1-abreviation-pointee",
+  "note": "L'abréviation seule, sans numéro et avec des points (« B.T.T.F. ») : sans numéro, c'est le premier film. Garde contre un « other » faute de chiffre ou de forme exacte (« BTTF »).",
+  "tags": [
+    "volet-1",
+    "abreviation"
+  ],
+  "input": {
+    "title": "B.T.T.F."
+  },
+  "expect": {
+    "film": "bttf_1"
+  }
+}

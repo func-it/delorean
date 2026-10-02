@@ -1,0 +1,13 @@
+# Next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# dependencies and test output
+/node_modules
+/coverage
+
+# local env files; .env.example is the documented template
+.env*
+!.env.example

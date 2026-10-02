@@ -1,0 +1,28 @@
+{
+  "id": "ligne-inventee-volet",
+  "note": "Un volet que le client n'a pas demandé est ajouté à la lecture : asked doit l'attraper avant qu'on le facture.",
+  "tags": [
+    "infidele",
+    "inventee",
+    "fr"
+  ],
+  "input": {
+    "text": "Retour vers le futur 1, s'il vous plaît.",
+    "lines": [
+      {
+        "title": "Retour vers le futur 1",
+        "quantity": 1,
+        "film": "bttf_1"
+      },
+      {
+        "title": "Retour vers le futur 2",
+        "quantity": 1,
+        "film": "bttf_2"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": false,
+    "check": "asked"
+  }
+}

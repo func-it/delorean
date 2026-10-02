@@ -1,0 +1,18 @@
+{
+  "id": "autres-films-seuls",
+  "note": "Aucun volet de la saga : tout est à 20 €, sans remise ni base de remise (20 × 4 = 80 €).",
+  "tags": [
+    "autres-films",
+    "fake"
+  ],
+  "input": {
+    "cart": "La chèvre\nLes Visiteurs\n2 x Le Dîner de cons"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 8000,
+    "films": {
+      "other": 4
+    }
+  }
+}

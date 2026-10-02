@@ -1,0 +1,15 @@
+{
+  "id": "volet-2-ordinal",
+  "note": "Le numéro en ordinal après le titre, « 2ème partie » : ni chiffre seul, ni chiffre romain. Garde contre un volet 1 faute de numéro reconnu.",
+  "tags": [
+    "volet-2",
+    "fr",
+    "ordinal"
+  ],
+  "input": {
+    "title": "Retour vers le futur 2ème partie"
+  },
+  "expect": {
+    "film": "bttf_2"
+  }
+}

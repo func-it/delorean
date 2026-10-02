@@ -1,0 +1,21 @@
+{
+  "id": "trilogie-sauf-le-volet-possede",
+  "note": "La trilogie sauf le 2, déjà possédé : deux volets, -10 % ((15 × 2) × 0,9 = 27 €). Garde contre la négation ignorée (la trilogie à 36 €).",
+  "tags": [
+    "trilogie",
+    "negation",
+    "remise",
+    "fr"
+  ],
+  "input": {
+    "cart": "Toute la trilogie Retour vers le futur, sauf le 2 que j'ai déjà."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 2700,
+    "films": {
+      "bttf_1": 1,
+      "bttf_3": 1
+    }
+  }
+}

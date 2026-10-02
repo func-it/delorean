@@ -1,0 +1,15 @@
+{
+  "id": "volet-2-espagnol",
+  "note": "Espagnol et chiffres romains.",
+  "tags": [
+    "volet-2",
+    "es",
+    "chiffres-romains"
+  ],
+  "input": {
+    "title": "Regreso al futuro II"
+  },
+  "expect": {
+    "film": "bttf_2"
+  }
+}

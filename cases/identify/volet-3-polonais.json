@@ -1,0 +1,15 @@
+{
+  "id": "volet-3-polonais",
+  "note": "Le titre polonais suivi de « III » : le titre seul désigne le volet 1, le chiffre romain doit l'emporter. Garde contre une identification au titre de base.",
+  "tags": [
+    "volet-3",
+    "pl",
+    "chiffres-romains"
+  ],
+  "input": {
+    "title": "Powrót do przyszłości III"
+  },
+  "expect": {
+    "film": "bttf_3"
+  }
+}

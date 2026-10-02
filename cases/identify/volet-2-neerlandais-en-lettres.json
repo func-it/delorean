@@ -1,0 +1,15 @@
+{
+  "id": "volet-2-neerlandais-en-lettres",
+  "note": "Le titre anglais, comme on l'écrit aux Pays-Bas, numéroté en toutes lettres en néerlandais (« deel twee ») : garde contre un numéro en lettres reconnu seulement dans les langues citées.",
+  "tags": [
+    "volet-2",
+    "nl",
+    "en-lettres"
+  ],
+  "input": {
+    "title": "Back to the Future deel twee"
+  },
+  "expect": {
+    "film": "bttf_2"
+  }
+}

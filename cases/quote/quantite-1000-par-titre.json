@@ -1,0 +1,19 @@
+{
+  "id": "quantite-1000-par-titre",
+  "note": "La limite compte par titre, pas par volet : deux écritures du même volet restent deux titres (600 + 600 sous deux noms passe). Un seul volet distinct, pas de remise (15 × 1200 = 18 000 €).",
+  "tags": [
+    "quantite",
+    "limites",
+    "fake"
+  ],
+  "input": {
+    "cart": "600 x Back to the Future 2\n600 x Back to the Future II"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 1800000,
+    "films": {
+      "bttf_2": 1200
+    }
+  }
+}

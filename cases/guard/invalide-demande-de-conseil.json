@@ -1,0 +1,15 @@
+{
+  "id": "invalide-demande-de-conseil",
+  "note": "Une demande de conseil sans aucun titre : pas un film à acheter, donc pas une commande.",
+  "tags": [
+    "invalide",
+    "conseil",
+    "fr"
+  ],
+  "input": {
+    "text": "Je cherche un bon film de science-fiction des années 80 pour ce week-end, vous me conseillez quoi ?"
+  },
+  "expect": {
+    "verdict": "invalid"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "volet-3-italien",
+  "note": "Titre italien avec « Parte III » et un tiret simple.",
+  "tags": [
+    "volet-3",
+    "it",
+    "chiffres-romains"
+  ],
+  "input": {
+    "title": "Ritorno al futuro - Parte III"
+  },
+  "expect": {
+    "film": "bttf_3"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "invalide-emoji-evocateurs",
+  "note": "Des emoji qui évoquent la saga (voiture, éclair, horloge) sans nommer aucun film : évoquer n'est pas commander.",
+  "tags": [
+    "invalide",
+    "emoji"
+  ],
+  "input": {
+    "text": "🚗⚡🕰️🔙🔜📀📀"
+  },
+  "expect": {
+    "verdict": "invalid"
+  }
+}

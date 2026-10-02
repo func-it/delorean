@@ -1,0 +1,19 @@
+{
+  "id": "un-volet-dix-exemplaires-sans-remise",
+  "note": "Un seul volet en dix exemplaires : aucune remise (15 × 10 = 150 €). Garde contre une remise déclenchée par la quantité.",
+  "tags": [
+    "remise",
+    "quantite",
+    "fake"
+  ],
+  "input": {
+    "cart": "10 x Back to the Future 3"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 15000,
+    "films": {
+      "bttf_3": 10
+    }
+  }
+}

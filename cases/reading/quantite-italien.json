@@ -1,0 +1,18 @@
+{
+  "id": "quantite-italien",
+  "note": "Quantités en lettres italiennes, la seconde (« tre di ») portant sur un titre qui suit : garde contre une quantité rattachée au mauvais titre.",
+  "tags": [
+    "quantite",
+    "en-lettres",
+    "it"
+  ],
+  "input": {
+    "text": "Vorrei due copie di Ritorno al futuro e tre di Ritorno al futuro – Parte III."
+  },
+  "expect": {
+    "films": {
+      "bttf_1": 2,
+      "bttf_3": 3
+    }
+  }
+}

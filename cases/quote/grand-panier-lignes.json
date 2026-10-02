@@ -1,0 +1,22 @@
+{
+  "id": "grand-panier-lignes",
+  "note": "Grand panier : les -20 % portent sur les 16 DVD de la saga, pas sur les 3 autres films ((15 × 16) × 0,8 + 20 × 3 = 192 + 60 = 252 €).",
+  "tags": [
+    "grand-panier",
+    "quantite",
+    "fake"
+  ],
+  "input": {
+    "cart": "10 x Back to the Future 1\nBack to the Future 2 x 5\nBack to the Future III\nLa chèvre x 2\nLes Bronzés font du ski"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 25200,
+    "films": {
+      "bttf_1": 10,
+      "bttf_2": 5,
+      "bttf_3": 1,
+      "other": 3
+    }
+  }
+}

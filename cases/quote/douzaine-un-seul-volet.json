@@ -1,0 +1,19 @@
+{
+  "id": "douzaine-un-seul-volet",
+  "note": "« Une douzaine » vaut 12 exemplaires d'un seul volet : aucune remise (15 × 12 = 180 €). Garde contre une douzaine lue comme un exemplaire.",
+  "tags": [
+    "quantite",
+    "en-lettres",
+    "fr"
+  ],
+  "input": {
+    "cart": "Une douzaine de Retour vers le futur 3 pour la médiathèque."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 18000,
+    "films": {
+      "bttf_3": 12
+    }
+  }
+}

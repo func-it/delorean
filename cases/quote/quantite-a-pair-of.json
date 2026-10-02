@@ -1,0 +1,19 @@
+{
+  "id": "quantite-a-pair-of",
+  "note": "« a pair of » vaut deux, « a single copy » un : volet 2 × 2 et un autre film. Un seul volet, pas de remise (15 × 2 + 20 = 50 €).",
+  "tags": [
+    "quantite",
+    "en"
+  ],
+  "input": {
+    "cart": "Could I get a pair of Back to the Future Part II and a single copy of The Goonies?"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 5000,
+    "films": {
+      "bttf_2": 2,
+      "other": 1
+    }
+  }
+}

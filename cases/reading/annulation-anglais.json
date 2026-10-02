@@ -1,0 +1,17 @@
+{
+  "id": "annulation-anglais",
+  "note": "« scratch the first one » retire le volet 1 d'une liste de trois : garde contre une annulation ignorée, en anglais.",
+  "tags": [
+    "annulation",
+    "en"
+  ],
+  "input": {
+    "text": "Back to the Future 1, 2 and 3. Actually, scratch the first one."
+  },
+  "expect": {
+    "films": {
+      "bttf_2": 1,
+      "bttf_3": 1
+    }
+  }
+}

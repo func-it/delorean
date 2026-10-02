@@ -1,0 +1,44 @@
+.main {
+  display: grid;
+  gap: 40px;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 24px var(--gutter) 40px;
+}
+
+.primary {
+  display: grid;
+  gap: 32px;
+  min-width: 0;
+}
+
+.outcome {
+  transition: opacity 150ms ease-out;
+}
+
+.outcome[aria-busy="true"] {
+  opacity: 0.5;
+}
+
+.footer {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 16px var(--gutter) 32px;
+  border-top: 1px solid var(--line);
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+}
+
+@media (min-width: 960px) {
+  .main {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+    align-items: start;
+    gap: 48px;
+    padding-top: 40px;
+  }
+
+  .main > aside {
+    position: sticky;
+    top: 24px;
+  }
+}

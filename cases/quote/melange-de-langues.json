@@ -1,0 +1,20 @@
+{
+  "id": "melange-de-langues",
+  "note": "Quatre langues dans une phrase : volets 1 et 3 (-10 %) et Amélie, un autre film ((15 + 15) × 0,9 + 20 = 27 + 20 = 47 €).",
+  "tags": [
+    "langues",
+    "melange"
+  ],
+  "input": {
+    "cart": "Hi! Je voudrais Back to the Future 1, y también Regreso al futuro 3, und einmal Die fabelhafte Welt der Amélie."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 4700,
+    "films": {
+      "bttf_1": 1,
+      "bttf_3": 1,
+      "other": 1
+    }
+  }
+}

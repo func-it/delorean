@@ -1,0 +1,19 @@
+{
+  "id": "enonce-2",
+  "note": "Exemple n°2 de l'énoncé : deux volets différents, -10 %.",
+  "tags": [
+    "enonce",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 1\nBack to the Future 3"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 2700,
+    "films": {
+      "bttf_1": 1,
+      "bttf_3": 1
+    }
+  }
+}

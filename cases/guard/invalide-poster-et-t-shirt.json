@@ -1,0 +1,15 @@
+{
+  "id": "invalide-poster-et-t-shirt",
+  "note": "Une commande de produits dérivés (une affiche, un t-shirt) qui nomme un volet : ce ne sont pas des films. Garde contre un guard qui valide dès qu'un titre de la saga apparaît dans une commande.",
+  "tags": [
+    "invalide",
+    "produit-derive",
+    "en"
+  ],
+  "input": {
+    "text": "I'd like the Back to the Future Part II poster and a Doc Brown T-shirt, size L."
+  },
+  "expect": {
+    "verdict": "invalid"
+  }
+}

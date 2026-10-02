@@ -1,0 +1,18 @@
+{
+  "id": "quantite-neerlandais",
+  "note": "Quantités en néerlandais (« twee keer », « één keer ») : garde contre des quantités reconnues seulement dans les langues les plus courantes.",
+  "tags": [
+    "quantite",
+    "en-lettres",
+    "nl"
+  ],
+  "input": {
+    "text": "Graag twee keer Back to the Future Part II en één keer Soldaat van Oranje."
+  },
+  "expect": {
+    "films": {
+      "bttf_2": 2,
+      "other": 1
+    }
+  }
+}

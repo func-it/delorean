@@ -1,0 +1,15 @@
+{
+  "id": "demande-de-conseil",
+  "note": "Demande de conseil sans achat : la saga est citée mais rien n'est commandé. Ce n'est pas une commande (invalid_request), aucun prix.",
+  "tags": [
+    "invalide",
+    "fr"
+  ],
+  "input": {
+    "cart": "Lequel des Retour vers le futur me conseillez-vous pour un enfant de 8 ans ?"
+  },
+  "expect": {
+    "status": 422,
+    "code": "invalid_request"
+  }
+}

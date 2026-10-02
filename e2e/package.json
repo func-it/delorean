@@ -1,0 +1,40 @@
+{
+  "name": "@delorean/e2e",
+  "private": true,
+  "description": "Black-box end-to-end suite and system bench of the delorean API, for every backend.",
+  "type": "module",
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "generate": "openapi-typescript ../api/openapi.yaml -o src/generated/openapi.ts",
+    "e2e": "vitest run --project e2e",
+    "test": "vitest run --project harness",
+    "bench": "node src/bench/cli.ts",
+    "bench:compare": "node src/bench/compare.ts",
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "openapi-fetch": "^0.17.0",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.4",
+    "eslint": "^10.11.0",
+    "openapi-typescript": "^7.13.0",
+    "prettier": "^3.9.9",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  },
+  "prettier": {
+    "printWidth": 120,
+    "singleQuote": true
+  }
+}

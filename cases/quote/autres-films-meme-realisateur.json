@@ -1,0 +1,19 @@
+{
+  "id": "autres-films-meme-realisateur",
+  "note": "Films du réalisateur de la saga : ce sont d'autres films à 20 €. Retour vers le futur sert de repère, il n'est pas acheté (20 × 2 = 40 €).",
+  "tags": [
+    "autres-films",
+    "histoire",
+    "fr"
+  ],
+  "input": {
+    "cart": "Je prends Qui veut la peau de Roger Rabbit et Forrest Gump, du même réalisateur que Retour vers le futur."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 4000,
+    "films": {
+      "other": 2
+    }
+  }
+}

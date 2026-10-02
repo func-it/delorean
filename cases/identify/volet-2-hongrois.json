@@ -1,0 +1,15 @@
+{
+  "id": "volet-2-hongrois",
+  "note": "Le titre hongrois, numéroté en chiffres romains : garde contre une identification limitée aux langues les plus courantes.",
+  "tags": [
+    "volet-2",
+    "hu",
+    "chiffres-romains"
+  ],
+  "input": {
+    "title": "Vissza a jövőbe II"
+  },
+  "expect": {
+    "film": "bttf_2"
+  }
+}

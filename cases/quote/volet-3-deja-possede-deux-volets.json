@@ -1,0 +1,20 @@
+{
+  "id": "volet-3-deja-possede-deux-volets",
+  "note": "Le volet 3 n'est cité que comme déjà possédé : deux volets achetés, -10 % ((15 × 2) × 0,9 = 27 €). Garde contre le 3 acheté à tort, qui ferait passer à -20 % et 36 €.",
+  "tags": [
+    "histoire",
+    "remise",
+    "en"
+  ],
+  "input": {
+    "cart": "I've got Back to the Future Part III on Blu-ray already, so only Part I and Part II on DVD, please."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 2700,
+    "films": {
+      "bttf_1": 1,
+      "bttf_2": 1
+    }
+  }
+}

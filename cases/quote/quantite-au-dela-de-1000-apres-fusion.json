@@ -1,0 +1,16 @@
+{
+  "id": "quantite-au-dela-de-1000-apres-fusion",
+  "note": "La limite s'applique après fusion des mentions d'un même titre (casse et espaces près) : 600 + 600 = 1200 > 1000, refus même si chaque ligne est sous la limite.",
+  "tags": [
+    "quantite",
+    "limites",
+    "fake"
+  ],
+  "input": {
+    "cart": "600 x Back to the Future 2\n600 x back to the future 2"
+  },
+  "expect": {
+    "status": 422,
+    "code": "quantity_too_large"
+  }
+}

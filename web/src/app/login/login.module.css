@@ -1,0 +1,65 @@
+.page {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 24px var(--gutter);
+}
+
+.card {
+  width: 100%;
+  max-width: 26rem;
+  padding: 32px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--amber-ink);
+}
+
+.title {
+  margin-top: 8px;
+  font-size: 1.75rem;
+}
+
+.lead {
+  margin-top: 8px;
+  color: var(--ink-muted);
+}
+
+.form {
+  display: grid;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.label {
+  font-weight: 500;
+}
+
+.hint {
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+}
+
+.error {
+  font-size: 0.875rem;
+  color: var(--danger-ink);
+}
+
+.form button {
+  margin-top: 8px;
+}
+
+.finePrint {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}

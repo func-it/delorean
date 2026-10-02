@@ -1,0 +1,15 @@
+{
+  "id": "invalide-critique-notee",
+  "note": "Une critique notée d'un DVD déjà vu : un titre numéroté, le mot DVD et un chiffre, mais rien à acheter. Garde contre un guard qui prend tout titre cité pour une commande (invalide-avis-sans-achat n'a ni numéro ni DVD).",
+  "tags": [
+    "invalide",
+    "sans-achat",
+    "en"
+  ],
+  "input": {
+    "text": "Just rewatched Back to the Future Part II on DVD: the 2015 scenes have aged, but the hoverboard chase still works. 7/10."
+  },
+  "expect": {
+    "verdict": "invalid"
+  }
+}

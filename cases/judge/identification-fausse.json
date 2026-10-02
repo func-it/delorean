@@ -1,0 +1,22 @@
+{
+  "id": "identification-fausse",
+  "note": "Titre juste, mauvais volet identifié : identity doit refuser « BTTF 2 » lu comme le volet 3. asked ne voit que le titre, bien demandé, et ne peut pas l'attraper.",
+  "tags": [
+    "infidele",
+    "identification"
+  ],
+  "input": {
+    "text": "BTTF 2 s'il vous plaît",
+    "lines": [
+      {
+        "title": "BTTF 2",
+        "quantity": 1,
+        "film": "bttf_3"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": false,
+    "check": "identity"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "trois-volets-mille-exemplaires",
+  "note": "La limite de 1000 exemplaires atteinte sur chacun des trois volets : accepté, -20 % ((15 × 3000) × 0,8 = 36 000 €). Garde contre une limite appliquée au panier entier au lieu de chaque titre, et contre un débordement des montants.",
+  "tags": [
+    "quantite",
+    "limites",
+    "remise",
+    "fake"
+  ],
+  "input": {
+    "cart": "1000 x Back to the Future 1\n1000 x Back to the Future 2\n1000 x Back to the Future 3"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 3600000,
+    "films": {
+      "bttf_1": 1000,
+      "bttf_2": 1000,
+      "bttf_3": 1000
+    }
+  }
+}

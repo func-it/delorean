@@ -1,0 +1,21 @@
+{
+  "id": "trilogie-seule",
+  "note": "Un coffret n'est pas un produit : « la trilogie » vaut ses trois volets, un exemplaire de chacun. Trois volets distincts, -20 % ((15 × 3) × 0,8 = 36 €). Garde contre un coffret facturé comme un seul film (15 € ou 20 €).",
+  "tags": [
+    "trilogie",
+    "remise",
+    "fr"
+  ],
+  "input": {
+    "cart": "Retour vers le futur - la trilogie"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 3600,
+    "films": {
+      "bttf_1": 1,
+      "bttf_2": 1,
+      "bttf_3": 1
+    }
+  }
+}

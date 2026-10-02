@@ -1,0 +1,18 @@
+{
+  "id": "quantite-allemand",
+  "note": "« drei Mal », « einmal » : quantités allemandes en mots.",
+  "tags": [
+    "quantite",
+    "en-lettres",
+    "de"
+  ],
+  "input": {
+    "text": "Ich möchte drei Mal Zurück in die Zukunft II und einmal Das Boot."
+  },
+  "expect": {
+    "films": {
+      "bttf_2": 3,
+      "other": 1
+    }
+  }
+}

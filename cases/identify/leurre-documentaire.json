@@ -1,0 +1,15 @@
+{
+  "id": "leurre-documentaire",
+  "note": "Un documentaire sur la saga contient son titre mais n'en est pas un volet.",
+  "tags": [
+    "leurre",
+    "documentaire",
+    "fr"
+  ],
+  "input": {
+    "title": "le documentaire sur Retour vers le futur"
+  },
+  "expect": {
+    "film": "other"
+  }
+}

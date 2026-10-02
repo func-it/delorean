@@ -1,0 +1,15 @@
+{
+  "id": "volet-2-anglais-sans-part",
+  "note": "« II » sans « Part » : garde contre une identification qui exige le titre officiel « Back to the Future Part II ».",
+  "tags": [
+    "volet-2",
+    "en",
+    "chiffres-romains"
+  ],
+  "input": {
+    "title": "Back to the Future II"
+  },
+  "expect": {
+    "film": "bttf_2"
+  }
+}

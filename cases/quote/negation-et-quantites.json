@@ -1,0 +1,21 @@
+{
+  "id": "negation-et-quantites",
+  "note": "Trois volets 1, « pas de 2 », deux volets 3 : deux volets distincts, -10 % sur cinq DVD ((15 × 5) × 0,9 = 67,50 €). Garde contre le 2 nié mais acheté, qui ferait passer à -20 %.",
+  "tags": [
+    "negation",
+    "quantite",
+    "remise",
+    "fr"
+  ],
+  "input": {
+    "cart": "Trois Retour vers le futur 1, pas de 2, et deux Retour vers le futur 3."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 6750,
+    "films": {
+      "bttf_1": 3,
+      "bttf_3": 2
+    }
+  }
+}

@@ -1,0 +1,54 @@
+# The whole stack, one command:
+#   docker compose up --build                 # live engines: OPENROUTER_API_KEY in .env
+#   ENGINES=fake docker compose up --build    # deterministic fake engines, no key, no cost
+# Web app on http://localhost:24790, Go API on http://localhost:24791,
+# documentation on http://localhost:24795.
+name: delorean
+
+services:
+  api-go:
+    build:
+      context: ./backends/go
+    environment:
+      ENGINES: ${ENGINES:-live}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      PARSE_MODEL: ${PARSE_MODEL:-openai/gpt-6-luna}
+      JEV_MODEL: ${JEV_MODEL:-typesafe/jev-1.13}
+      # traces go to the local Langfuse (deploy/langfuse), seen from the container
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_BASE_URL: ${LANGFUSE_DOCKER_BASE_URL:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:24791:24791"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web
+    environment:
+      BACKENDS: '{"go":"http://api-go:24791"}'
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET (32+ characters) in .env}
+      # served over plain HTTP on localhost: a Secure cookie would be dropped by some browsers
+      SESSION_COOKIE_SECURE: "false"
+    ports:
+      - "127.0.0.1:24790:24790"
+    depends_on:
+      - api-go
+    restart: unless-stopped
+
+  # The documentation site, http://localhost:24795: the static pages and, under
+  # /content/, only the repository files they read.
+  docs:
+    image: nginx:1.29-alpine
+    volumes:
+      - ./deploy/docs/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docs/site:/usr/share/nginx/html:ro
+      - ./README.md:/usr/share/nginx/content/README.md:ro
+      - ./docs/architecture.md:/usr/share/nginx/content/architecture.md:ro
+      - ./docs/testing.md:/usr/share/nginx/content/testing.md:ro
+      - ./api/openapi.yaml:/usr/share/nginx/content/openapi.yaml:ro
+    ports:
+      - "127.0.0.1:24795:80"
+    restart: unless-stopped

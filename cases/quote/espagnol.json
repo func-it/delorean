@@ -1,0 +1,19 @@
+{
+  "id": "espagnol",
+  "note": "Espagnol, avec le titre d'Espagne (Regreso al futuro) et celui d'Amérique latine (Volver al futuro) : volets 2 et 3, -10 % ((15 + 15) × 0,9 = 27 €).",
+  "tags": [
+    "langues",
+    "es"
+  ],
+  "input": {
+    "cart": "Hola, quiero comprar Regreso al futuro II y Volver al futuro III, por favor."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 2700,
+    "films": {
+      "bttf_2": 1,
+      "bttf_3": 1
+    }
+  }
+}

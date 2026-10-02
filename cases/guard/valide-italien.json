@@ -1,0 +1,14 @@
+{
+  "id": "valide-italien",
+  "note": "Italien, titre officiel avec « Parte III » : une commande d'une seule ligne reste une commande.",
+  "tags": [
+    "valide",
+    "it"
+  ],
+  "input": {
+    "text": "Vorrei ordinare Ritorno al futuro – Parte III in DVD, grazie."
+  },
+  "expect": {
+    "verdict": "valid"
+  }
+}

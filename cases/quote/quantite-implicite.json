@@ -1,0 +1,18 @@
+{
+  "id": "quantite-implicite",
+  "note": "Quantité implicite (« un pour moi et un pour mon frère ») : deux exemplaires du volet 3, un seul volet, pas de remise (15 × 2 = 30 €).",
+  "tags": [
+    "quantite",
+    "fr"
+  ],
+  "input": {
+    "cart": "Je veux Retour vers le futur 3, un pour moi et un pour mon frère."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 3000,
+    "films": {
+      "bttf_3": 2
+    }
+  }
+}

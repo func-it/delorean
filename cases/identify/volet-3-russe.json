@@ -1,0 +1,14 @@
+{
+  "id": "volet-3-russe",
+  "note": "Le titre russe, en cyrillique : garde contre une identification limitée aux langues et aux alphabets les plus courants.",
+  "tags": [
+    "volet-3",
+    "ru"
+  ],
+  "input": {
+    "title": "Назад в будущее 3"
+  },
+  "expect": {
+    "film": "bttf_3"
+  }
+}

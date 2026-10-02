@@ -1,0 +1,19 @@
+{
+  "id": "liste-dans-une-phrase",
+  "note": "Une liste séparée par des virgules, avec un film hors saga en dernier : le dernier élément n'est pas oublié.",
+  "tags": [
+    "liste",
+    "en"
+  ],
+  "input": {
+    "text": "Back to the Future 1, Back to the Future 2, Back to the Future 3, Hot Tub Time Machine"
+  },
+  "expect": {
+    "films": {
+      "bttf_1": 1,
+      "bttf_2": 1,
+      "bttf_3": 1,
+      "other": 1
+    }
+  }
+}

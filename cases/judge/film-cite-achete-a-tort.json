@@ -1,0 +1,28 @@
+{
+  "id": "film-cite-achete-a-tort",
+  "note": "Le 2, seulement raconté, est lu comme acheté : la faute du parse que le juge doit attraper (asked).",
+  "tags": [
+    "infidele",
+    "histoire",
+    "fr"
+  ],
+  "input": {
+    "text": "On a adoré Retour vers le futur 2 au cinéma. Je commande seulement le 3.",
+    "lines": [
+      {
+        "title": "Retour vers le futur 2",
+        "quantity": 1,
+        "film": "bttf_2"
+      },
+      {
+        "title": "Retour vers le futur 3",
+        "quantity": 1,
+        "film": "bttf_3"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": false,
+    "check": "asked"
+  }
+}

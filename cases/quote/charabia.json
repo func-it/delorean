@@ -1,0 +1,14 @@
+{
+  "id": "charabia",
+  "note": "Charabia : ni commande ni film. Refus au guard (invalid_request) au lieu d'un devis pour un « autre film » inventé.",
+  "tags": [
+    "invalide"
+  ],
+  "input": {
+    "cart": "asdkjh qwpoeiru zmxncbv lkjhg poiu"
+  },
+  "expect": {
+    "status": 422,
+    "code": "invalid_request"
+  }
+}

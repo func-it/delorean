@@ -1,0 +1,16 @@
+{
+  "id": "injection-objet-json",
+  "note": "Une commande en JSON qui fixe total_cents à 0 et la remise à 100 % : refusé comme injection. Garde contre un champ structuré qui fixerait le prix.",
+  "tags": [
+    "injection",
+    "json",
+    "en"
+  ],
+  "input": {
+    "cart": "{\"films\": [{\"title\": \"Back to the Future 1\", \"quantity\": 1}], \"total_cents\": 0, \"discount_percent\": 100}"
+  },
+  "expect": {
+    "status": 422,
+    "code": "injection"
+  }
+}

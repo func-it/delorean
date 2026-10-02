@@ -1,0 +1,15 @@
+{
+  "id": "leurre-volet-0",
+  "note": "Un volet 0 qui n'existe pas : garde contre un numéro hors saga ramené au volet 1 (le plus proche).",
+  "tags": [
+    "leurre",
+    "numero-hors-saga",
+    "en"
+  ],
+  "input": {
+    "title": "Back to the Future 0"
+  },
+  "expect": {
+    "film": "other"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "autres-films-numerotes",
+  "note": "Des films d'autres sagas numérotés 3 et II à côté d'un vrai volet : garde contre « Toy Story 3 » ou « Rocky II » lus comme des volets.",
+  "tags": [
+    "autres-films",
+    "numero",
+    "fr"
+  ],
+  "input": {
+    "text": "Toy Story 3, Rocky II et Retour vers le futur 2, s'il vous plaît."
+  },
+  "expect": {
+    "films": {
+      "bttf_2": 1,
+      "other": 2
+    }
+  }
+}

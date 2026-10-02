@@ -1,0 +1,24 @@
+{
+  "id": "quantite-corrigee-ignoree",
+  "note": "Le client corrige « trois exemplaires » en « un seul », la lecture garde 3 (15 × 3 = 45 € au lieu de 15 €) : quantity doit suivre la correction.",
+  "tags": [
+    "infidele",
+    "correction",
+    "quantite",
+    "fr"
+  ],
+  "input": {
+    "text": "Retour vers le futur 2 en trois exemplaires. Non, finalement un seul.",
+    "lines": [
+      {
+        "title": "Retour vers le futur 2",
+        "quantity": 3,
+        "film": "bttf_2"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": false,
+    "check": "quantity"
+  }
+}

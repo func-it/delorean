@@ -1,0 +1,14 @@
+{
+  "id": "volet-1-hebreu",
+  "note": "Le titre hébreu seul, sans numéro : c'est le premier film. Garde contre un « other » sur un alphabet peu courant.",
+  "tags": [
+    "volet-1",
+    "he"
+  ],
+  "input": {
+    "title": "בחזרה לעתיד"
+  },
+  "expect": {
+    "film": "bttf_1"
+  }
+}

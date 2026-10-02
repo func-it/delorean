@@ -1,0 +1,20 @@
+{
+  "id": "documentaire-sur-la-saga",
+  "note": "Un documentaire sur la saga n'en est pas un volet : Back in Time est un autre film à 20 €. Un seul volet, pas de remise (20 + 15 = 35 €).",
+  "tags": [
+    "autres-films",
+    "titres",
+    "fr"
+  ],
+  "input": {
+    "cart": "Je voudrais Back in Time (le documentaire sur Retour vers le futur) et Retour vers le futur 3."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 3500,
+    "films": {
+      "bttf_3": 1,
+      "other": 1
+    }
+  }
+}

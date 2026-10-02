@@ -1,0 +1,19 @@
+{
+  "id": "lignes-vides",
+  "note": "Les lignes vides ne sont pas des films : deux volets distincts, -10 % ((15 + 15) × 0,9 = 27 €).",
+  "tags": [
+    "format",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 1\n\n\nBack to the Future 2"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 2700,
+    "films": {
+      "bttf_1": 1,
+      "bttf_2": 1
+    }
+  }
+}

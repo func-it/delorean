@@ -1,0 +1,18 @@
+{
+  "id": "quantite-prefixe",
+  "note": "Deux exemplaires d'un même volet : la quantité compte dans le prix, mais il n'y a qu'un volet distinct, donc pas de remise (15 × 2 = 30 €).",
+  "tags": [
+    "quantite",
+    "fake"
+  ],
+  "input": {
+    "cart": "2 x Back to the Future 2"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 3000,
+    "films": {
+      "bttf_2": 2
+    }
+  }
+}

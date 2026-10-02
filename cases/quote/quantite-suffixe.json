@@ -1,0 +1,20 @@
+{
+  "id": "quantite-suffixe",
+  "note": "Quantité en suffixe « x 3 » : les trois exemplaires du volet 1 entrent dans la base de la remise, deux volets distincts donnent -10 % ((15 × 3 + 15) × 0,9 = 54 €).",
+  "tags": [
+    "quantite",
+    "remise",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 1 x 3\nBack to the Future 3"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 5400,
+    "films": {
+      "bttf_1": 3,
+      "bttf_3": 1
+    }
+  }
+}

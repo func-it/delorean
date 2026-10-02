@@ -1,0 +1,16 @@
+{
+  "id": "question-prix-sans-commande",
+  "note": "Une question sur les prix, sans film à acheter : refusé comme invalid_request. Garde contre un devis inventé à partir d'une question.",
+  "tags": [
+    "invalide",
+    "prix",
+    "fr"
+  ],
+  "input": {
+    "cart": "Combien coûtent vos DVD, et la remise sur la saga marche-t-elle aussi pour les Blu-ray ?"
+  },
+  "expect": {
+    "status": 422,
+    "code": "invalid_request"
+  }
+}

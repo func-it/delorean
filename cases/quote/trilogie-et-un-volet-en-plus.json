@@ -1,0 +1,22 @@
+{
+  "id": "trilogie-et-un-volet-en-plus",
+  "note": "La trilogie et un deuxième exemplaire du 2 : quatre DVD de la saga, trois volets distincts, -20 % sur les quatre ((15 × 4) × 0,8 = 48 €, comme l'énoncé n°4). Garde contre le 2 « en plus » absorbé par le coffret (36 €) ou compté sans remise (36 + 15 = 51 €).",
+  "tags": [
+    "trilogie",
+    "doublon",
+    "remise",
+    "fr"
+  ],
+  "input": {
+    "cart": "La trilogie Retour vers le futur et le 2 en plus pour mon frère"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 4800,
+    "films": {
+      "bttf_1": 1,
+      "bttf_2": 2,
+      "bttf_3": 1
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "id": "quantite-anglais-au-dela-de-1000",
+  "note": "« Fifteen hundred copies » d'un même titre : 1500 > 1000, refusé comme quantity_too_large. Garde contre un nombre anglais en centaines mal lu.",
+  "tags": [
+    "quantite",
+    "limites",
+    "en-lettres",
+    "en"
+  ],
+  "input": {
+    "cart": "Fifteen hundred copies of Back to the Future, please."
+  },
+  "expect": {
+    "status": 422,
+    "code": "quantity_too_large"
+  }
+}

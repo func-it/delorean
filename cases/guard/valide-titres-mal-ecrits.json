@@ -1,0 +1,16 @@
+{
+  "id": "valide-titres-mal-ecrits",
+  "note": "Titres mal orthographiés, sans majuscules : une faute de frappe n'est pas du charabia.",
+  "tags": [
+    "valide",
+    "orthographe",
+    "fr",
+    "en"
+  ],
+  "input": {
+    "text": "retour vers le futr 2\nbak to the futur 3"
+  },
+  "expect": {
+    "verdict": "valid"
+  }
+}

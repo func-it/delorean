@@ -1,0 +1,23 @@
+{
+  "id": "quantite-gonflee",
+  "note": "« einmal » lu comme quatre : une quantité gonflée facture le client pour rien.",
+  "tags": [
+    "infidele",
+    "quantite",
+    "de"
+  ],
+  "input": {
+    "text": "Zurück in die Zukunft, einmal bitte.",
+    "lines": [
+      {
+        "title": "Zurück in die Zukunft",
+        "quantity": 4,
+        "film": "bttf_1"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": false,
+    "check": "quantity"
+  }
+}

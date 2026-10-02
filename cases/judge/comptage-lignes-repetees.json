@@ -1,0 +1,22 @@
+{
+  "id": "comptage-lignes-repetees",
+  "note": "Le même titre sur trois lignes, lu comme une ligne de 3 exemplaires : quantity doit additionner les lignes répétées. Garde contre une fausse alerte quand les mentions identiques sont fusionnées.",
+  "tags": [
+    "fidele",
+    "quantite",
+    "abreviation"
+  ],
+  "input": {
+    "text": "BTTF 2\nBTTF 2\nBTTF 2",
+    "lines": [
+      {
+        "title": "BTTF 2",
+        "quantity": 3,
+        "film": "bttf_2"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": true
+  }
+}

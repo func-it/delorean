@@ -1,0 +1,15 @@
+{
+  "id": "injection-script",
+  "note": "Balise <script> dans un titre : tentative d'attaque refusée au guard, au lieu d'être recopiée telle quelle dans le devis.",
+  "tags": [
+    "injection",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 1 <script>fetch('/admin')</script>"
+  },
+  "expect": {
+    "status": 422,
+    "code": "injection"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "grand-panier-liste",
+  "note": "Grand panier en liste, formats de quantité mêlés : 9 DVD de la saga à -20 %, 7 autres films sans remise ((15 × 9) × 0,8 + 20 × 7 = 108 + 140 = 248 €).",
+  "tags": [
+    "grand-panier",
+    "quantite",
+    "fr"
+  ],
+  "input": {
+    "cart": "Bonjour, pour la soirée ciné du club :\n- 3 x Retour vers le futur\n- Back to the Future Part II (x4)\n- Retour vers le futur III ×2\n- 2 Les Goonies\n- Gremlins\n- E.T. l'extra-terrestre x 3\n- un Jurassic Park\nMerci !"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 24800,
+    "films": {
+      "bttf_1": 3,
+      "bttf_2": 4,
+      "bttf_3": 2,
+      "other": 7
+    }
+  }
+}

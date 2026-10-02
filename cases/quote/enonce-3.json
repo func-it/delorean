@@ -1,0 +1,18 @@
+{
+  "id": "enonce-3",
+  "note": "Exemple n°3 de l'énoncé : un seul volet, pas de remise.",
+  "tags": [
+    "enonce",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 1"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 1500,
+    "films": {
+      "bttf_1": 1
+    }
+  }
+}

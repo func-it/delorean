@@ -1,0 +1,51 @@
+.rules {
+  display: grid;
+  gap: 20px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+.title {
+  font-size: 1.3125rem;
+}
+
+.section {
+  display: grid;
+  gap: 8px;
+}
+
+.subtitle {
+  font-family: var(--font-text);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.note {
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+}
+
+.table {
+  display: grid;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row dd {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

@@ -1,0 +1,14 @@
+{
+  "id": "leurre-jeu-video",
+  "note": "Le jeu vidéo tiré de la saga porte son titre complet, mais ce n'est pas un film : garde contre un volet 1 lu dans le seul titre de la saga.",
+  "tags": [
+    "leurre",
+    "fr"
+  ],
+  "input": {
+    "title": "Retour vers le futur : le jeu vidéo"
+  },
+  "expect": {
+    "film": "other"
+  }
+}

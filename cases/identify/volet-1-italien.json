@@ -1,0 +1,14 @@
+{
+  "id": "volet-1-italien",
+  "note": "Titre italien du premier volet.",
+  "tags": [
+    "volet-1",
+    "it"
+  ],
+  "input": {
+    "title": "Ritorno al futuro"
+  },
+  "expect": {
+    "film": "bttf_1"
+  }
+}

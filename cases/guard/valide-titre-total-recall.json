@@ -1,0 +1,15 @@
+{
+  "id": "valide-titre-total-recall",
+  "note": "« Total Recall » (1990), un vrai film qui porte le mot « total », à côté d'un volet, en allemand : garde contre un refus parce que le texte semble parler du total.",
+  "tags": [
+    "valide",
+    "titre-piege",
+    "de"
+  ],
+  "input": {
+    "text": "Ich möchte Total Recall und Zurück in die Zukunft III."
+  },
+  "expect": {
+    "verdict": "valid"
+  }
+}

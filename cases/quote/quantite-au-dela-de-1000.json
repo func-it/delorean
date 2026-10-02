@@ -1,0 +1,16 @@
+{
+  "id": "quantite-au-dela-de-1000",
+  "note": "Au-delà de 1000 exemplaires d'un film, la commande est refusée (quantity_too_large) au lieu d'un devis qu'aucune boutique ne servirait.",
+  "tags": [
+    "quantite",
+    "limites",
+    "fake"
+  ],
+  "input": {
+    "cart": "1001 x Back to the Future 1"
+  },
+  "expect": {
+    "status": 422,
+    "code": "quantity_too_large"
+  }
+}

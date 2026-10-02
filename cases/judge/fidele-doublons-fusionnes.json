@@ -1,0 +1,28 @@
+{
+  "id": "fidele-doublons-fusionnes",
+  "note": "Trois mentions du volet 3 (dont une en minuscules), séparées par un autre film, fusionnées en une ligne de 3 : lecture exacte. Garde contre une fausse alerte de quantity quand les mentions ne se suivent pas.",
+  "tags": [
+    "fidele",
+    "doublon",
+    "quantite",
+    "fr"
+  ],
+  "input": {
+    "text": "Retour vers le futur 3\nLa chèvre\nretour vers le futur 3\nRetour vers le futur 3",
+    "lines": [
+      {
+        "title": "Retour vers le futur 3",
+        "quantity": 3,
+        "film": "bttf_3"
+      },
+      {
+        "title": "La chèvre",
+        "quantity": 1,
+        "film": "other"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": true
+  }
+}

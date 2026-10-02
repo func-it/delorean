@@ -1,0 +1,20 @@
+{
+  "id": "enonce-4",
+  "note": "Exemple n°4 de l'énoncé : un doublon compte dans la base de la remise, pas dans les volets distincts ((15×4)×0,8).",
+  "tags": [
+    "enonce",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 1\nBack to the Future 2\nBack to the Future 3\nBack to the Future 2"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 4800,
+    "films": {
+      "bttf_1": 1,
+      "bttf_2": 2,
+      "bttf_3": 1
+    }
+  }
+}

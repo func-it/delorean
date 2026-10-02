@@ -1,0 +1,21 @@
+{
+  "id": "francais-titre-sans-numero",
+  "note": "Titre sans numéro : « Retour vers le futur » seul est le volet 1 ; « deux exemplaires » est une quantité en lettres. Deux volets distincts : (15 + 15) × 0,9 + 20 × 2 = 27 + 40 = 67 €.",
+  "tags": [
+    "langues",
+    "fr",
+    "quantite"
+  ],
+  "input": {
+    "cart": "Bonjour ! Je voudrais Retour vers le futur, Retour vers le futur 2 et deux exemplaires de La Grande Vadrouille, s'il vous plaît."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 6700,
+    "films": {
+      "bttf_1": 1,
+      "bttf_2": 1,
+      "other": 2
+    }
+  }
+}

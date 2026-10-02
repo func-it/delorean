@@ -1,0 +1,20 @@
+{
+  "id": "quantite-signe-fois",
+  "note": "Le signe « × » vaut « x », en préfixe comme en suffixe. Un seul volet distinct : pas de remise, et les autres films restent hors remise (15 × 2 + 20 × 3 = 90 €).",
+  "tags": [
+    "quantite",
+    "autres-films",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 3 × 2\n3 × La chèvre"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 9000,
+    "films": {
+      "bttf_3": 2,
+      "other": 3
+    }
+  }
+}

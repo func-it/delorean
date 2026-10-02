@@ -1,0 +1,20 @@
+{
+  "id": "chiffres-romains",
+  "note": "Chiffres romains, avec ou sans « Part » : III et ii sont les volets 3 et 2, deux volets distincts donnent -10 % ((15 + 15) × 0,9 = 27 €).",
+  "tags": [
+    "titres",
+    "remise",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future Part III\nBack to the Future ii"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 2700,
+    "films": {
+      "bttf_2": 1,
+      "bttf_3": 1
+    }
+  }
+}

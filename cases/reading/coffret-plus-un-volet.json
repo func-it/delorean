@@ -1,0 +1,19 @@
+{
+  "id": "coffret-plus-un-volet",
+  "note": "Le coffret de la trilogie plus un deuxième exemplaire du 3 : 1, 1 et 2. Garde contre l'exemplaire en plus absorbé par le coffret.",
+  "tags": [
+    "trilogie",
+    "doublon",
+    "fr"
+  ],
+  "input": {
+    "text": "Le coffret de la trilogie Retour vers le futur, plus un deuxième exemplaire du 3."
+  },
+  "expect": {
+    "films": {
+      "bttf_1": 1,
+      "bttf_2": 1,
+      "bttf_3": 2
+    }
+  }
+}

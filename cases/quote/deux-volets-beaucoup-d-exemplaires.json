@@ -1,0 +1,20 @@
+{
+  "id": "deux-volets-beaucoup-d-exemplaires",
+  "note": "Deux volets distincts en beaucoup d'exemplaires : -10 % seulement, le nombre d'exemplaires ne fait pas monter le palier ((15 × 12) × 0,9 = 162 €). Garde contre une remise comptée sur les exemplaires au lieu des volets.",
+  "tags": [
+    "remise",
+    "quantite",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 1 x 5\nBack to the Future 2 x 7"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 16200,
+    "films": {
+      "bttf_1": 5,
+      "bttf_2": 7
+    }
+  }
+}

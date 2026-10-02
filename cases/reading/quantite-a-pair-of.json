@@ -1,0 +1,18 @@
+{
+  "id": "quantite-a-pair-of",
+  "note": "« a pair of » vaut deux, « one copy » un : des quantités sans chiffre.",
+  "tags": [
+    "quantite",
+    "en-lettres",
+    "en"
+  ],
+  "input": {
+    "text": "A pair of Back to the Future Part III and one copy of Gremlins, please."
+  },
+  "expect": {
+    "films": {
+      "bttf_3": 2,
+      "other": 1
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "fidele-titres-allemands",
+  "note": "Titres gardés en allemand, quantité en mot (« zweimal ») : lecture exacte. Garde contre une fausse alerte d'asked ou d'identity sur un titre non traduit, ou de quantity sur un nombre en lettres.",
+  "tags": [
+    "fidele",
+    "quantite",
+    "de"
+  ],
+  "input": {
+    "text": "Ich hätte gern Zurück in die Zukunft II und zweimal Das Boot.",
+    "lines": [
+      {
+        "title": "Zurück in die Zukunft II",
+        "quantity": 1,
+        "film": "bttf_2"
+      },
+      {
+        "title": "Das Boot",
+        "quantity": 2,
+        "film": "other"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": true
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "meme-volet-et-autre-film-sans-remise",
+  "note": "Deux écritures du volet 2 et un film hors saga : un seul volet distinct, aucune remise (15 × 2 + 20 = 50 €). Garde contre deux titres du même volet comptés comme deux volets (-10 %).",
+  "tags": [
+    "titres",
+    "remise",
+    "abreviation",
+    "fr"
+  ],
+  "input": {
+    "cart": "BTTF 2\nRetour vers le futur 2\nLa chèvre"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 5000,
+    "films": {
+      "bttf_2": 2,
+      "other": 1
+    }
+  }
+}

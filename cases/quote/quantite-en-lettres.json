@@ -1,0 +1,19 @@
+{
+  "id": "quantite-en-lettres",
+  "note": "Quantités en lettres (« deux », « quatre ») : deux exemplaires ne font qu'un volet distinct, pas de remise (15 × 2 + 20 × 4 = 30 + 80 = 110 €).",
+  "tags": [
+    "quantite",
+    "fr"
+  ],
+  "input": {
+    "cart": "Bonjour, il me faudrait deux Retour vers le futur 3 et quatre Le Grand Bleu."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 11000,
+    "films": {
+      "bttf_3": 2,
+      "other": 4
+    }
+  }
+}

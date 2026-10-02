@@ -1,0 +1,34 @@
+{
+  "id": "quantite-gonflee-coffret",
+  "note": "Un seul coffret lu comme trois exemplaires de chaque volet ((15 × 9) × 0,8 = 108 € au lieu de (15 × 3) × 0,8 = 36 €) : quantity doit voir qu'un coffret compte un exemplaire de chaque film.",
+  "tags": [
+    "infidele",
+    "trilogie",
+    "quantite",
+    "fr"
+  ],
+  "input": {
+    "text": "Je voudrais la trilogie Retour vers le futur",
+    "lines": [
+      {
+        "title": "Retour vers le futur 1",
+        "quantity": 3,
+        "film": "bttf_1"
+      },
+      {
+        "title": "Retour vers le futur 2",
+        "quantity": 3,
+        "film": "bttf_2"
+      },
+      {
+        "title": "Retour vers le futur 3",
+        "quantity": 3,
+        "film": "bttf_3"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": false,
+    "check": "quantity"
+  }
+}

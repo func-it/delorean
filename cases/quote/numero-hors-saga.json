@@ -1,0 +1,20 @@
+{
+  "id": "numero-hors-saga",
+  "note": "Un « 3 » ne fait pas un volet : Toy Story 3 est un autre film à 20 €. Un seul volet distinct, pas de remise (15 + 20 = 35 €).",
+  "tags": [
+    "titres",
+    "autres-films",
+    "fake"
+  ],
+  "input": {
+    "cart": "Toy Story 3\nBack to the Future 3"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 3500,
+    "films": {
+      "bttf_3": 1,
+      "other": 1
+    }
+  }
+}

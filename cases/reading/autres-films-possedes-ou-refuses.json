@@ -1,0 +1,17 @@
+{
+  "id": "autres-films-possedes-ou-refuses",
+  "note": "Un film hors saga déjà possédé, un autre refusé : seul Retour vers le futur 2 est acheté. Garde contre des films cités lus comme achetés.",
+  "tags": [
+    "histoire",
+    "negation",
+    "fr"
+  ],
+  "input": {
+    "text": "J'ai déjà Les Goonies et je ne veux pas de Gremlins. Je prends Retour vers le futur 2."
+  },
+  "expect": {
+    "films": {
+      "bttf_2": 1
+    }
+  }
+}

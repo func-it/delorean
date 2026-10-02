@@ -1,0 +1,15 @@
+{
+  "id": "volet-2-polonais-en-lettres",
+  "note": "Le titre polonais, numéroté en toutes lettres (« część druga », deuxième partie) : garde contre un volet 1 quand le numéro est un mot d'une langue peu courante.",
+  "tags": [
+    "volet-2",
+    "pl",
+    "en-lettres"
+  ],
+  "input": {
+    "title": "Powrót do przyszłości, część druga"
+  },
+  "expect": {
+    "film": "bttf_2"
+  }
+}

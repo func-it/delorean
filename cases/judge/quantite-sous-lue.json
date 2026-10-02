@@ -1,0 +1,23 @@
+{
+  "id": "quantite-sous-lue",
+  "note": "« trois exemplaires » lus comme un : la quantité, faiblesse connue de Jev, est ce que ce cas mesure.",
+  "tags": [
+    "infidele",
+    "quantite",
+    "fr"
+  ],
+  "input": {
+    "text": "Je voudrais trois exemplaires de Retour vers le futur 2.",
+    "lines": [
+      {
+        "title": "Retour vers le futur 2",
+        "quantity": 1,
+        "film": "bttf_2"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": false,
+    "check": "quantity"
+  }
+}

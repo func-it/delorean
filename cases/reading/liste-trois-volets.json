@@ -1,0 +1,18 @@
+{
+  "id": "liste-trois-volets",
+  "note": "Trois titres anglais, un par ligne : la lecture de base, un exemplaire de chaque volet.",
+  "tags": [
+    "liste",
+    "en"
+  ],
+  "input": {
+    "text": "Back to the Future\nBack to the Future Part II\nBack to the Future Part III"
+  },
+  "expect": {
+    "films": {
+      "bttf_1": 1,
+      "bttf_2": 1,
+      "bttf_3": 1
+    }
+  }
+}

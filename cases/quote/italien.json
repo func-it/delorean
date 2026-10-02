@@ -1,0 +1,20 @@
+{
+  "id": "italien",
+  "note": "Italien : « Parte II » est le volet 2, « tre copie » une quantité. Un seul volet, pas de remise (15 + 20 × 3 = 75 €).",
+  "tags": [
+    "langues",
+    "it",
+    "quantite"
+  ],
+  "input": {
+    "cart": "Buongiorno, vorrei Ritorno al futuro - Parte II e tre copie di Nuovo Cinema Paradiso."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 7500,
+    "films": {
+      "bttf_2": 1,
+      "other": 3
+    }
+  }
+}

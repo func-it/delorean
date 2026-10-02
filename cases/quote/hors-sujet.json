@@ -1,0 +1,15 @@
+{
+  "id": "hors-sujet",
+  "note": "Hors sujet : une question de cuisine n'est pas une commande, refus au guard.",
+  "tags": [
+    "invalide",
+    "fr"
+  ],
+  "input": {
+    "cart": "Quelle est la recette de la tarte Tatin ?"
+  },
+  "expect": {
+    "status": 422,
+    "code": "invalid_request"
+  }
+}

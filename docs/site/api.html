@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Delorean docs · API</title>
+  <meta name="description" content="The Delorean HTTP contract: endpoints, problem codes and schemas, read from api/openapi.yaml.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 13V22M12 13 4 4M12 13l8-9' fill='none' stroke='%23f2a516' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=Barlow+Semi+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <a class="brand" href="index.html">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13V22M12 13 4 4M12 13l8-9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+        Delorean <small>docs</small>
+      </a>
+      <ul class="nav">
+        <li><a href="index.html">Overview</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="api.html" aria-current="page">API</a></li>
+        <li><a href="testing.html">Testing</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <div class="layout">
+    <article class="doc" id="doc" aria-live="polite"><p class="notice">Loading api/openapi.yaml…</p></article>
+    <aside class="rail" id="rail" aria-label="Services, links and outline"></aside>
+  </div>
+
+  <footer class="footer">Read from the repository's <code>api/openapi.yaml</code> at load time.</footer>
+
+  <script type="module">
+    import { renderRail, renderToc, scrollToHash, prepare } from "./assets/site.js";
+    import { renderApi } from "./assets/api.js";
+
+    const rail = document.getElementById("rail");
+    const doc = document.getElementById("doc");
+    renderRail(rail);
+    await renderApi("content/openapi.yaml", doc);
+    prepare(doc);
+    renderToc(doc, rail);
+    scrollToHash();
+  </script>
+</body>
+</html>

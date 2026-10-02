@@ -1,0 +1,32 @@
+.rejection {
+  display: grid;
+  gap: 10px;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-inline-start: 4px solid var(--amber);
+  border-radius: var(--radius-field);
+  background: var(--surface);
+}
+
+/* Our fault, not the cart's: a different signal. */
+.rejection[data-fault="ours"] {
+  border-color: var(--danger-line);
+  border-inline-start-color: var(--danger-ink);
+  background: var(--danger-surface);
+}
+
+.title {
+  font-size: 1.3125rem;
+}
+
+.facts {
+  display: grid;
+  gap: 4px;
+  padding-inline-start: 1.25rem;
+}
+
+.reference {
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}

@@ -1,0 +1,16 @@
+{
+  "id": "valide-commande-et-reclamation",
+  "note": "Une plainte sur une commande passée, puis une nouvelle commande : garde contre un guard qui classe tout le message comme réclamation.",
+  "tags": [
+    "valide",
+    "mixte",
+    "reclamation",
+    "en"
+  ],
+  "input": {
+    "text": "Last time my DVD arrived scratched, which was annoying. This time I'd like Back to the Future Part III."
+  },
+  "expect": {
+    "verdict": "valid"
+  }
+}

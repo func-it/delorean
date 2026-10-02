@@ -1,0 +1,14 @@
+{
+  "id": "leurre-comedie-musicale",
+  "note": "La comédie musicale de 2020 : même titre, autre œuvre.",
+  "tags": [
+    "leurre",
+    "en"
+  ],
+  "input": {
+    "title": "Back to the Future: The Musical"
+  },
+  "expect": {
+    "film": "other"
+  }
+}

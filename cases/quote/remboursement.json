@@ -1,0 +1,16 @@
+{
+  "id": "remboursement",
+  "note": "Une demande de remboursement qui nomme un volet : rien à acheter, refusé comme invalid_request. Garde contre un devis calculé pour un film qu'on rend.",
+  "tags": [
+    "invalide",
+    "sans-achat",
+    "fr"
+  ],
+  "input": {
+    "cart": "Je voudrais me faire rembourser Retour vers le futur 2 : le DVD est arrivé rayé."
+  },
+  "expect": {
+    "status": 422,
+    "code": "invalid_request"
+  }
+}

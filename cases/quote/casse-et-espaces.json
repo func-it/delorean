@@ -1,0 +1,21 @@
+{
+  "id": "casse-et-espaces",
+  "note": "La casse et les espaces en trop ne changent pas le film : trois volets distincts, -20 % ((15 × 3) × 0,8 = 36 €).",
+  "tags": [
+    "titres",
+    "remise",
+    "fake"
+  ],
+  "input": {
+    "cart": "BACK TO THE FUTURE 1\nback   to the   future 2\nBack to the Future part 3"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 3600,
+    "films": {
+      "bttf_1": 1,
+      "bttf_2": 1,
+      "bttf_3": 1
+    }
+  }
+}

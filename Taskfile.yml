@@ -1,0 +1,95 @@
+# delorean — every command of the repository, from its root.
+#   task --list
+version: "3"
+
+includes:
+  go:
+    taskfile: ./backends/go/Taskfile.yml
+    dir: ./backends/go
+
+tasks:
+  setup:
+    desc: Dependencies of every part (Go modules, web, e2e)
+    cmds:
+      - cd backends/go && go mod download
+      - cd web && npm ci
+      - cd e2e && npm ci
+
+  generate:
+    desc: Code generated from api/openapi.yaml, in every part
+    cmds:
+      - task: go:generate
+      - cd web && npm run generate
+      - cd e2e && npm run generate
+
+  lint:
+    desc: Linters and type checks of every part
+    cmds:
+      - task: go:lint
+      - cd web && npm run lint && npm run typecheck
+      - cd e2e && npm run lint && npm run typecheck && npm run format:check
+
+  test:
+    desc: Unit tests of every part — no model is called
+    cmds:
+      - task: go:test
+      - cd web && npm test
+      - cd e2e && npm test
+
+  cases:check:
+    desc: Validate every shared case in cases/, offline
+    dir: backends/go
+    cmds: [go run ./cmd/bench check]
+
+  e2e:
+    desc: The end-to-end suite against the Go backend on its fake engines
+    cmds: [scripts/e2e-fake.sh]
+
+  ci:
+    desc: What CI runs
+    cmds:
+      - task: lint
+      - task: test
+      - task: cases:check
+      - task: e2e
+
+  up:
+    desc: The stack in Docker (web :24790, Go API :24791); ENGINES=fake for no key
+    cmds: [docker compose up --build]
+
+  down:
+    desc: Stop the stack
+    cmds: [docker compose down]
+
+  docs:
+    desc: The documentation site on http://localhost:24795, without Docker
+    cmds: [scripts/docs.sh]
+
+  langfuse:secrets:
+    desc: Write the local Langfuse's passwords and keys into .env (never replaces a value)
+    cmds: [scripts/langfuse-secrets.sh]
+
+  langfuse:up:
+    desc: The local Langfuse, http://localhost:24794 (project delorean)
+    deps: [langfuse:secrets]
+    cmds: [docker compose -f deploy/langfuse/compose.yml --env-file .env up -d --wait]
+
+  langfuse:down:
+    desc: Stop the local Langfuse (its data stays in Docker volumes)
+    cmds: [docker compose -f deploy/langfuse/compose.yml --env-file .env down]
+
+  bench:
+    desc: "Component benches of the Go backend: task bench -- run guard --runs 1 (RUN_LIVE=1 to spend)"
+    dir: backends/go
+    dotenv: [../../.env]
+    cmds: ['go run ./cmd/bench {{.CLI_ARGS}}']
+
+  bench:system:
+    desc: "System bench of one backend: task bench:system -- --base-url http://localhost:24791 --runs 3"
+    dir: e2e
+    cmds: ['npm run bench -- {{.CLI_ARGS}}']
+
+  bench:compare:
+    desc: "Compare bench reports: task bench:compare -- ../reports/a.json ../reports/b.json"
+    dir: e2e
+    cmds: ['npm run bench:compare -- {{.CLI_ARGS}}']

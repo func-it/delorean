@@ -1,0 +1,20 @@
+{
+  "id": "allemand-quantite-en-mot",
+  "note": "Allemand, quantité en mot (« zweimal ») : volet 1 × 1 et volet 3 × 2. Deux volets distincts, -10 % sur toute la base ((15 + 15 × 2) × 0,9 = 40,50 €).",
+  "tags": [
+    "langues",
+    "de",
+    "quantite"
+  ],
+  "input": {
+    "cart": "Hallo! Ich möchte Zurück in die Zukunft und zweimal Zurück in die Zukunft III bestellen."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 4050,
+    "films": {
+      "bttf_1": 1,
+      "bttf_3": 2
+    }
+  }
+}

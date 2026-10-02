@@ -1,0 +1,63 @@
+/* Brushed stainless steel, like the car's body panels. */
+.header {
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, light-dark(#f7f8f9, #1d2125), light-dark(#e2e5e8, #15181b));
+}
+
+.inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 10px var(--gutter);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 1.3125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.mark {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: var(--amber);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.session {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-width: 0;
+}
+
+.backend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+}
+
+.backend select {
+  width: auto;
+  min-height: 36px;
+  padding: 4px 8px;
+  color: var(--ink);
+}
+
+.user {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}

@@ -1,0 +1,20 @@
+{
+  "id": "quantite-x2-colle",
+  "note": "« x2 » collé au titre est une quantité, pas une partie du titre, et « Back to the Future » sans numéro est le volet 1. Trois volets, -20 % ((15 × 6) × 0,8 = 72 €).",
+  "tags": [
+    "quantite",
+    "titres"
+  ],
+  "input": {
+    "cart": "Back to the Future x2\nBack to the Future 2 x2\nBack to the Future 3 x2"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 7200,
+    "films": {
+      "bttf_1": 2,
+      "bttf_2": 2,
+      "bttf_3": 2
+    }
+  }
+}

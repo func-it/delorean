@@ -1,0 +1,14 @@
+{
+  "id": "valide-liste-anglais",
+  "note": "Le cas le plus simple : trois titres anglais, un par ligne. Un guard qui le refuse refuse tout.",
+  "tags": [
+    "valide",
+    "en"
+  ],
+  "input": {
+    "text": "Back to the Future\nBack to the Future Part II\nBack to the Future Part III"
+  },
+  "expect": {
+    "verdict": "valid"
+  }
+}

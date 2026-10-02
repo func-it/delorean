@@ -1,0 +1,24 @@
+{
+  "id": "quantite-douzaine-mal-lue",
+  "note": "« A dozen » lu comme 10 : deux exemplaires perdus (15 × 10 = 150 € au lieu de 15 × 12 = 180 €). quantity doit compter une douzaine, faiblesse connue de Jev.",
+  "tags": [
+    "infidele",
+    "quantite",
+    "en-lettres",
+    "en"
+  ],
+  "input": {
+    "text": "A dozen Back to the Future Part II for the film club.",
+    "lines": [
+      {
+        "title": "Back to the Future Part II",
+        "quantity": 10,
+        "film": "bttf_2"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": false,
+    "check": "quantity"
+  }
+}

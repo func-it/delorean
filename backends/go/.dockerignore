@@ -1,0 +1,6 @@
+# The image is built from the Go sources and nothing else.
+*
+!go.mod
+!go.sum
+!cmd/
+!internal/

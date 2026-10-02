@@ -1,0 +1,19 @@
+{
+  "id": "quantite-1000-par-titre-deux-noms",
+  "note": "La limite compte par titre : « BTTF 2 » et « Retour vers le futur 2 » sont deux titres du même volet, 600 chacun passe. Un seul volet distinct, pas de remise (15 × 1200 = 18 000 €).",
+  "tags": [
+    "quantite",
+    "limites",
+    "titres"
+  ],
+  "input": {
+    "cart": "600 x BTTF 2\n600 x Retour vers le futur 2"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 1800000,
+    "films": {
+      "bttf_2": 1200
+    }
+  }
+}

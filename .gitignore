@@ -1,0 +1,27 @@
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# env
+.env
+.env.*
+!.env.example
+
+# Go
+backends/go/bin/
+backends/go/coverage.out
+
+# Node
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# bench reports (kept out unless committed on purpose: git add -f)
+reports/*
+!reports/.gitkeep
+
+# Task checksums
+.task/

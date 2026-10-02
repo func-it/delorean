@@ -1,0 +1,23 @@
+{
+  "id": "cine-club-coffrets-et-suites",
+  "note": "Trois coffrets de la trilogie et des suites d'autres sagas : neuf DVD de la saga à -20 %, trois autres films sans remise ((15 × 9) × 0,8 + 20 × 3 = 108 + 60 = 168 €). Garde contre les coffrets mal multipliés ou « Rocky II » et « Toy Story 3 » comptés comme volets.",
+  "tags": [
+    "trilogie",
+    "quantite",
+    "autres-films",
+    "fr"
+  ],
+  "input": {
+    "cart": "Pour le ciné-club : 3 coffrets de la trilogie Retour vers le futur, 2 Rocky II et un Toy Story 3."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 16800,
+    "films": {
+      "bttf_1": 3,
+      "bttf_2": 3,
+      "bttf_3": 3,
+      "other": 3
+    }
+  }
+}

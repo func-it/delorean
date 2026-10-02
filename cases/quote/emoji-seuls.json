@@ -1,0 +1,15 @@
+{
+  "id": "emoji-seuls",
+  "note": "Rien que des emoji, aucun mot : ce n'est pas une commande. Refus au guard (invalid_request) plutôt qu'un devis vide ou inventé.",
+  "tags": [
+    "invalide",
+    "fake"
+  ],
+  "input": {
+    "cart": "🎬🍿📀 🎬🍿"
+  },
+  "expect": {
+    "status": 422,
+    "code": "invalid_request"
+  }
+}

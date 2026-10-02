@@ -1,0 +1,21 @@
+{
+  "id": "autres-suites-sans-remise",
+  "note": "Des suites d'une autre saga numérotées 2 et 3 avec un seul volet : ni volet en plus, ni remise (20 × 2 + 15 = 55 €). Garde contre « Toy Story 2 » et « Toy Story 3 » comptés comme volets.",
+  "tags": [
+    "autres-films",
+    "numero",
+    "remise",
+    "fake"
+  ],
+  "input": {
+    "cart": "Toy Story 2\nToy Story 3\nBack to the Future 1"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 5500,
+    "films": {
+      "bttf_1": 1,
+      "other": 2
+    }
+  }
+}

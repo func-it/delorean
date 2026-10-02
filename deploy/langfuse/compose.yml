@@ -1,0 +1,142 @@
+# Langfuse, self-hosted, for delorean only: the traces of every quote and the
+# runs of every bench. Follows Langfuse's official compose (major 4). Only the
+# UI and its API are published, on http://localhost:24794.
+#
+#   task langfuse:up      # or: docker compose -f deploy/langfuse/compose.yml --env-file .env up -d
+#
+# The organisation, the project "delorean", its API keys and a local account
+# exist from the first start (LANGFUSE_INIT_*), from the values of the root .env
+# (task langfuse:secrets writes them).
+name: delorean-langfuse
+
+x-langfuse-env: &langfuse-env
+  NEXTAUTH_URL: http://localhost:24794
+  DATABASE_URL: postgresql://postgres:${LF_DB_PASSWORD:?run task langfuse:secrets}@postgres:5432/postgres
+  SALT: ${LF_SALT:?run task langfuse:secrets}
+  ENCRYPTION_KEY: ${LF_ENCRYPTION_KEY:?run task langfuse:secrets}
+  TELEMETRY_ENABLED: "false"
+  CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
+  CLICKHOUSE_URL: http://clickhouse:8123
+  CLICKHOUSE_USER: clickhouse
+  CLICKHOUSE_PASSWORD: ${LF_CLICKHOUSE_PASSWORD:?run task langfuse:secrets}
+  CLICKHOUSE_CLUSTER_ENABLED: "false"
+  LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+  LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
+  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LF_MINIO_PASSWORD:?run task langfuse:secrets}
+  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+  LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+  LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+  LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
+  LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+  LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: minio
+  LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LF_MINIO_PASSWORD}
+  LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
+  LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+  LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_AUTH: ${LF_REDIS_AUTH:?run task langfuse:secrets}
+
+x-langfuse-deps: &langfuse-deps
+  postgres: { condition: service_healthy }
+  minio: { condition: service_healthy }
+  redis: { condition: service_healthy }
+  clickhouse: { condition: service_healthy }
+
+services:
+  langfuse-web:
+    image: docker.langfuse.com/langfuse/langfuse:4
+    restart: unless-stopped
+    depends_on: *langfuse-deps
+    ports:
+      - "127.0.0.1:24794:3000"
+    environment:
+      <<: *langfuse-env
+      NEXTAUTH_SECRET: ${LF_NEXTAUTH_SECRET:?run task langfuse:secrets}
+      LANGFUSE_INIT_ORG_ID: delorean
+      LANGFUSE_INIT_ORG_NAME: Delorean
+      LANGFUSE_INIT_PROJECT_ID: delorean
+      LANGFUSE_INIT_PROJECT_NAME: delorean
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:?run task langfuse:secrets}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY:?run task langfuse:secrets}
+      LANGFUSE_INIT_USER_EMAIL: ${LF_USER_EMAIL:-admin@delorean.local}
+      LANGFUSE_INIT_USER_NAME: Delorean
+      LANGFUSE_INIT_USER_PASSWORD: ${LF_USER_PASSWORD:?run task langfuse:secrets}
+
+  langfuse-worker:
+    image: docker.langfuse.com/langfuse/langfuse-worker:4
+    restart: unless-stopped
+    depends_on: *langfuse-deps
+    environment: *langfuse-env
+
+  clickhouse:
+    image: docker.io/clickhouse/clickhouse-server:25.12
+    restart: unless-stopped
+    user: "101:101"
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: clickhouse
+      CLICKHOUSE_PASSWORD: ${LF_CLICKHOUSE_PASSWORD}
+    volumes:
+      - clickhouse:/var/lib/clickhouse
+      - clickhouse-logs:/var/log/clickhouse-server
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 1s
+
+  minio:
+    image: cgr.dev/chainguard/minio
+    restart: unless-stopped
+    entrypoint: sh
+    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: ${LF_MINIO_PASSWORD}
+    volumes:
+      - minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+      start_period: 1s
+
+  redis:
+    image: docker.io/redis:7
+    restart: unless-stopped
+    command: --requirepass ${LF_REDIS_AUTH} --maxmemory-policy noeviction
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${LF_REDIS_AUTH}", "ping"]
+      interval: 3s
+      timeout: 10s
+      retries: 10
+
+  postgres:
+    image: docker.io/postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${LF_DB_PASSWORD}
+      POSTGRES_DB: postgres
+      TZ: UTC
+      PGTZ: UTC
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  clickhouse:
+  clickhouse-logs:
+  minio:
+  redis:
+  postgres:

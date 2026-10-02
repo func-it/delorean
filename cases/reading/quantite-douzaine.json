@@ -1,0 +1,18 @@
+{
+  "id": "quantite-douzaine",
+  "note": "« a dozen » vaut 12 et « half a dozen » 6 : des quantités sans chiffre ni « x ». Garde contre une douzaine lue comme un exemplaire.",
+  "tags": [
+    "quantite",
+    "en-lettres",
+    "en"
+  ],
+  "input": {
+    "text": "A dozen Back to the Future Part II for the film club, and half a dozen copies of The Goonies."
+  },
+  "expect": {
+    "films": {
+      "bttf_2": 12,
+      "other": 6
+    }
+  }
+}

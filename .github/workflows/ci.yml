@@ -1,0 +1,85 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backends/go
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backends/go/go.mod
+          cache-dependency-path: backends/go/go.sum
+      - name: Generated code matches the contract
+        run: go generate ./... && git diff --exit-code
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.12
+          working-directory: backends/go
+      - name: Tests (race detector, no model called)
+        run: go test -race ./...
+      - name: Shared cases are valid
+        run: go run ./cmd/bench check
+
+  web:
+    name: Web app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Generated types match the contract
+        run: npm run generate && git diff --exit-code
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+        env:
+          SESSION_SECRET: ci-only-secret-of-at-least-32-characters
+
+  e2e:
+    name: End-to-end (Go backend, fake engines)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backends/go/go.mod
+          cache-dependency-path: backends/go/go.sum
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - run: npm ci
+        working-directory: e2e
+      - name: Generated types match the contract
+        working-directory: e2e
+        run: npm run generate && git diff --exit-code
+      - name: Harness lint, types and tests
+        working-directory: e2e
+        run: npm run lint && npm run typecheck && npm run format:check && npm test
+      - name: Suite against the Go backend
+        run: scripts/e2e-fake.sh

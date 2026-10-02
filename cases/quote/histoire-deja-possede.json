@@ -1,0 +1,20 @@
+{
+  "id": "histoire-deja-possede",
+  "note": "Anglais : le volet 1 est un souvenir, le volet 2 déjà possédé ; seuls « Part III » et deux Jaws sont achetés. Un seul volet, pas de remise (15 + 20 × 2 = 55 €).",
+  "tags": [
+    "histoire",
+    "en",
+    "quantite"
+  ],
+  "input": {
+    "cart": "My dad loved Back to the Future when it came out in 1985, and he already owns Part II. For his birthday, please send me Part III and two copies of Jaws."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 5500,
+    "films": {
+      "bttf_3": 1,
+      "other": 2
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "fidele-japonais",
+  "note": "Japonais, compteur « 2枚 » : la lecture 2 × volet 2 est fidèle.",
+  "tags": [
+    "fidele",
+    "ja",
+    "quantite"
+  ],
+  "input": {
+    "text": "バック・トゥ・ザ・フューチャー PART2を2枚ください。",
+    "lines": [
+      {
+        "title": "バック・トゥ・ザ・フューチャー PART2",
+        "quantity": 2,
+        "film": "bttf_2"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": true
+  }
+}

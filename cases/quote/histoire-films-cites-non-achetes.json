@@ -1,0 +1,19 @@
+{
+  "id": "histoire-films-cites-non-achetes",
+  "note": "Histoire autour de la commande : le volet 2 est cité mais pas acheté, Les Goonies explicitement écarté, « le 1 et le 3 » renvoient à la saga. Deux volets, -10 % ((15 + 15) × 0,9 = 27 €).",
+  "tags": [
+    "histoire",
+    "fr"
+  ],
+  "input": {
+    "cart": "Hier soir on a regardé Retour vers le futur 2 chez mes parents et mon fils n'arrête pas d'en parler. Du coup je voudrais lui offrir le 1 et le 3 pour son anniversaire. Pas Les Goonies, il l'a déjà."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 2700,
+    "films": {
+      "bttf_1": 1,
+      "bttf_3": 1
+    }
+  }
+}

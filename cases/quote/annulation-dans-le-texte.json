@@ -1,0 +1,19 @@
+{
+  "id": "annulation-dans-le-texte",
+  "note": "Le client se corrige : le volet 2 est remplacé par le 3. Lire la dernière intention, pas chaque mention ((15 + 15) × 0,9 = 27 €).",
+  "tags": [
+    "histoire",
+    "fr"
+  ],
+  "input": {
+    "cart": "Retour vers le futur 1 et 2. Ah non, finalement pas le 2, mettez plutôt le 3."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 2700,
+    "films": {
+      "bttf_1": 1,
+      "bttf_3": 1
+    }
+  }
+}

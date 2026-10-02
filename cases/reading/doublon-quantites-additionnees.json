@@ -1,0 +1,17 @@
+{
+  "id": "doublon-quantites-additionnees",
+  "note": "Le volet 1 sous deux titres, chacun avec sa quantité (x2 et x3) : cinq exemplaires au total. Garde contre une quantité perdue quand deux titres du même film se suivent.",
+  "tags": [
+    "doublon",
+    "quantite",
+    "abreviation"
+  ],
+  "input": {
+    "text": "BTTF 1 x2\nBack to the Future x3"
+  },
+  "expect": {
+    "films": {
+      "bttf_1": 5
+    }
+  }
+}

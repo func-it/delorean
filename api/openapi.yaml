@@ -1,0 +1,606 @@
+openapi: 3.1.0
+info:
+  title: Delorean — DVD cart pricing
+  version: 1.0.0
+  summary: Reads a free-text DVD cart and prices it with the Back to the Future promotion.
+  description: |
+    One contract, several implementations (Go, Python, TypeScript). Every
+    implementation passes the same end-to-end suite (`e2e/`) and is measured by
+    the same system bench, so the three can be compared on facts.
+
+    **Pricing rules** (served by `GET /v1/catalog`):
+    - a Back to the Future volume costs 15.00 EUR, any other film 20.00 EUR;
+    - 2 distinct volumes in the cart: -10 % on every Back to the Future DVD;
+    - 3 distinct volumes: -20 % on every Back to the Future DVD.
+
+    **Reading pipeline** of `POST /v1/quotes`:
+    `prepare` (size, tokens) → `guard` (valid | injection | invalid) →
+    `parse` (titles and quantities) → `identify` (each distinct title) →
+    `judge` (is the reading faithful to the text?) → `price`.
+    Any stage may reject the cart with a `422` problem that says which and why.
+
+    Amounts are integer cents. Errors are RFC 9457 problems
+    (`application/problem+json`) carrying a stable `code`.
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:24791
+    description: Go implementation (local)
+  - url: http://localhost:24792
+    description: Python implementation (local)
+  - url: http://localhost:24793
+    description: TypeScript implementation (local)
+tags:
+  - name: quotes
+    description: Price a free-text cart.
+  - name: catalog
+    description: What the shop sells and how it prices it.
+  - name: health
+    description: Liveness and identity of the implementation.
+
+paths:
+  /healthz:
+    get:
+      tags: [health]
+      operationId: getHealth
+      summary: Liveness, and which implementation and engines answer.
+      responses:
+        "200":
+          description: The service is up.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /v1/catalog:
+    get:
+      tags: [catalog]
+      operationId: getCatalog
+      summary: The films the shop prices, the saga discounts and the input limits.
+      responses:
+        "200":
+          description: The catalog.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Catalog"
+
+  /v1/quotes:
+    post:
+      tags: [quotes]
+      operationId: createQuote
+      summary: Read a free-text cart and price it.
+      description: |
+        The cart is free text: one film per line, a list in a sentence, several
+        languages, a story around the order — anything a customer may write.
+        Only a cart the guard holds valid, and whose reading the judge holds
+        faithful, is priced.
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteRequest"
+            examples:
+              enonce-5:
+                summary: Example 5 of the brief
+                value:
+                  cart: "Back to the Future 1\nBack to the Future 2\nBack to the Future 3\nLa chèvre"
+      responses:
+        "200":
+          description: The cart, read and priced.
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "400":
+          $ref: "#/components/responses/MalformedRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "422":
+          $ref: "#/components/responses/Rejected"
+        "500":
+          $ref: "#/components/responses/Internal"
+        "502":
+          $ref: "#/components/responses/EngineUnavailable"
+
+components:
+  parameters:
+    UserId:
+      name: X-User-Id
+      in: header
+      required: false
+      description: Who asks (the username of the session). Traced as the Langfuse user.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+        pattern: "^[A-Za-z0-9._@-]+$"
+    SessionId:
+      name: X-Session-Id
+      in: header
+      required: false
+      description: The client session. Traced as the Langfuse session.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: "^[A-Za-z0-9._:-]+$"
+    RequestId:
+      name: X-Request-Id
+      in: header
+      required: false
+      description: Correlation id; generated when absent, echoed in the response.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: "^[A-Za-z0-9._:-]+$"
+
+  headers:
+    RequestId:
+      description: The correlation id of the request.
+      schema:
+        type: string
+
+  responses:
+    MalformedRequest:
+      description: The body is not JSON, or does not match `QuoteRequest`.
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: /problems/malformed_request
+            title: Malformed request
+            status: 400
+            code: malformed_request
+            detail: "body: field \"cart\" is required"
+    PayloadTooLarge:
+      description: The body exceeds `limits.max_body_bytes` of the catalog.
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Rejected:
+      description: |
+        The request is well formed but the cart is not priced. `code` says
+        which stage refused it: `empty_cart` and `too_long` (prepare),
+        `injection` and `invalid_request` (guard), `no_film` and
+        `quantity_too_large` (parse), `unfaithful_reading` (judge).
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          examples:
+            injection:
+              value:
+                type: /problems/injection
+                title: Cart rejected
+                status: 422
+                code: injection
+                detail: The text tries to instruct the system instead of ordering films.
+                guard:
+                  verdict: injection
+                  confidence: 0.97
+                  probabilities: { valid: 0.01, injection: 0.98, invalid: 0.01 }
+            too_long:
+              value:
+                type: /problems/too_long
+                title: Cart rejected
+                status: 422
+                code: too_long
+                detail: The cart counts 3120 tokens, the limit is 2048.
+                tokens: { count: 3120, max: 2048 }
+    Internal:
+      description: An unexpected failure.
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    EngineUnavailable:
+      description: A model engine (Jev, the LLM) could not be reached or answered out of contract.
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    QuoteRequest:
+      type: object
+      additionalProperties: false
+      required: [cart]
+      properties:
+        cart:
+          type: string
+          description: The cart as the customer wrote it. Empty or blank is rejected with `empty_cart`.
+
+    Film:
+      type: string
+      description: What a title was identified as. `other` is any film outside the saga.
+      enum: [bttf_1, bttf_2, bttf_3, other]
+
+    Quote:
+      type: object
+      additionalProperties: false
+      required: [id, currency, lines, subtotal_cents, discount, total_cents, judge, usage, created_at]
+      properties:
+        id:
+          type: string
+          description: Identifier of this quote (also the Langfuse trace name suffix).
+          examples: ["q_7f3a9c2e"]
+        currency:
+          type: string
+          const: EUR
+        lines:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/QuoteLine"
+        subtotal_cents:
+          type: integer
+          minimum: 0
+          description: Sum of the lines before discount.
+        discount:
+          $ref: "#/components/schemas/Discount"
+        total_cents:
+          type: integer
+          minimum: 0
+          description: What the customer pays.
+        judge:
+          $ref: "#/components/schemas/JudgeOutcome"
+        usage:
+          $ref: "#/components/schemas/Usage"
+        created_at:
+          type: string
+          format: date-time
+
+    QuoteLine:
+      type: object
+      additionalProperties: false
+      required: [title, quantity, film, confidence, unit_price_cents, subtotal_cents]
+      properties:
+        title:
+          type: string
+          description: The title as the customer wrote it.
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          description: Copies of this title; at most `limits.max_copies_per_title`.
+        film:
+          $ref: "#/components/schemas/Film"
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Calibrated confidence of the identification.
+        unit_price_cents:
+          type: integer
+          minimum: 0
+        subtotal_cents:
+          type: integer
+          minimum: 0
+          description: unit price × quantity, before discount.
+
+    Discount:
+      type: object
+      additionalProperties: false
+      required: [distinct_volumes, percent, base_cents, amount_cents]
+      description: The saga discount. `percent` is 0 when it does not apply.
+      properties:
+        distinct_volumes:
+          type: integer
+          minimum: 0
+          maximum: 3
+        percent:
+          type: integer
+          enum: [0, 10, 20]
+        base_cents:
+          type: integer
+          minimum: 0
+          description: Subtotal of the Back to the Future DVDs, on which the percent applies.
+        amount_cents:
+          type: integer
+          minimum: 0
+
+    GuardOutcome:
+      type: object
+      additionalProperties: false
+      required: [verdict, confidence]
+      properties:
+        verdict:
+          type: string
+          enum: [valid, injection, invalid]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        probabilities:
+          type: object
+          additionalProperties:
+            type: number
+
+    JudgeOutcome:
+      type: object
+      additionalProperties: false
+      required: [score, threshold, checks]
+      description: |
+        The judge puts one short question per observable fact and keeps the
+        worst answer as the score. The cart is priced only when
+        `score >= threshold`.
+      properties:
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+        threshold:
+          type: number
+          minimum: 0
+          maximum: 1
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/JudgeCheck"
+
+    JudgeCheck:
+      type: object
+      additionalProperties: false
+      required: [check, label, score]
+      properties:
+        check:
+          type: string
+          enum: [asked, identity, quantity, missing]
+          description: |
+            `asked`: the customer asks for this film (nothing invented).
+            `identity`: the title is the film it was identified as.
+            `quantity`: the customer asks for this many copies.
+            `missing`: no film asked for is left out of the reading.
+        label:
+          type: string
+          description: What the check was put about (a line, or the whole reading).
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    Usage:
+      type: object
+      additionalProperties: false
+      required: [implementation, engines, duration_ms, cost_usd, stages]
+      properties:
+        implementation:
+          type: string
+          enum: [go, python, typescript]
+        engines:
+          type: string
+          enum: [live, fake]
+          description: "`fake` engines are deterministic stand-ins for tests; never in production."
+        duration_ms:
+          type: integer
+          minimum: 0
+        cost_usd:
+          type: number
+          minimum: 0
+        trace_id:
+          type: string
+          description: The trace of this request, when tracing is on.
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/StageUsage"
+
+    StageUsage:
+      type: object
+      additionalProperties: false
+      required: [stage, engine, calls, duration_ms, cost_usd]
+      properties:
+        stage:
+          type: string
+          enum: [prepare, guard, parse, identify, judge, price]
+        engine:
+          type: string
+          examples: ["jev-1.13", "openai/gpt-6-luna", "fake", "local"]
+        model:
+          type: string
+        calls:
+          type: integer
+          minimum: 0
+        duration_ms:
+          type: integer
+          minimum: 0
+        cost_usd:
+          type: number
+          minimum: 0
+        tokens:
+          type: integer
+          minimum: 0
+          description: Input tokens counted (prepare).
+
+    Problem:
+      type: object
+      description: RFC 9457 problem details, with a stable `code` and the facts behind it.
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          examples: ["/problems/injection"]
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        code:
+          $ref: "#/components/schemas/ProblemCode"
+        request_id:
+          type: string
+        guard:
+          $ref: "#/components/schemas/GuardOutcome"
+        judge:
+          $ref: "#/components/schemas/JudgeOutcome"
+        tokens:
+          type: object
+          additionalProperties: false
+          required: [count, max]
+          properties:
+            count:
+              type: integer
+            max:
+              type: integer
+        quantity:
+          type: object
+          additionalProperties: false
+          description: The title asked in too many copies (`quantity_too_large`).
+          required: [title, count, max]
+          properties:
+            title:
+              type: string
+            count:
+              type: integer
+            max:
+              type: integer
+        usage:
+          $ref: "#/components/schemas/Usage"
+
+    ProblemCode:
+      type: string
+      description: |
+        - `malformed_request` (400): not JSON, or not a `QuoteRequest`.
+        - `payload_too_large` (413): body over `limits.max_body_bytes`.
+        - `empty_cart` (422): nothing but blanks.
+        - `too_long` (422): over `limits.max_input_tokens`.
+        - `injection` (422): the guard sees an attempt to instruct or hack the system.
+        - `invalid_request` (422): the guard sees no cart — gibberish, a language not understood, off topic.
+        - `no_film` (422): valid, but the parser reads no film to buy.
+        - `quantity_too_large` (422): a title is asked in more than
+          `limits.max_copies_per_title` copies. Identical titles (case and
+          spaces aside) are merged first; two spellings of one volume are two titles.
+        - `unfaithful_reading` (422): the judge does not hold the reading faithful.
+        - `engine_unavailable` (502): a model engine failed.
+        - `not_found` (404), `method_not_allowed` (405), `internal` (500).
+      enum:
+        - malformed_request
+        - payload_too_large
+        - empty_cart
+        - too_long
+        - injection
+        - invalid_request
+        - no_film
+        - quantity_too_large
+        - unfaithful_reading
+        - engine_unavailable
+        - not_found
+        - method_not_allowed
+        - internal
+
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status, implementation, version, engines, tracing]
+      properties:
+        status:
+          type: string
+          const: ok
+        implementation:
+          type: string
+          enum: [go, python, typescript]
+        version:
+          type: string
+        engines:
+          type: string
+          enum: [live, fake]
+        tracing:
+          type: boolean
+          description: Whether traces are exported to Langfuse.
+
+    Catalog:
+      type: object
+      additionalProperties: false
+      required: [currency, films, other_film_unit_price_cents, saga_discounts, limits]
+      properties:
+        currency:
+          type: string
+          const: EUR
+        films:
+          type: array
+          description: The saga volumes, in order.
+          items:
+            $ref: "#/components/schemas/CatalogFilm"
+        other_film_unit_price_cents:
+          type: integer
+          minimum: 0
+        saga_discounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/SagaDiscount"
+        limits:
+          $ref: "#/components/schemas/Limits"
+
+    CatalogFilm:
+      type: object
+      additionalProperties: false
+      required: [id, title, volume, unit_price_cents]
+      properties:
+        id:
+          $ref: "#/components/schemas/Film"
+        title:
+          type: string
+        volume:
+          type: integer
+          minimum: 1
+        unit_price_cents:
+          type: integer
+          minimum: 0
+
+    SagaDiscount:
+      type: object
+      additionalProperties: false
+      required: [distinct_volumes, percent]
+      properties:
+        distinct_volumes:
+          type: integer
+          minimum: 1
+        percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+
+    Limits:
+      type: object
+      additionalProperties: false
+      required: [max_body_bytes, max_input_tokens, max_copies_per_title]
+      properties:
+        max_body_bytes:
+          type: integer
+          minimum: 1
+        max_input_tokens:
+          type: integer
+          minimum: 1
+        max_copies_per_title:
+          type: integer
+          minimum: 1
+          description: Most copies of one title a cart may ask for.

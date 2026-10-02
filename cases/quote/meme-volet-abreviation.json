@@ -1,0 +1,20 @@
+{
+  "id": "meme-volet-abreviation",
+  "note": "Le même volet sous deux noms (« Retour vers le futur II », « BTTF 2 ») compte une seule fois parmi les volets distincts : deux volets, donc -10 % et non -20 % ((15 × 2 + 15) × 0,9 = 40,50 €).",
+  "tags": [
+    "titres",
+    "remise",
+    "fr"
+  ],
+  "input": {
+    "cart": "Un Retour vers le futur II pour moi, un BTTF 2 pour mon cousin, et Back to the Future 3."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 4050,
+    "films": {
+      "bttf_2": 2,
+      "bttf_3": 1
+    }
+  }
+}

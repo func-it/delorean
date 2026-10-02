@@ -1,0 +1,20 @@
+{
+  "id": "portugais-liste-compacte",
+  "note": "Portugais, liste compacte « 1, 2 e 3 » : trois volets à déplier, pas un seul titre. -20 % ((15 × 3) × 0,8 = 36 €).",
+  "tags": [
+    "langues",
+    "pt"
+  ],
+  "input": {
+    "cart": "Olá! Queria comprar De Volta para o Futuro 1, 2 e 3."
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 3600,
+    "films": {
+      "bttf_1": 1,
+      "bttf_2": 1,
+      "bttf_3": 1
+    }
+  }
+}

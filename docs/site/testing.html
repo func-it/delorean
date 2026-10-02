@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Delorean docs · Testing</title>
+  <meta name="description" content="How Delorean is tested: unit tests, the contract, the end-to-end suite, the benches and their cost.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 13V22M12 13 4 4M12 13l8-9' fill='none' stroke='%23f2a516' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=Barlow+Semi+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <a class="brand" href="index.html">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13V22M12 13 4 4M12 13l8-9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+        Delorean <small>docs</small>
+      </a>
+      <ul class="nav">
+        <li><a href="index.html">Overview</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="api.html">API</a></li>
+        <li><a href="testing.html" aria-current="page">Testing</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <div class="layout">
+    <article class="doc" id="doc" aria-live="polite"><p class="notice">Loading docs/testing.md…</p></article>
+    <aside class="rail" id="rail" aria-label="Services, links and outline"></aside>
+  </div>
+
+  <footer class="footer">Rendered from the repository's <code>docs/testing.md</code>.</footer>
+
+  <script type="module">
+    import { renderRail, renderMarkdown, renderToc, scrollToHash } from "./assets/site.js";
+
+    const rail = document.getElementById("rail");
+    const doc = document.getElementById("doc");
+    renderRail(rail);
+    await renderMarkdown("content/testing.md", doc);
+    renderToc(doc, rail);
+    scrollToHash();
+  </script>
+</body>
+</html>

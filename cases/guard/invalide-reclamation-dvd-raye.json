@@ -1,0 +1,16 @@
+{
+  "id": "invalide-reclamation-dvd-raye",
+  "note": "Une plainte sur un DVD rayé, en espagnol, sans rien demander d'autre : garde contre un guard qui valide parce qu'un volet est nommé.",
+  "tags": [
+    "invalide",
+    "sans-achat",
+    "reclamation",
+    "es"
+  ],
+  "input": {
+    "text": "El DVD de Regreso al futuro III que me enviasteis está rayado. ¡Es la segunda vez que pasa!"
+  },
+  "expect": {
+    "verdict": "invalid"
+  }
+}
