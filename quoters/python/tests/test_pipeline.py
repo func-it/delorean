@@ -973,3 +973,26 @@ async def test_a_jev_generation_s_input_is_what_was_sent(traced: Pipeline, spans
     sent = dict(next(s for s in spans.ended() if s.name == "decide jev-1.13").attributes or {})
     body = sent["langfuse.observation.input"]
     assert body == json.dumps(json.loads(body), sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+
+
+@pytest.mark.parametrize(
+    ("env", "release"),
+    [
+        pytest.param({"GITHUB_SHA": "abc123", "CI_COMMIT_SHA": "def456"}, None, id="a CI's commit is no release"),
+        pytest.param({"GITHUB_SHA": "abc123", "LANGFUSE_RELEASE": "v1.2.0"}, "v1.2.0", id="LANGFUSE_RELEASE is"),
+    ],
+)
+async def test_the_release_is_langfuse_release_s_alone(
+    pipeline: Pipeline, monkeypatch: pytest.MonkeyPatch, env: dict[str, str], release: str | None
+) -> None:
+    for name in ("LANGFUSE_RELEASE", "GITHUB_SHA", "CI_COMMIT_SHA"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    spans = Spans()
+    try:
+        await quote(replace(pipeline, tracer=spans.tracer), "Heat")
+        releases = {dict(s.attributes or {}).get("langfuse.release") for s in spans.ended()}
+        assert releases == {release}
+    finally:
+        await spans.tracer.shutdown()

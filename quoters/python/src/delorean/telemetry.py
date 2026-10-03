@@ -279,6 +279,10 @@ class LangfuseTracer:
             tracer_provider=self._provider,
             span_exporter=self._exporter,
         )
+        # The release is LANGFUSE_RELEASE's, as in every quoter, never one the
+        # SDK guesses from a CI's variables (GITHUB_SHA…): the SDK has no switch
+        # for that guess, so the client's own value is set over it
+        self._langfuse._release = os.environ.get("LANGFUSE_RELEASE") or None
         self._scores = _Scores(base_url=base_url, auth=auth, transport=scores)
 
     @contextmanager
