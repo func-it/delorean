@@ -1,0 +1,19 @@
+{
+  "id": "relecture-film-oublie",
+  "note": "La première lecture oublie le dernier film (#fake:reread) ; le juge la refuse, la lecture suivante, informée de ce qui a échoué, lit les deux volets : le devis est chiffré à la deuxième lecture ((15 + 15) × 0,9 = 27 €). Garde contre un refus au client pour une erreur que le modèle corrige en relisant.",
+  "tags": [
+    "relecture",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 1\nBack to the Future 2\n#fake:reread"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 2700,
+    "films": {
+      "bttf_1": 1,
+      "bttf_2": 1
+    }
+  }
+}

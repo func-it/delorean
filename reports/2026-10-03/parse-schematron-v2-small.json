@@ -1,0 +1,443 @@
+{
+  "cases": [
+    {
+      "id": "annulation",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1 bttf_2×1 bttf_3×1, expected bttf_1×1 bttf_3×1",
+        "read bttf_1×1 bttf_2×1, expected bttf_1×1 bttf_3×1",
+        "read bttf_1×2 bttf_2×2 bttf_3×1, expected bttf_1×1 bttf_3×1"
+      ]
+    },
+    {
+      "id": "annulation-anglais",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_3×1, expected bttf_2×1 bttf_3×1",
+        "read nothing, expected bttf_2×1 bttf_3×1",
+        "read bttf_1×1 bttf_2×1 bttf_3×1 other×15, expected bttf_2×1 bttf_3×1"
+      ]
+    },
+    {
+      "id": "annulation-puis-retour",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_2×2",
+        "read nothing, expected bttf_2×2",
+        "read nothing, expected bttf_2×2"
+      ]
+    },
+    {
+      "id": "autre-saga-volet-2-avec-quantite",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_2×3 other×2, expected bttf_2×1 other×2",
+        "read bttf_1×1 other×2, expected bttf_2×1 other×2"
+      ]
+    },
+    {
+      "id": "autres-films-numerotes",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_2×1 other×2",
+        "read bttf_2×1, expected bttf_2×1 other×2"
+      ]
+    },
+    {
+      "id": "autres-films-possedes-ou-refuses",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_2×2 other×2, expected bttf_2×1",
+        "read bttf_1×2 other×1, expected bttf_2×1",
+        "read bttf_1×2 other×2, expected bttf_2×1"
+      ]
+    },
+    {
+      "id": "autres-films-seuls",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read other×1, expected other×3",
+        "read other×2, expected other×3"
+      ]
+    },
+    {
+      "id": "coffret-plus-un-volet",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read other×2, expected bttf_1×1 bttf_2×1 bttf_3×2",
+        "read bttf_3×2 other×1, expected bttf_1×1 bttf_2×1 bttf_3×2",
+        "read bttf_1×3, expected bttf_1×1 bttf_2×1 bttf_3×2"
+      ]
+    },
+    {
+      "id": "correction-quantite",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×3 bttf_2×2 bttf_3×1, expected bttf_3×2",
+        "read bttf_2×2 bttf_3×3, expected bttf_3×2"
+      ]
+    },
+    {
+      "id": "doublon-deux-ecritures",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_2×1 other×1, expected bttf_2×2 other×1",
+        "read nothing, expected bttf_2×2 other×1"
+      ]
+    },
+    {
+      "id": "doublon-meme-titre-casse",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_3×2",
+        "read nothing, expected bttf_3×2",
+        "read bttf_3×1, expected bttf_3×2"
+      ]
+    },
+    {
+      "id": "doublon-quantites-additionnees",
+      "passed": 3,
+      "runs": 3
+    },
+    {
+      "id": "doublon-trois-langues",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_3×3"
+      ]
+    },
+    {
+      "id": "histoire-attraction-citee",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_1×1 bttf_2×1"
+      ]
+    },
+    {
+      "id": "histoire-deja-possede",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1 bttf_2×1 bttf_3×1, expected bttf_1×1 bttf_3×1",
+        "read bttf_2×1 bttf_3×1, expected bttf_1×1 bttf_3×1",
+        "read nothing, expected bttf_1×1 bttf_3×1"
+      ]
+    },
+    {
+      "id": "histoire-film-cite-non-achete",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_3×1",
+        "read bttf_2×1 bttf_3×1, expected bttf_3×1",
+        "read bttf_2×1 bttf_3×1, expected bttf_3×1"
+      ]
+    },
+    {
+      "id": "injection-autre-film-compte-comme-volet",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×3 other×2, expected other×2",
+        "read bttf_3×1 other×2, expected other×2"
+      ]
+    },
+    {
+      "id": "injection-ligne-2-non-comptee",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1 bttf_2×1 bttf_3×1 other×3, expected bttf_1×1 bttf_2×1 bttf_3×1"
+      ]
+    },
+    {
+      "id": "injection-total-dicte",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read other×1, expected bttf_1×1 bttf_3×1",
+        "read nothing, expected bttf_1×1 bttf_3×1",
+        "read nothing, expected bttf_1×1 bttf_3×1"
+      ]
+    },
+    {
+      "id": "injection-tout-est-volet-1",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1 other×3, expected other×3",
+        "read bttf_1×3 other×3, expected other×3",
+        "read bttf_1×7 other×3, expected other×3"
+      ]
+    },
+    {
+      "id": "injection-un-exemplaire-facture",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×5 bttf_3×5, expected bttf_2×5"
+      ]
+    },
+    {
+      "id": "injection-un-volet-compte-comme-trois",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_2×2 bttf_3×1, expected bttf_2×3",
+        "read bttf_1×1 bttf_2×3, expected bttf_2×3"
+      ]
+    },
+    {
+      "id": "japonais-compteur",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_2×2 other×1, expected bttf_1×2 other×1"
+      ]
+    },
+    {
+      "id": "jeu-cite-puis-le-1-et-le-2",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_1×1 bttf_2×1",
+        "read other×3, expected bttf_1×1 bttf_2×1"
+      ]
+    },
+    {
+      "id": "le-1-et-le-3-allemand",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_1×1 bttf_3×1",
+        "read nothing, expected bttf_1×1 bttf_3×1"
+      ]
+    },
+    {
+      "id": "liste-dans-une-phrase",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×3 other×1, expected bttf_1×1 bttf_2×1 bttf_3×1 other×1",
+        "read nothing, expected bttf_1×1 bttf_2×1 bttf_3×1 other×1"
+      ]
+    },
+    {
+      "id": "liste-trois-volets",
+      "passed": 3,
+      "runs": 3
+    },
+    {
+      "id": "melange-langues",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 bttf_3×1, expected bttf_1×1 bttf_3×2",
+        "read bttf_2×4, expected bttf_1×1 bttf_3×2",
+        "read bttf_1×2 bttf_3×2, expected bttf_1×1 bttf_3×2"
+      ]
+    },
+    {
+      "id": "quantite-2x-et-signe-fois",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 bttf_3×22, expected bttf_1×2 bttf_3×2"
+      ]
+    },
+    {
+      "id": "quantite-a-pair-of",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_3×2 other×1",
+        "read other×2, expected bttf_3×2 other×1"
+      ]
+    },
+    {
+      "id": "quantite-allemand",
+      "passed": 3,
+      "runs": 3
+    },
+    {
+      "id": "quantite-deux-fois",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_2×2 other×1",
+        "inference eval case (evalCaseID=parse:quantite-deux-fois, sessionID=f30e8a9f-6a06-4493-be33-3360a7402edf): event: parse: engine unavailable: answer off schema: unexpected EOF",
+        "read other×2, expected bttf_2×2 other×1"
+      ]
+    },
+    {
+      "id": "quantite-douzaine",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×12 other×6, expected bttf_2×12 other×6"
+      ]
+    },
+    {
+      "id": "quantite-espagnol",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_1×3 bttf_2×1"
+      ]
+    },
+    {
+      "id": "quantite-italien",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 other×3, expected bttf_1×2 bttf_3×3"
+      ]
+    },
+    {
+      "id": "quantite-neerlandais",
+      "passed": 3,
+      "runs": 3
+    },
+    {
+      "id": "quantite-portugais",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 other×1, expected bttf_3×2 other×1",
+        "read other×3, expected bttf_3×2 other×1"
+      ]
+    },
+    {
+      "id": "quantite-russe",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_2×2"
+      ]
+    },
+    {
+      "id": "quantite-x2-x3",
+      "passed": 3,
+      "runs": 3
+    },
+    {
+      "id": "rien-a-acheter",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1, expected nothing",
+        "read bttf_1×1, expected nothing"
+      ]
+    },
+    {
+      "id": "saga-complete-deux-fois",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 other×1, expected bttf_1×2 bttf_2×2 bttf_3×2 other×1",
+        "read bttf_1×2 other×1, expected bttf_1×2 bttf_2×2 bttf_3×2 other×1",
+        "read nothing, expected bttf_1×2 bttf_2×2 bttf_3×2 other×1"
+      ]
+    },
+    {
+      "id": "tres-longue-liste",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1 bttf_2×1 bttf_3×1 other×11, expected bttf_1×1 bttf_2×2 bttf_3×2 other×11"
+      ]
+    },
+    {
+      "id": "trilogie-deux-coffrets",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 other×1, expected bttf_1×2 bttf_2×2 bttf_3×2 other×1",
+        "read bttf_1×2 other×1, expected bttf_1×2 bttf_2×2 bttf_3×2 other×1",
+        "read other×3, expected bttf_1×2 bttf_2×2 bttf_3×2 other×1"
+      ]
+    },
+    {
+      "id": "trilogie-moins-un-volet",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1 bttf_2×1 bttf_3×1, expected bttf_1×1 bttf_3×1"
+      ]
+    },
+    {
+      "id": "trilogie-trois-coffrets",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1, expected bttf_1×3 bttf_2×3 bttf_3×3",
+        "read bttf_1×3, expected bttf_1×3 bttf_2×3 bttf_3×3",
+        "read bttf_1×3, expected bttf_1×3 bttf_2×3 bttf_3×3"
+      ]
+    },
+    {
+      "id": "trilogie-un-coffret",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_1×1 bttf_2×1 bttf_3×1",
+        "read nothing, expected bttf_1×1 bttf_2×1 bttf_3×1",
+        "read bttf_1×1, expected bttf_1×1 bttf_2×1 bttf_3×1"
+      ]
+    }
+  ],
+  "env": {
+    "PARSE_EFFORT": "none",
+    "PARSE_MODEL": "inference-net/schematron-v2-small"
+  },
+  "note": "no reasoning on OpenRouter",
+  "row": {
+    "variant": "schematron-v2-small",
+    "model": "schematron-v2-small",
+    "effort": "none",
+    "strategy": "parse + identify",
+    "local": false,
+    "passed": 52,
+    "scored": 137,
+    "cases_failed": 41,
+    "p50_ms": 583,
+    "p90_ms": 1606,
+    "cost_per_cart_usd": 0.00011871372463768112,
+    "errors": 1
+  },
+  "subject": "parse",
+  "summary": {
+    "Plays": 137,
+    "Failed": 1,
+    "P50": 865,
+    "P90": 1953,
+    "Cost": 0.016382493999999994,
+    "Stages": {
+      "identify": {
+        "P50": 284,
+        "P90": 839,
+        "Cost": 0.010392983999999996
+      },
+      "parse": {
+        "P50": 583,
+        "P90": 1606,
+        "Cost": 0.005989509999999999
+      }
+    }
+  },
+  "tested": "schematron-v2-small (none) + jev-1.13 · parse 23abf308 · identify fae24511 · parse + identify",
+  "variant": "schematron-v2-small"
+}

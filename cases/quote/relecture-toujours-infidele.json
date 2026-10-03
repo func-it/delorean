@@ -1,0 +1,15 @@
+{
+  "id": "relecture-toujours-infidele",
+  "note": "Le juge refuse chaque lecture (#fake:unfaithful) : après la dernière tentative, le panier est refusé (unfaithful_reading) au lieu d'être chiffré sur une lecture jamais tenue pour fidèle. Garde contre une relecture qui finirait par laisser passer une lecture fausse.",
+  "tags": [
+    "relecture",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 1\n#fake:unfaithful"
+  },
+  "expect": {
+    "status": 422,
+    "code": "unfaithful_reading"
+  }
+}

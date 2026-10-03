@@ -17,7 +17,7 @@ export type Stage = Schemas['StageUsage']['stage'];
 export const CONTRACT_PATH = new URL('../../api/openapi.yaml', import.meta.url);
 
 /** The stages of POST /v1/quotes, in pipeline order. */
-export const STAGES: readonly Stage[] = ['prepare', 'guard', 'parse', 'identify', 'judge', 'price'];
+export const STAGES: readonly Stage[] = ['prepare', 'guard', 'parse', 'recount', 'identify', 'judge', 'price'];
 
 /** The stage that answers each 422 code. */
 export const REJECTED_BY: Partial<Record<ProblemCode, Stage>> = {

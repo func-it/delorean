@@ -39,6 +39,13 @@ export function explainProblem(problem: Problem): Rejection {
     case "payload_too_large":
       return rejection("Votre panier est trop volumineux.", "Le texte dépasse ce que le service accepte. Raccourcissez-le, puis réessayez.");
     case "injection":
+      if (problem.remembered) {
+        return rejection(
+          "Ce panier a déjà été refusé.",
+          "Ce même texte a déjà été refusé parce qu'il essaie de donner des ordres au système : le renvoyer tel quel donne la même réponse. Retirez les consignes et gardez les titres.",
+          { facts: guardFacts(problem) },
+        );
+      }
       return rejection(
         "Ce texte essaie de donner des ordres au système.",
         "Nous ne chiffrons que des commandes de films : retirez les consignes (changer les prix, ignorer les règles…) et gardez les titres.",
@@ -69,19 +76,42 @@ export function explainProblem(problem: Problem): Rejection {
       );
     case "engine_unavailable":
       return rejection("Notre service de lecture est momentanément indisponible.", OUR_SIDE, { showReference: true });
-    case "backend_unavailable":
+    case "quoter_unavailable":
       return rejection("Le service de calcul ne répond pas.", OUR_SIDE, { showReference: true });
     case "malformed_request":
       return rejection("La demande n'a pas pu être lue.", "Rechargez la page, puis réessayez.", { showReference: true });
     case "no_session":
       return rejection("Votre session a expiré.", "Reconnectez-vous pour continuer.", { relogin: true });
+    case "quote_in_progress":
+      return rejection(
+        "Un devis est déjà en cours.",
+        "Une autre demande de devis, pour votre session ou depuis votre connexion, attend encore sa réponse. Patientez un instant, puis réessayez.",
+      );
+    case "too_many_refusals":
+      return rejection(
+        "Trop de paniers refusés.",
+        `Plusieurs textes ont été refusés parce qu'ils donnaient des ordres au système : vos demandes sont suspendues. ${retryAdvice(problem)}`,
+      );
     default:
       return rejection("Une erreur inattendue est survenue.", OUR_SIDE, { showReference: true });
   }
 }
 
+function retryAdvice({ retry_after_s }: Problem): string {
+  if (!retry_after_s) return "Réessayez plus tard.";
+  const minutes = Math.ceil(retry_after_s / 60);
+  return `Réessayez dans ${formatCount(minutes)}\u00a0minute${minutes > 1 ? "s" : ""}.`;
+}
+
 function guardFacts({ guard }: Problem): string[] {
-  return guard ? [`Verdict du garde : ${VERDICT_NAMES[guard.verdict]} (confiance ${formatPercent(guard.confidence)}).`] : [];
+  if (!guard) return [];
+  const facts = [`Verdict du garde : ${VERDICT_NAMES[guard.verdict]} (confiance ${formatPercent(guard.confidence)}).`];
+  // The two questions the verdict is made of: does it order films, does it speak to the system?
+  if (guard.questions) {
+    const { order, steer } = guard.questions;
+    facts.push(`Commande de films : ${formatPercent(order)} · Message adressé au système : ${formatPercent(steer)}.`);
+  }
+  return facts;
 }
 
 function quantityFacts({ quantity }: Problem): string[] {
@@ -92,7 +122,8 @@ function quantityFacts({ quantity }: Problem): string[] {
 
 function failedChecks({ judge }: Problem): string[] {
   if (!judge) return [];
-  return judge.checks
+  const failed = judge.checks
     .filter((check) => check.score < judge.threshold)
     .map((check) => `${CHECK_NAMES[check.check]} : ${check.label} (score ${formatPercent(check.score)})`);
+  return judge.attempts > 1 ? [`Panier relu ${judge.attempts} fois.`, ...failed] : failed;
 }

@@ -1,0 +1,98 @@
+[project]
+name = "delorean"
+version = "1.0.0"
+description = "Prices a free-text DVD cart with the Back to the Future promotion: models read the cart, code computes the price."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.14"
+# An application, not a library: every direct dependency is pinned here, and
+# uv.lock pins the rest.
+dependencies = [
+  "fastapi==0.142.2",
+  "starlette==1.7.0",
+  "uvicorn==0.54.0",
+  "pydantic==2.13.5",
+  "httpx==0.28.1",
+  "openai==3.24.0",
+  "tiktoken==0.14.0",
+  "langfuse==4.16.0",
+  "opentelemetry-sdk==1.45.0",
+]
+
+[project.scripts]
+delorean = "delorean.__main__:main"
+
+[dependency-groups]
+dev = [
+  "datamodel-code-generator==0.83.0",
+  "jsonschema==4.26.0",
+  "mypy==2.4.0",
+  "pytest==9.1.1",
+  "pytest-asyncio==1.4.0",
+  "pyyaml==6.0.3",
+  "ruff==0.16.10",
+  "types-jsonschema==4.26.0.20260518",
+  "types-pyyaml==6.0.12.20260906",
+]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 120  # as the e2e suite and the Go code
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+  "E", "W", "F", "I", "N", "B", "UP", "SIM", "C4", "RUF", "ASYNC", "PT", "RET", "PTH", "TID",
+  "ARG", "BLE", "S", "FBT", "PIE", "T20", "PERF",
+]
+ignore = [
+  "S101",  # assert is how pytest checks
+  "S104",  # the server listens on every interface, as the Go one does
+  "RUF001", "RUF002", "RUF003",  # × and − are the spec's own: "2 × title", "1 − p"
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "FBT", "ARG"]
+"src/delorean/api/contract.py" = ["E501"]  # generated: the contract's descriptions, as they are
+"src/delorean/__main__.py" = ["T20"]
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+plugins = ["pydantic.mypy"]
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+# generated: Check.count, a member the contract names, shadows str.count
+module = "delorean.api.contract"
+disable_error_code = ["assignment"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = ["--strict-markers", "--strict-config", "-ra"]
+filterwarnings = ["error"]
+
+# The contract's bodies, generated from api/openapi.yaml: task generate
+[tool.datamodel-codegen]
+input = "../../api/openapi.yaml"
+input-file-type = "openapi"
+output = "src/delorean/api/contract.py"
+output-model-type = "pydantic_v2.BaseModel"
+target-python-version = "3.13"
+use-annotated = true
+field-constraints = true
+use-standard-collections = true
+use-union-operator = true
+use-schema-description = true
+disable-timestamp = true
+formatters = ["ruff-format", "ruff-check"]

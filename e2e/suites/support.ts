@@ -26,7 +26,7 @@ export function expectQuote({ response, body }: Exchange): Quote {
   expect(contractViolations('Quote', body)).toEqual([]);
   const quote = body as Quote;
   expect(quoteViolations(quote, catalog)).toEqual([]);
-  expect(usageViolations(quote.usage, health, 'price')).toEqual([]);
+  expect(usageViolations(quote.usage, health, 'price', quote.judge.attempts)).toEqual([]);
   return quote;
 }
 
@@ -60,7 +60,12 @@ function expectConformingProblem({ response, body }: Exchange, { router = false 
   const stage = REJECTED_BY[problem.code];
   if (response.status === 422 && stage) {
     expect(problem.usage, 'a 422 carries what the refusal cost').toBeDefined();
-    if (problem.usage) expect(usageViolations(problem.usage, health, stage)).toEqual([]);
+    if (problem.usage) expect(usageViolations(problem.usage, health, stage, problem.judge?.attempts)).toEqual([]);
+  }
+  if (problem.code === 'unfaithful_reading') {
+    expect(problem.judge?.attempts, 'a reading is refused after the last attempt').toBe(
+      catalog.limits.max_reading_attempts,
+    );
   }
   return problem;
 }

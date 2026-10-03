@@ -1,6 +1,6 @@
 {
   "id": "quantite-corrigee-ignoree",
-  "note": "Le client corrige « trois exemplaires » en « un seul », la lecture garde 3 (15 × 3 = 45 € au lieu de 15 €) : quantity doit suivre la correction.",
+  "note": "Le client corrige « trois exemplaires » en « un seul », la lecture garde 3 (15 × 3 = 45 € au lieu de 15 €) : le recomptage doit suivre la correction, et count voir l'écart.",
   "tags": [
     "infidele",
     "correction",
@@ -19,6 +19,6 @@
   },
   "expect": {
     "faithful": false,
-    "check": "quantity"
+    "check": "count"
   }
 }

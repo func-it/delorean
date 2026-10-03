@@ -109,7 +109,7 @@ export async function pushToLangfuse(
                     'langfuse.experiment.item.expected_output': JSON.stringify(c.expect),
                     'langfuse.experiment.item.metadata.latency_ms': `${attempt.latency_ms}`,
                     'langfuse.experiment.item.metadata.cost_usd': `${attempt.usage?.cost_usd ?? 0}`,
-                    'langfuse.experiment.item.metadata.backend_trace_id': attempt.usage?.trace_id ?? '',
+                    'langfuse.experiment.item.metadata.quoter_trace_id': attempt.usage?.trace_id ?? '',
                     'langfuse.observation.input': JSON.stringify(c.input),
                     'langfuse.observation.output': JSON.stringify(attempt.outcome ?? { error: attempt.error }),
                   }),

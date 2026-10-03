@@ -1,6 +1,6 @@
 {
   "id": "quantite-lignes-repetees-sous-lue",
-  "note": "Trois lignes « BTTF 2 » lues comme 2 exemplaires : un exemplaire perdu (15 × 2 = 30 € au lieu de 15 × 3 = 45 €). quantity doit compter les lignes répétées, faiblesse connue de Jev, qui reconnaît la forme au lieu de compter.",
+  "note": "Trois lignes « BTTF 2 » lues comme 2 exemplaires : un exemplaire perdu (15 × 2 = 30 € au lieu de 15 × 3 = 45 €). Jev reconnaît la forme au lieu de compter : c'est le recomptage, un second LLM, qui doit compter les lignes répétées, et count voir l'écart.",
   "tags": [
     "infidele",
     "quantite",
@@ -18,6 +18,6 @@
   },
   "expect": {
     "faithful": false,
-    "check": "quantity"
+    "check": "count"
   }
 }

@@ -67,6 +67,14 @@ describe('POST /v1/quotes: malformed requests', () => {
     expectProblem(await postRaw(baseUrl, body), 400, 'malformed_request');
   });
 
+  it.each([
+    ['a byte that is not UTF-8', [0xff]],
+    ['a surrogate encoded in UTF-8', [0xed, 0xa0, 0x80]],
+  ])('rejects a cart with %s as 400 malformed_request, never repaired', async (_, bad) => {
+    const body = Buffer.concat([Buffer.from('{"cart": "Back to the Future '), Buffer.from(bad), Buffer.from('"}')]);
+    expectProblem(await postRaw(baseUrl, new Uint8Array(body)), 400, 'malformed_request');
+  });
+
   it('rejects a body over limits.max_body_bytes with 413', async () => {
     expectProblem(await postRaw(baseUrl, bodyOfBytes(maxBodyBytes + 1)), 413, 'payload_too_large');
   });

@@ -1,0 +1,41 @@
+{
+  "instruction": "Fixture instruction.",
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["films"],
+    "properties": {
+      "films": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["title", "quantity"],
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "quantity": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    }
+  },
+  "message": {
+    "before": "<m>",
+    "after": "</m>"
+  },
+  "retry": {
+    "turn": "Fixture retry:\n{findings}\nAgain.",
+    "finding": "* {check} [{label}] {meaning}",
+    "meanings": {
+      "asked": "fixture asked",
+      "identity": "fixture identity",
+      "missing": "fixture missing",
+      "count": "fixture count"
+    }
+  }
+}

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 
 /**
  * Sessions identify, they do not authenticate: a visitor picks a username,
- * with no password, so that the backend traces can group requests by user and
+ * with no password, so that the quoter traces can group requests by user and
  * by session. Nothing here proves who the visitor is.
  *
  * The session lives in a stateless cookie, sealed with iron-session

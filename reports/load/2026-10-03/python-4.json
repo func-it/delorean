@@ -1,0 +1,96 @@
+{
+  "quoter": "python",
+  "image": "delorean-python:load",
+  "cpus": 4,
+  "memory": "512m",
+  "fake": {
+    "latency": "real",
+    "cpu_ms": 0
+  },
+  "warmup_s": 5,
+  "duration_s": 20,
+  "carts": 34,
+  "rest_mem_mib": 145.2,
+  "steps": [
+    {
+      "concurrency": 1,
+      "requests": 6,
+      "rps": 0.3,
+      "p50_ms": 3806,
+      "p90_ms": 4053,
+      "p99_ms": 4053,
+      "max_ms": 4053,
+      "errors": 0,
+      "timeouts": 0,
+      "cpu_pct_mean": 0.8,
+      "cpu_pct_max": 5.4,
+      "mem_mib_max": 145.2
+    },
+    {
+      "concurrency": 10,
+      "requests": 52,
+      "rps": 2.6,
+      "p50_ms": 3546,
+      "p90_ms": 4000,
+      "p99_ms": 7735,
+      "max_ms": 7735,
+      "errors": 0,
+      "timeouts": 0,
+      "cpu_pct_mean": 2.1,
+      "cpu_pct_max": 7.6,
+      "mem_mib_max": 145.6
+    },
+    {
+      "concurrency": 50,
+      "requests": 286,
+      "rps": 14.3,
+      "p50_ms": 3541,
+      "p90_ms": 6196,
+      "p99_ms": 7741,
+      "max_ms": 7766,
+      "errors": 0,
+      "timeouts": 0,
+      "cpu_pct_mean": 5.5,
+      "cpu_pct_max": 23.5,
+      "mem_mib_max": 146.8
+    },
+    {
+      "concurrency": 100,
+      "requests": 571,
+      "rps": 28.6,
+      "p50_ms": 3574,
+      "p90_ms": 6195,
+      "p99_ms": 7736,
+      "max_ms": 7789,
+      "errors": 0,
+      "timeouts": 0,
+      "cpu_pct_mean": 8.8,
+      "cpu_pct_max": 25.6,
+      "mem_mib_max": 147.3
+    },
+    {
+      "concurrency": 200,
+      "requests": 1145,
+      "rps": 57.3,
+      "p50_ms": 3542,
+      "p90_ms": 6179,
+      "p99_ms": 7731,
+      "max_ms": 8238,
+      "errors": 0,
+      "timeouts": 0,
+      "cpu_pct_mean": 13.9,
+      "cpu_pct_max": 29.9,
+      "mem_mib_max": 150.9
+    }
+  ],
+  "date": "2026-10-03T14:48:30.016Z",
+  "machine": {
+    "cpu": "Apple M2 Max",
+    "host_cpus": 12,
+    "host_mem_gib": 32,
+    "docker": "29.4.1",
+    "docker_cpus": 6,
+    "docker_mem_gib": 12,
+    "host_load": "11.2 9.9 8.9"
+  }
+}

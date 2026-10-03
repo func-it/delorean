@@ -99,7 +99,10 @@ function discountNote({ distinct_volumes, percent, base_cents }: Discount): stri
 function Judge({ judge }: { judge: JudgeOutcome }) {
   return (
     <details className={styles.why}>
-      <summary>Pourquoi ce prix ?</summary>
+      <summary>
+        Pourquoi ce prix ?
+        {judge.attempts > 1 && <small className={styles.reread}>relu {judge.attempts} fois</small>}
+      </summary>
       <div className={styles.whyBody}>
         <p>
           Un modèle a lu les films de votre texte ; avant de chiffrer, un juge a vérifié cette lecture, une courte question

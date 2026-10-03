@@ -1,0 +1,20 @@
+{
+  "order": {
+    "key": "order",
+    "kind": "noul",
+    "instructions": "Fixture question order.",
+    "criteria": {
+      "true": "Fixture yes for order.",
+      "false": "Fixture no for order."
+    }
+  },
+  "steer": {
+    "key": "steer",
+    "kind": "noul",
+    "instructions": "Fixture question steer.",
+    "criteria": {
+      "true": "Fixture yes for steer.",
+      "false": "Fixture no for steer."
+    }
+  }
+}

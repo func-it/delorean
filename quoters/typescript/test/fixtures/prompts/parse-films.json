@@ -1,0 +1,45 @@
+{
+  "instruction": "Fixture instruction, with films.",
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["films"],
+    "properties": {
+      "films": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["title", "quantity", "film"],
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "quantity": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "film": {
+              "type": "string",
+              "enum": ["bttf_1", "bttf_2", "bttf_3", "other"]
+            }
+          }
+        }
+      }
+    }
+  },
+  "message": {
+    "before": "<m>",
+    "after": "</m>"
+  },
+  "retry": {
+    "turn": "Fixture retry:\n{findings}\nAgain.",
+    "finding": "* {check} [{label}] {meaning}",
+    "meanings": {
+      "asked": "fixture asked",
+      "identity": "fixture identity",
+      "missing": "fixture missing",
+      "count": "fixture count"
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import { STAGES, type Health, type Quote } from '../../src/contract.ts';
+import { promptVersions } from '../../src/prompts.ts';
 
 export const FAKE_HEALTH: Health = {
   status: 'ok',
@@ -6,6 +7,7 @@ export const FAKE_HEALTH: Health = {
   version: '1.0.0',
   engines: 'fake',
   tracing: false,
+  prompts: promptVersions(),
 };
 
 /** A faithful quote of the brief's example 5, on fake engines. */
@@ -30,7 +32,12 @@ export function quoteOfExample5(): Quote {
     subtotal_cents: 6500,
     discount: { distinct_volumes: 3, percent: 20, base_cents: 4500, amount_cents: 900 },
     total_cents: 5600,
-    judge: { score: 1, threshold: 0.5, checks: [{ check: 'missing', label: 'the reading', score: 1 }] },
+    judge: {
+      score: 1,
+      threshold: 0.5,
+      checks: [{ check: 'missing', label: 'the whole reading', score: 1 }],
+      attempts: 1,
+    },
     usage: {
       implementation: 'go',
       engines: 'fake',

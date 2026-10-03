@@ -49,11 +49,12 @@ describe('quoteViolations', () => {
     ],
     ['a judge score under its threshold', (q) => judge(q, { score: 0.4 }), 'under the threshold 0.5'],
     ['a judge score above its worst check', (q) => judge(q, { score: 0.9 }), 'not the worst check score'],
+    ['more readings than the limit', (q) => judge(q, { attempts: 4 }), 'judge.attempts 4, a quote takes 1 to'],
   ])('flags %s', (_, tamper, message) => {
     expect(violations(tamper).join('\n')).toContain(message);
   });
 
-  it('points at the root of a mistake the backend carried through its arithmetic', () => {
+  it('points at the root of a mistake the quoter carried through its arithmetic', () => {
     const found = violations((q) => ({
       ...discount(q, { percent: 10, amount_cents: 450 }),
       total_cents: 6050,
@@ -72,6 +73,31 @@ describe('usageViolations', () => {
   it('accepts the stages up to the one that refused', () => {
     const refused = { ...usage(), stages: usage().stages.slice(0, 2) };
     expect(usageViolations(refused, FAKE_HEALTH, 'guard')).toEqual([]);
+  });
+
+  it('accepts a refusal by parse once the recount beside it is done too', () => {
+    const refused = { ...usage(), stages: usage().stages.slice(0, 4) };
+    expect(refused.stages.map((s) => s.stage)).toEqual(['prepare', 'guard', 'parse', 'recount']);
+    expect(usageViolations(refused, FAKE_HEALTH, 'parse')).toEqual([]);
+    const alone = { ...usage(), stages: usage().stages.slice(0, 3) };
+    expect(usageViolations(alone, FAKE_HEALTH, 'parse')).toEqual([
+      'usage.stages ran prepare → guard → parse, expected prepare → guard → parse → recount',
+    ]);
+  });
+
+  it('adds up the calls of a cart read again, on fake engines', () => {
+    const again = usage();
+    for (const stage of again.stages) if (stage.stage === 'parse' || stage.stage === 'recount') stage.calls = 2;
+    expect(usageViolations(again, FAKE_HEALTH, 'price', 2)).toEqual([]);
+    expect(usageViolations(again, FAKE_HEALTH, 'price')).toEqual([
+      expect.stringMatching(/^usage.stages parse: fake engines make one free call .* in one reading/),
+      expect.stringMatching(/^usage.stages recount: fake engines make one free call .* in one reading/),
+    ]);
+    const guardTwice = usage();
+    guardTwice.stages[1]!.calls = 2;
+    expect(usageViolations(guardTwice, FAKE_HEALTH, 'price')).toEqual([
+      expect.stringMatching(/^usage.stages guard: fake engines make one free call/),
+    ]);
   });
 
   it('flags stages out of pipeline order', () => {
@@ -100,7 +126,7 @@ describe('usageViolations', () => {
     const live = usage();
     live.engines = 'live';
     live.stages[1]!.cost_usd = 0.01;
-    live.stages[5]!.cost_usd = 0.01;
+    live.stages[6]!.cost_usd = 0.01;
     live.cost_usd = 0.02;
     expect(usageViolations(live, { ...FAKE_HEALTH, engines: 'live' }, 'price')).toEqual([
       'usage.stages price costs 0.01 USD, yet calls no model',

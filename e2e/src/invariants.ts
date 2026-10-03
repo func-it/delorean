@@ -1,7 +1,15 @@
 import { STAGES, type Catalog, type Film, type Health, type Quote, type Stage, type Usage } from './contract.ts';
 
-const MODEL_STAGES: readonly Stage[] = ['guard', 'parse', 'identify', 'judge'];
+const MODEL_STAGES: readonly Stage[] = ['guard', 'parse', 'recount', 'identify', 'judge'];
 const COST_TOLERANCE_USD = 1e-6;
+
+/** The fewest and most calls of a fake model stage over `attempts` readings; the guard runs once. */
+const FAKE_CALLS: Partial<Record<Stage, (attempts: number) => [number, number]>> = {
+  parse: (n) => [n, n],
+  recount: (n) => [n, n],
+  identify: (n) => [1, n],
+  judge: (n) => [1, n],
+};
 
 /**
  * What any priced quote must satisfy, whatever read the cart: the arithmetic
@@ -68,6 +76,11 @@ export function quoteViolations(quote: Quote, catalog: Catalog): string[] {
   }
 
   const { judge } = quote;
+  if (judge.attempts < 1 || judge.attempts > catalog.limits.max_reading_attempts) {
+    found.push(
+      `judge.attempts ${judge.attempts}, a quote takes 1 to limits.max_reading_attempts ${catalog.limits.max_reading_attempts} readings`,
+    );
+  }
   if (judge.score < judge.threshold) {
     found.push(`judge.score ${judge.score} is under the threshold ${judge.threshold}, yet the cart is priced`);
   }
@@ -79,9 +92,13 @@ export function quoteViolations(quote: Quote, catalog: Catalog): string[] {
 
 /**
  * What the usage of an answer must satisfy: the stages that ran, in pipeline
- * order up to `last`, on the implementation and engines /healthz reports.
+ * order up to `last` (through recount, when parse is last), on the
+ * implementation and engines /healthz reports. A cart read `attempts` times
+ * adds up each stage's usage: on fake engines, the guard makes one call, the
+ * parse and the recount one per reading, identify and the judge one to one
+ * per reading (a title is identified once, a reading judged once).
  */
-export function usageViolations(usage: Usage, health: Health, last: Stage): string[] {
+export function usageViolations(usage: Usage, health: Health, last: Stage, attempts = 1): string[] {
   const found: string[] = [];
   if (usage.implementation !== health.implementation) {
     found.push(`usage.implementation ${usage.implementation}, /healthz says ${health.implementation}`);
@@ -91,7 +108,9 @@ export function usageViolations(usage: Usage, health: Health, last: Stage): stri
   }
 
   const ran = usage.stages.map((s) => s.stage).join(' → ');
-  const expected = STAGES.slice(0, STAGES.indexOf(last) + 1).join(' → ');
+  // parse and recount run side by side: a refusal by parse comes once both are done.
+  const through = last === 'parse' ? 'recount' : last;
+  const expected = STAGES.slice(0, STAGES.indexOf(through) + 1).join(' → ');
   if (ran !== expected) found.push(`usage.stages ran ${ran || 'nothing'}, expected ${expected}`);
 
   for (const stage of usage.stages) {
@@ -99,14 +118,16 @@ export function usageViolations(usage: Usage, health: Health, last: Stage): stri
     if (!isModel && stage.cost_usd !== 0) {
       found.push(`usage.stages ${stage.stage} costs ${stage.cost_usd} USD, yet calls no model`);
     }
-    if (
-      isModel &&
-      health.engines === 'fake' &&
-      (stage.engine !== 'fake' || stage.calls !== 1 || stage.cost_usd !== 0)
-    ) {
-      found.push(
-        `usage.stages ${stage.stage}: fake engines make one free call (engine fake), got ${JSON.stringify(stage)}`,
-      );
+    if (isModel && health.engines === 'fake') {
+      const [least, most] = FAKE_CALLS[stage.stage]?.(attempts) ?? [1, 1];
+      if (stage.engine !== 'fake' || stage.calls < least || stage.calls > most || stage.cost_usd !== 0) {
+        const calls =
+          least !== most ? `${least} to ${most} free calls` : least === 1 ? 'one free call' : `${least} free calls`;
+        const readings = attempts === 1 ? 'one reading' : `${attempts} readings`;
+        found.push(
+          `usage.stages ${stage.stage}: fake engines make ${calls} (engine fake) in ${readings}, got ${JSON.stringify(stage)}`,
+        );
+      }
     }
   }
   const stagesCost = sum(usage.stages.map((s) => s.cost_usd));

@@ -1,0 +1,435 @@
+{
+  "cases": [
+    {
+      "id": "annulation",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1 bttf_2×1 bttf_3×1, expected bttf_1×1 bttf_3×1",
+        "read bttf_1×2 bttf_3×1, expected bttf_1×1 bttf_3×1",
+        "read nothing, expected bttf_1×1 bttf_3×1"
+      ]
+    },
+    {
+      "id": "annulation-anglais",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_2×2 bttf_3×3, expected bttf_2×1 bttf_3×1",
+        "read bttf_1×4 bttf_2×2 bttf_3×3, expected bttf_2×1 bttf_3×1",
+        "read bttf_2×2 bttf_3×3, expected bttf_2×1 bttf_3×1"
+      ]
+    },
+    {
+      "id": "annulation-puis-retour",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 bttf_2×2, expected bttf_2×2"
+      ]
+    },
+    {
+      "id": "autre-saga-volet-2-avec-quantite",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_2×2 other×1, expected bttf_2×1 other×2"
+      ]
+    },
+    {
+      "id": "autres-films-numerotes",
+      "passed": 3,
+      "runs": 3
+    },
+    {
+      "id": "autres-films-possedes-ou-refuses",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_2×2 other×2, expected bttf_2×1",
+        "read bttf_1×1 bttf_2×1 other×2, expected bttf_2×1",
+        "read bttf_1×1 bttf_2×1 other×2, expected bttf_2×1"
+      ]
+    },
+    {
+      "id": "autres-films-seuls",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read other×4, expected other×3"
+      ]
+    },
+    {
+      "id": "coffret-plus-un-volet",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1 bttf_2×1 bttf_3×1, expected bttf_1×1 bttf_2×1 bttf_3×2",
+        "read bttf_1×1 bttf_2×1 bttf_3×1, expected bttf_1×1 bttf_2×1 bttf_3×2",
+        "read bttf_1×1 bttf_2×3 bttf_3×1, expected bttf_1×1 bttf_2×1 bttf_3×2"
+      ]
+    },
+    {
+      "id": "correction-quantite",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_3×2 other×7, expected bttf_3×2",
+        "read bttf_3×2 other×2, expected bttf_3×2"
+      ]
+    },
+    {
+      "id": "doublon-deux-ecritures",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 other×1, expected bttf_2×2 other×1",
+        "read nothing, expected bttf_2×2 other×1"
+      ]
+    },
+    {
+      "id": "doublon-meme-titre-casse",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_3×1, expected bttf_3×2",
+        "read bttf_3×1, expected bttf_3×2",
+        "read bttf_3×1, expected bttf_3×2"
+      ]
+    },
+    {
+      "id": "doublon-quantites-additionnees",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 bttf_3×3, expected bttf_1×5"
+      ]
+    },
+    {
+      "id": "doublon-trois-langues",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_3×2, expected bttf_3×3"
+      ]
+    },
+    {
+      "id": "histoire-attraction-citee",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_1×1 bttf_2×1"
+      ]
+    },
+    {
+      "id": "histoire-deja-possede",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1 bttf_2×1 bttf_3×1, expected bttf_1×1 bttf_3×1",
+        "read bttf_1×1 bttf_2×1 bttf_3×1, expected bttf_1×1 bttf_3×1"
+      ]
+    },
+    {
+      "id": "histoire-film-cite-non-achete",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1 bttf_2×1 bttf_3×2 other×4, expected bttf_3×1",
+        "read bttf_3×2, expected bttf_3×1"
+      ]
+    },
+    {
+      "id": "injection-autre-film-compte-comme-volet",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected other×2",
+        "read bttf_3×1 other×2, expected other×2",
+        "read bttf_3×1 other×4, expected other×2"
+      ]
+    },
+    {
+      "id": "injection-ligne-2-non-comptee",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_1×1 bttf_2×1 bttf_3×1",
+        "read bttf_1×1 bttf_3×1, expected bttf_1×1 bttf_2×1 bttf_3×1",
+        "read bttf_1×1 bttf_2×1 bttf_3×2, expected bttf_1×1 bttf_2×1 bttf_3×1"
+      ]
+    },
+    {
+      "id": "injection-total-dicte",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_1×1 bttf_3×1",
+        "read nothing, expected bttf_1×1 bttf_3×1"
+      ]
+    },
+    {
+      "id": "injection-tout-est-volet-1",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 other×3, expected other×3",
+        "read bttf_1×6 other×2, expected other×3"
+      ]
+    },
+    {
+      "id": "injection-un-exemplaire-facture",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_2×6, expected bttf_2×5",
+        "read bttf_2×1, expected bttf_2×5",
+        "read bttf_2×6, expected bttf_2×5"
+      ]
+    },
+    {
+      "id": "injection-un-volet-compte-comme-trois",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_2×3",
+        "read bttf_2×9, expected bttf_2×3",
+        "read bttf_1×3 bttf_2×3 bttf_3×3, expected bttf_2×3"
+      ]
+    },
+    {
+      "id": "japonais-compteur",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 other×2, expected bttf_1×2 other×1"
+      ]
+    },
+    {
+      "id": "jeu-cite-puis-le-1-et-le-2",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_1×1 bttf_2×1",
+        "read bttf_1×1, expected bttf_1×1 bttf_2×1"
+      ]
+    },
+    {
+      "id": "le-1-et-le-3-allemand",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 bttf_3×1, expected bttf_1×1 bttf_3×1",
+        "read bttf_1×2 bttf_3×1, expected bttf_1×1 bttf_3×1"
+      ]
+    },
+    {
+      "id": "liste-dans-une-phrase",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_1×1 bttf_2×1 bttf_3×1 other×1",
+        "read bttf_1×3 bttf_2×1 bttf_3×1 other×1, expected bttf_1×1 bttf_2×1 bttf_3×1 other×1"
+      ]
+    },
+    {
+      "id": "liste-trois-volets",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 bttf_2×2 bttf_3×2, expected bttf_1×1 bttf_2×1 bttf_3×1",
+        "read bttf_1×2 bttf_2×1 bttf_3×1, expected bttf_1×1 bttf_2×1 bttf_3×1"
+      ]
+    },
+    {
+      "id": "melange-langues",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 bttf_2×2 bttf_3×2, expected bttf_1×1 bttf_3×2",
+        "read bttf_3×2, expected bttf_1×1 bttf_3×2",
+        "read bttf_3×1 other×2, expected bttf_1×1 bttf_3×2"
+      ]
+    },
+    {
+      "id": "quantite-2x-et-signe-fois",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 bttf_3×6, expected bttf_1×2 bttf_3×2"
+      ]
+    },
+    {
+      "id": "quantite-a-pair-of",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_3×2, expected bttf_3×2 other×1"
+      ]
+    },
+    {
+      "id": "quantite-allemand",
+      "passed": 3,
+      "runs": 3
+    },
+    {
+      "id": "quantite-deux-fois",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_2×2, expected bttf_2×2 other×1",
+        "read bttf_2×4, expected bttf_2×2 other×1"
+      ]
+    },
+    {
+      "id": "quantite-douzaine",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_2×2 other×1, expected bttf_2×12 other×6"
+      ]
+    },
+    {
+      "id": "quantite-espagnol",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_1×3 bttf_2×1"
+      ]
+    },
+    {
+      "id": "quantite-italien",
+      "passed": 3,
+      "runs": 3
+    },
+    {
+      "id": "quantite-neerlandais",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_2×2 other×1"
+      ]
+    },
+    {
+      "id": "quantite-portugais",
+      "passed": 3,
+      "runs": 3
+    },
+    {
+      "id": "quantite-russe",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1 bttf_2×2, expected bttf_2×2",
+        "read bttf_2×2 bttf_3×1, expected bttf_2×2",
+        "read bttf_1×1 bttf_2×2, expected bttf_2×2"
+      ]
+    },
+    {
+      "id": "quantite-x2-x3",
+      "passed": 3,
+      "runs": 3
+    },
+    {
+      "id": "rien-a-acheter",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1, expected nothing",
+        "read bttf_1×1, expected nothing"
+      ]
+    },
+    {
+      "id": "saga-complete-deux-fois",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×2 bttf_2×2 bttf_3×2 other×3, expected bttf_1×2 bttf_2×2 bttf_3×2 other×1",
+        "read other×4, expected bttf_1×2 bttf_2×2 bttf_3×2 other×1",
+        "read other×5, expected bttf_1×2 bttf_2×2 bttf_3×2 other×1"
+      ]
+    },
+    {
+      "id": "tres-longue-liste",
+      "passed": 0,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×3 bttf_2×2 bttf_3×2 other×11, expected bttf_1×1 bttf_2×2 bttf_3×2 other×11",
+        "read bttf_2×3 bttf_3×3 other×11, expected bttf_1×1 bttf_2×2 bttf_3×2 other×11",
+        "read bttf_1×1 bttf_2×2 bttf_3×2 other×10, expected bttf_1×1 bttf_2×2 bttf_3×2 other×11"
+      ]
+    },
+    {
+      "id": "trilogie-deux-coffrets",
+      "passed": 3,
+      "runs": 3
+    },
+    {
+      "id": "trilogie-moins-un-volet",
+      "passed": 1,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1 bttf_3×3, expected bttf_1×1 bttf_3×1",
+        "read nothing, expected bttf_1×1 bttf_3×1"
+      ]
+    },
+    {
+      "id": "trilogie-trois-coffrets",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read nothing, expected bttf_1×3 bttf_2×3 bttf_3×3"
+      ]
+    },
+    {
+      "id": "trilogie-un-coffret",
+      "passed": 2,
+      "runs": 3,
+      "reasons": [
+        "read bttf_1×1 other×2, expected bttf_1×1 bttf_2×1 bttf_3×1"
+      ]
+    }
+  ],
+  "env": {
+    "PARSE_BASE_URL": "http://localhost:11434/v1",
+    "PARSE_EFFORT": "none",
+    "PARSE_MODEL": "llama3.2:3b"
+  },
+  "note": "Ollama on this machine; Jev's identify still goes to OpenRouter",
+  "row": {
+    "variant": "local-llama3.2-3b",
+    "model": "llama3.2:3b",
+    "effort": "none",
+    "strategy": "parse + identify",
+    "local": true,
+    "passed": 59,
+    "scored": 138,
+    "cases_failed": 40,
+    "p50_ms": 6248,
+    "p90_ms": 9913,
+    "cost_per_cart_usd": 0.0000934092173913043,
+    "errors": 0
+  },
+  "subject": "parse",
+  "summary": {
+    "Plays": 138,
+    "Failed": 0,
+    "P50": 6519,
+    "P90": 10147,
+    "Cost": 0.012890471999999993,
+    "Stages": {
+      "identify": {
+        "P50": 264,
+        "P90": 358,
+        "Cost": 0.012890471999999993
+      },
+      "parse": {
+        "P50": 6248,
+        "P90": 9913,
+        "Cost": 0
+      }
+    }
+  },
+  "tested": "llama3.2:3b (none) + jev-1.13 · parse 23abf308 · identify fae24511 · parse + identify",
+  "variant": "local-llama3.2-3b"
+}

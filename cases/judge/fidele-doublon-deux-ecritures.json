@@ -1,6 +1,6 @@
 {
   "id": "fidele-doublon-deux-ecritures",
-  "note": "Deux titres du même volet, une ligne chacun avec 1 exemplaire : quantity porte sur le titre, pas sur le film. Garde contre une fausse alerte.",
+  "note": "Deux titres du même volet, une ligne chacun avec 1 exemplaire : count compare par film, 2 exemplaires du volet 2 dans les deux lectures. Garde contre une fausse alerte.",
   "tags": [
     "fidele",
     "doublon",

@@ -1,0 +1,13 @@
+{
+  "film": {
+    "key": "film",
+    "kind": "choice",
+    "instructions": "Fixture question film.",
+    "criteria": {
+      "bttf_1": "Fixture bttf_1.",
+      "bttf_2": "Fixture bttf_2.",
+      "bttf_3": "Fixture bttf_3.",
+      "other": "Fixture other."
+    }
+  }
+}

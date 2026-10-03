@@ -42,7 +42,7 @@
   min-width: 0;
 }
 
-.backend {
+.quoter {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -50,7 +50,7 @@
   color: var(--ink-muted);
 }
 
-.backend select {
+.quoter select {
   width: auto;
   min-height: 36px;
   padding: 4px 8px;

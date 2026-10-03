@@ -1,6 +1,6 @@
 {
   "id": "fidele-titres-allemands",
-  "note": "Titres gardés en allemand, quantité en mot (« zweimal ») : lecture exacte. Garde contre une fausse alerte d'asked ou d'identity sur un titre non traduit, ou de quantity sur un nombre en lettres.",
+  "note": "Titres gardés en allemand, quantité en mot (« zweimal ») : lecture exacte. Garde contre une fausse alerte d'asked ou d'identity sur un titre non traduit, ou de count sur un nombre en lettres.",
   "tags": [
     "fidele",
     "quantite",

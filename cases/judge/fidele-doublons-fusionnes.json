@@ -1,6 +1,6 @@
 {
   "id": "fidele-doublons-fusionnes",
-  "note": "Trois mentions du volet 3 (dont une en minuscules), séparées par un autre film, fusionnées en une ligne de 3 : lecture exacte. Garde contre une fausse alerte de quantity quand les mentions ne se suivent pas.",
+  "note": "Trois mentions du volet 3 (dont une en minuscules), séparées par un autre film, fusionnées en une ligne de 3 : lecture exacte. Garde contre une fausse alerte de count quand les mentions ne se suivent pas.",
   "tags": [
     "fidele",
     "doublon",

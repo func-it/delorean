@@ -121,13 +121,30 @@ export interface components {
             probabilities?: {
                 [key: string]: number;
             };
+            /**
+             * @description The two facts the guard asks about, each in a request of its own:
+             *     `order`, the probability that the message orders films; `steer`,
+             *     the probability that some of it speaks to the system rather than
+             *     to the shop. The verdict's probabilities are made of them:
+             *     injection = steer, valid = (1 − steer) × order,
+             *     invalid = (1 − steer) × (1 − order); the verdict is the likeliest
+             *     and `confidence` its probability.
+             */
+            questions?: {
+                order: number;
+                steer: number;
+            };
         };
         /**
          * @description The judge puts one short question per observable fact and keeps the
          *     worst answer as the score. The cart is priced only when
-         *     `score >= threshold`.
+         *     `score >= threshold`. A reading the judge refuses is read again, told
+         *     what failed, up to `limits.max_reading_attempts` readings (3 by default);
+         *     the outcome is that of the last reading judged.
          */
         JudgeOutcome: {
+            /** @description How many readings were made before this outcome. */
+            attempts: number;
             score: number;
             threshold: number;
             checks: components["schemas"]["JudgeCheck"][];
@@ -136,12 +153,17 @@ export interface components {
             /**
              * @description `asked`: the customer asks for this film (nothing invented).
              *     `identity`: the title is the film it was identified as.
-             *     `quantity`: the customer asks for this many copies.
+             *     `count`: the reading and the recount give this film the same
+             *     number of copies (1) or not (0); one per film either reading has,
+             *     `other` counting every film outside the saga together.
              *     `missing`: no film asked for is left out of the reading.
              * @enum {string}
              */
-            check: "asked" | "identity" | "quantity" | "missing";
-            /** @description What the check was put about (a line, or the whole reading). */
+            check: "asked" | "identity" | "count" | "missing";
+            /**
+             * @description What the check was put about: a line, the whole reading, or for
+             *     `count` the film and both counts ("bttf_2: 1 read, 2 recounted").
+             */
             label: string;
             score: number;
         };
@@ -161,7 +183,7 @@ export interface components {
         };
         StageUsage: {
             /** @enum {string} */
-            stage: "prepare" | "guard" | "parse" | "identify" | "judge" | "price";
+            stage: "prepare" | "guard" | "parse" | "recount" | "identify" | "judge" | "price";
             /**
              * @example jev-1.13
              * @example openai/gpt-6-luna
@@ -185,8 +207,8 @@ export interface components {
             type: string;
             title: string;
             status: number;
-            detail?: string;
             code: components["schemas"]["ProblemCode"];
+            detail?: string;
             request_id?: string;
             guard?: components["schemas"]["GuardOutcome"];
             judge?: components["schemas"]["JudgeOutcome"];
@@ -229,6 +251,18 @@ export interface components {
             engines: "live" | "fake";
             /** @description Whether traces are exported to Langfuse. */
             tracing: boolean;
+            /**
+             * @description The version of each prompt file the service runs (`prompts/`):
+             *     the first 8 hex digits of the SHA-256 of the file's bytes. Two
+             *     implementations with the same versions ask the models the same
+             *     questions; the system bench compares only those.
+             */
+            prompts: {
+                guard: string;
+                parse: string;
+                identify: string;
+                judge: string;
+            };
         };
         Catalog: {
             /** @constant */
@@ -250,6 +284,8 @@ export interface components {
             percent: number;
         };
         Limits: {
+            /** @description Most readings of one cart, the first included, before it is refused as `unfaithful_reading`. */
+            max_reading_attempts: number;
             max_body_bytes: number;
             max_input_tokens: number;
             /** @description Most copies of one title a cart may ask for. */

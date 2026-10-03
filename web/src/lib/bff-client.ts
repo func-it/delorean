@@ -3,16 +3,16 @@ import { type Catalog, isProblem, type Problem, type ProblemCode, type Quote } f
 /** What the browser gets from the BFF: the payload, or a problem to explain. */
 export type BffResult<T> = { ok: true; data: T } | { ok: false; problem: Problem };
 
-export function requestQuote(cart: string, backend: string): Promise<BffResult<Quote>> {
+export function requestQuote(cart: string, quoter: string): Promise<BffResult<Quote>> {
   return callBff("/api/quotes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cart, backend }),
+    body: JSON.stringify({ cart, quoter }),
   });
 }
 
-export function requestCatalog(backend: string, signal: AbortSignal): Promise<BffResult<Catalog>> {
-  return callBff(`/api/catalog?${new URLSearchParams({ backend })}`, { signal });
+export function requestCatalog(quoter: string, signal: AbortSignal): Promise<BffResult<Catalog>> {
+  return callBff(`/api/catalog?${new URLSearchParams({ quoter })}`, { signal });
 }
 
 async function callBff<T>(path: string, init: RequestInit): Promise<BffResult<T>> {
@@ -21,8 +21,8 @@ async function callBff<T>(path: string, init: RequestInit): Promise<BffResult<T>
     response = await fetch(path, init);
   } catch (error) {
     if (init.signal?.aborted) throw error;
-    // The BFF itself is out of reach (offline, server restarting): same advice as a silent backend.
-    return { ok: false, problem: localProblem("backend_unavailable", 0) };
+    // The BFF itself is out of reach (offline, server restarting): same advice as a silent quoter.
+    return { ok: false, problem: localProblem("quoter_unavailable", 0) };
   }
   const body: unknown = await response.json().catch(() => null);
   if (response.ok && body !== null) return { ok: true, data: body as T };

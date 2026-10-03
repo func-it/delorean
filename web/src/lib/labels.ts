@@ -6,8 +6,8 @@ export const LOW_CONFIDENCE = 0.7;
 export const CHECK_NAMES: Record<JudgeCheck["check"], string> = {
   asked: "Film demandé",
   identity: "Film reconnu",
-  quantity: "Quantité",
   missing: "Rien d'oublié",
+  count: "Recompté",
 };
 
 export const VERDICT_NAMES: Record<GuardOutcome["verdict"], string> = {

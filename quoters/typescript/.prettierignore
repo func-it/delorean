@@ -1,0 +1,5 @@
+src/generated/
+package-lock.json
+# written in the style of the repository's other Taskfiles and READMEs
+Taskfile.yml
+README.md

@@ -4,12 +4,12 @@ import styles from "./Header.module.css";
 
 interface Props {
   username: string;
-  backends: string[];
-  backend: string;
-  onBackendChange: (backend: string) => void;
+  quoters: string[];
+  quoter: string;
+  onQuoterChange: (quoter: string) => void;
 }
 
-export function Header({ username, backends, backend, onBackendChange }: Props) {
+export function Header({ username, quoters, quoter, onQuoterChange }: Props) {
   return (
     <header className={styles.header}>
       <div className={styles.inner}>
@@ -20,11 +20,11 @@ export function Header({ username, backends, backend, onBackendChange }: Props) 
           Delorean
         </p>
         <div className={styles.session}>
-          {backends.length > 1 && (
-            <label className={styles.backend}>
-              Backend
-              <select className="field" value={backend} onChange={(event) => onBackendChange(event.target.value)}>
-                {backends.map((name) => (
+          {quoters.length > 1 && (
+            <label className={styles.quoter}>
+              Quoter
+              <select className="field" value={quoter} onChange={(event) => onQuoterChange(event.target.value)}>
+                {quoters.map((name) => (
                   <option key={name} value={name}>
                     {name}
                   </option>

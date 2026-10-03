@@ -61,8 +61,16 @@ describe("QuoteResult", () => {
     const details = why.closest("details")!;
     expect(details).toHaveAttribute("open");
     expect(text(details)).toContain("91 %, pour un seuil de 50 %");
-    expect(text(details)).toContain("Quantité : La chèvre × 1");
     expect(text(details)).toContain("Rien d'oublié : the whole reading");
+    expect(text(details)).toContain("Recompté : other: 1 read, 1 recounted");
+  });
+
+  it("says, small, when the cart was read more than once", () => {
+    const { rerender } = render(<QuoteResult quote={quote} catalog={catalog} />);
+    expect(screen.queryByText(/relu/)).not.toBeInTheDocument();
+
+    rerender(<QuoteResult quote={{ ...quote, judge: { ...quote.judge, attempts: 2 } }} catalog={catalog} />);
+    expect(screen.getByText("relu 2 fois").tagName).toBe("SMALL");
   });
 
   it("names films without the catalog too", () => {

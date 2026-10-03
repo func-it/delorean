@@ -1,6 +1,6 @@
 {
   "id": "quantite-gonflee",
-  "note": "« einmal » lu comme quatre : une quantité gonflée facture le client pour rien.",
+  "note": "« einmal » lu comme quatre : une quantité gonflée facture le client pour rien. Le recomptage en lit un, et count doit voir l'écart.",
   "tags": [
     "infidele",
     "quantite",
@@ -18,6 +18,6 @@
   },
   "expect": {
     "faithful": false,
-    "check": "quantity"
+    "check": "count"
   }
 }

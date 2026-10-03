@@ -1,6 +1,6 @@
 {
   "id": "fidele-quantite-implicite",
-  "note": "« un pour moi et un pour mon frère » lu comme 2 exemplaires : lecture exacte. Garde contre une fausse alerte de quantity quand le nombre n'est écrit nulle part.",
+  "note": "« un pour moi et un pour mon frère » lu comme 2 exemplaires : lecture exacte. Garde contre une fausse alerte de count quand le nombre n'est écrit nulle part.",
   "tags": [
     "fidele",
     "quantite",

@@ -427,3 +427,43 @@ svg .ah { fill: var(--ink-muted); }
   font-size: 0.88rem;
   border-top: 1px solid var(--line);
 }
+
+/* Quoters: the side-by-side tables, the trees and the key functions. */
+.doc .services.inline { max-width: 560px; margin: 0 0 1.2em; }
+.doc .services.inline li { max-width: none; margin: 0; }
+.doc table.compare { min-width: 860px; table-layout: fixed; }
+.doc table.compare col.label { width: 150px; }
+.doc table.compare th[scope="row"] { font-weight: 600; background: var(--sunken); }
+.doc table.compare td code { white-space: normal; overflow-wrap: anywhere; }
+.doc table.compare tr.diverge th[scope="row"] { box-shadow: inset 3px 0 0 var(--amber); }
+.doc table.compare .why { display: block; margin-top: 4px; color: var(--ink-muted); font-size: 0.86rem; }
+.doc pre.tree { line-height: 1.6; }
+.tree .role { color: var(--ink-muted); }
+.tree .dir { color: var(--amber-ink); }
+.fns { display: grid; gap: 10px; margin: 0 0 1.4em; padding: 0; list-style: none; counter-reset: fn; }
+.doc .fns > li { max-width: none; margin: 0; }
+.fn {
+  counter-increment: fn;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.fn-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; }
+.fn-step {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--amber-ink);
+}
+.fn-step::before { content: counter(fn, decimal-leading-zero) " · "; color: var(--ink-muted); }
+.fn-src { font-family: var(--font-mono); font-size: 0.8rem; overflow-wrap: anywhere; }
+.doc .fn pre.sig {
+  margin: 8px 0;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.doc .fn p { margin: 0; font-size: 0.95rem; }

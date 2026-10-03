@@ -8,7 +8,7 @@ import type { Report } from '../src/bench/report.ts';
 import { runBench } from '../src/bench/run.ts';
 import { loadQuoteCases, selectCases } from '../src/cases.ts';
 import { STAGES } from '../src/contract.ts';
-import { startStubBackend, type Stub, type StubOptions } from './support/stub-backend.ts';
+import { startStubQuoter, type Stub, type StubOptions } from './support/stub-quoter.ts';
 
 let stub: Stub | undefined;
 afterEach(async () => {
@@ -17,14 +17,14 @@ afterEach(async () => {
 });
 
 async function benchAgainst(options: StubOptions = {}, runs = 1): Promise<Report> {
-  stub = await startStubBackend(options);
+  stub = await startStubQuoter(options);
   const health = await fetchHealth(stub.url);
   const cases = selectCases(loadQuoteCases(), health.engines);
   return runBench({ baseUrl: stub.url, health, cases, runs, concurrency: 3 });
 }
 
 describe('runBench', () => {
-  it('plays every fake case on each run, and a faithful backend passes them all', async () => {
+  it('plays every fake case on each run, and a faithful quoter passes them all', async () => {
     const report = await benchAgainst({}, 2);
     const played = stub?.requests.filter((r) => r === 'POST /v1/quotes') ?? [];
     expect(played).toHaveLength(report.cases.length * 2);
@@ -58,7 +58,7 @@ describe('npm run bench', () => {
   });
 
   it('announces its plan, then writes the report as JSON and Markdown', async () => {
-    stub = await startStubBackend();
+    stub = await startStubQuoter();
     const out = mkdtempSync(join(tmpdir(), 'reports-'));
     const code = await bench(['--base-url', stub.url, '--runs', '2', '--tag', 'enonce', '--out', out], {}, io);
 
@@ -76,7 +76,7 @@ describe('npm run bench', () => {
   });
 
   it('refuses live engines without RUN_LIVE=1, before sending a single quote', async () => {
-    stub = await startStubBackend({ health: { engines: 'live' } });
+    stub = await startStubQuoter({ health: { engines: 'live' } });
     const code = await bench(['--base-url', stub.url], {}, io);
 
     expect(code).toBe(1);

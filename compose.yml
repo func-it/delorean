@@ -1,18 +1,23 @@
 # The whole stack, one command:
 #   docker compose up --build                 # live engines: OPENROUTER_API_KEY in .env
 #   ENGINES=fake docker compose up --build    # deterministic fake engines, no key, no cost
-# Web app on http://localhost:24790, Go API on http://localhost:24791,
+# Web app on http://localhost:24790, Go quoter on http://localhost:24791,
 # documentation on http://localhost:24795.
 name: delorean
 
 services:
-  api-go:
+  quoter-go:
     build:
-      context: ./backends/go
+      context: .
+      dockerfile: quoters/go/Dockerfile
     environment:
       ENGINES: ${ENGINES:-live}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       PARSE_MODEL: ${PARSE_MODEL:-openai/gpt-6-luna}
+      PARSE_EFFORT: ${PARSE_EFFORT:-minimal}
+      RECOUNT_MODEL: ${RECOUNT_MODEL:-deepseek/deepseek-v4.1-flash}
+      RECOUNT_EFFORT: ${RECOUNT_EFFORT:-low}
+      READ_ATTEMPTS: ${READ_ATTEMPTS:-3}
       JEV_MODEL: ${JEV_MODEL:-typesafe/jev-1.13}
       # traces go to the local Langfuse (deploy/langfuse), seen from the container
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
@@ -24,18 +29,78 @@ services:
       - "127.0.0.1:24791:24791"
     restart: unless-stopped
 
+  # The TypeScript implementation, the same contract on :24793. Built from the
+  # repository's root: the image carries the shared prompts/.
+  quoter-typescript:
+    build:
+      context: .
+      dockerfile: quoters/typescript/Dockerfile
+    environment:
+      ENGINES: ${ENGINES:-live}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      PARSE_MODEL: ${PARSE_MODEL:-openai/gpt-6-luna}
+      PARSE_EFFORT: ${PARSE_EFFORT:-minimal}
+      RECOUNT_MODEL: ${RECOUNT_MODEL:-deepseek/deepseek-v4.1-flash}
+      RECOUNT_EFFORT: ${RECOUNT_EFFORT:-low}
+      READ_ATTEMPTS: ${READ_ATTEMPTS:-3}
+      JEV_MODEL: ${JEV_MODEL:-typesafe/jev-1.13}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_BASE_URL: ${LANGFUSE_DOCKER_BASE_URL:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:24793:24793"
+    restart: unless-stopped
+
+  # The Python implementation, the same contract on :24792. Built from the
+  # repository's root: the image carries the shared prompts/.
+  quoter-python:
+    build:
+      context: .
+      dockerfile: quoters/python/Dockerfile
+    environment:
+      ENGINES: ${ENGINES:-live}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      PARSE_MODEL: ${PARSE_MODEL:-openai/gpt-6-luna}
+      PARSE_EFFORT: ${PARSE_EFFORT:-minimal}
+      RECOUNT_MODEL: ${RECOUNT_MODEL:-deepseek/deepseek-v4.1-flash}
+      RECOUNT_EFFORT: ${RECOUNT_EFFORT:-low}
+      READ_ATTEMPTS: ${READ_ATTEMPTS:-3}
+      JEV_MODEL: ${JEV_MODEL:-typesafe/jev-1.13}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_BASE_URL: ${LANGFUSE_DOCKER_BASE_URL:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:24792:24792"
+    restart: unless-stopped
+
   web:
     build:
       context: ./web
     environment:
-      BACKENDS: '{"go":"http://api-go:24791"}'
+      QUOTERS: '{"go":"http://quoter-go:24791","typescript":"http://quoter-typescript:24793","python":"http://quoter-python:24792"}'
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET (32+ characters) in .env}
       # served over plain HTTP on localhost: a Secure cookie would be dropped by some browsers
       SESSION_COOKIE_SECURE: "false"
+      # the strike rule (web/README.md): injection refusals before a block (a session or a
+      # username; an address), quotes in flight per address, the window and the block's length
+      STRIKE_LIMIT: ${STRIKE_LIMIT:-3}
+      IP_STRIKE_LIMIT: ${IP_STRIKE_LIMIT:-10}
+      IP_MAX_IN_FLIGHT: ${IP_MAX_IN_FLIGHT:-4}
+      STRIKE_WINDOW_S: ${STRIKE_WINDOW_S:-900}
+      STRIKE_BLOCK_S: ${STRIKE_BLOCK_S:-900}
+      REFUSAL_MEMORY_S: ${REFUSAL_MEMORY_S:-21600}
+      # no proxy in front of the port published below; behind one that appends to X-Forwarded-For, 1
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
     ports:
       - "127.0.0.1:24790:24790"
     depends_on:
-      - api-go
+      - quoter-go
+      - quoter-typescript
+      - quoter-python
     restart: unless-stopped
 
   # The documentation site, http://localhost:24795: the static pages and, under

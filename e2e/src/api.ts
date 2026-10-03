@@ -30,8 +30,12 @@ export async function postQuote(
   return { response, body: data ?? error };
 }
 
-/** Posts a body as is, for the requests a typed client refuses to build. */
-export function postRaw(baseUrl: string, body: string, headers: Record<string, string> = {}): Promise<Exchange> {
+/** Posts a body as is, for the requests a typed client refuses to build: bytes go out untouched. */
+export function postRaw(
+  baseUrl: string,
+  body: string | Uint8Array<ArrayBuffer>,
+  headers: Record<string, string> = {},
+): Promise<Exchange> {
   return send(baseUrl, '/v1/quotes', {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...headers },
@@ -50,7 +54,7 @@ export async function fetchHealth(baseUrl: string): Promise<Health> {
   try {
     result = await api(baseUrl).GET('/healthz');
   } catch (cause) {
-    throw new Error(`No backend answers at ${baseUrl}: start one (ENGINES=fake) or set BASE_URL.`, { cause });
+    throw new Error(`No quoter answers at ${baseUrl}: start one (ENGINES=fake) or set BASE_URL.`, { cause });
   }
   if (!result.data) throw new Error(`GET ${baseUrl}/healthz answered ${result.response.status}`);
   return result.data;

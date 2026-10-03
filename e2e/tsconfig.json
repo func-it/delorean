@@ -17,5 +17,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src", "suites", "test", "*.ts"]
+  "include": ["src", "suites", "parity", "test", "*.ts"]
 }

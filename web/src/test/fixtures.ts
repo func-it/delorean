@@ -12,7 +12,7 @@ export const catalog: Catalog = {
     { distinct_volumes: 3, percent: 20 },
     { distinct_volumes: 2, percent: 10 },
   ],
-  limits: { max_body_bytes: 65536, max_input_tokens: 2048, max_copies_per_title: 1000 },
+  limits: { max_body_bytes: 65536, max_input_tokens: 2048, max_copies_per_title: 1000, max_reading_attempts: 3 },
 };
 
 /** Example 5 of the brief, read with one doubtful identification. */
@@ -29,12 +29,13 @@ export const quote: Quote = {
   discount: { distinct_volumes: 3, percent: 20, base_cents: 4500, amount_cents: 900 },
   total_cents: 5600,
   judge: {
+    attempts: 1,
     score: 0.91,
     threshold: 0.5,
     checks: [
       { check: "asked", label: "Back to the Future 1", score: 0.99 },
-      { check: "quantity", label: "La chèvre × 1", score: 0.93 },
       { check: "missing", label: "the whole reading", score: 0.91 },
+      { check: "count", label: "other: 1 read, 1 recounted", score: 1 },
     ],
   },
   usage: { implementation: "go", engines: "live", duration_ms: 1840, cost_usd: 0.00213, stages: [] },

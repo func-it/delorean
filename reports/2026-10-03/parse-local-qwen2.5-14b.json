@@ -1,0 +1,276 @@
+{
+  "cases": [
+    {
+      "id": "annulation",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "annulation-anglais",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "annulation-puis-retour",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "autre-saga-volet-2-avec-quantite",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "autres-films-numerotes",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "autres-films-possedes-ou-refuses",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "autres-films-seuls",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "coffret-plus-un-volet",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "correction-quantite",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "doublon-deux-ecritures",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "doublon-meme-titre-casse",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "doublon-quantites-additionnees",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "doublon-trois-langues",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "histoire-attraction-citee",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "histoire-deja-possede",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "histoire-film-cite-non-achete",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "injection-autre-film-compte-comme-volet",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "injection-ligne-2-non-comptee",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "injection-total-dicte",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "injection-tout-est-volet-1",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "injection-un-exemplaire-facture",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "injection-un-volet-compte-comme-trois",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "japonais-compteur",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "jeu-cite-puis-le-1-et-le-2",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "le-1-et-le-3-allemand",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "liste-dans-une-phrase",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "liste-trois-volets",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "melange-langues",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "quantite-2x-et-signe-fois",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "quantite-a-pair-of",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "quantite-allemand",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "quantite-deux-fois",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "quantite-douzaine",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "quantite-espagnol",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "quantite-italien",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "quantite-neerlandais",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "quantite-portugais",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "quantite-russe",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "quantite-x2-x3",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "rien-a-acheter",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "saga-complete-deux-fois",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "tres-longue-liste",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "trilogie-deux-coffrets",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "trilogie-moins-un-volet",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "trilogie-trois-coffrets",
+      "passed": 0,
+      "runs": 3
+    },
+    {
+      "id": "trilogie-un-coffret",
+      "passed": 0,
+      "runs": 3
+    }
+  ],
+  "env": {
+    "PARSE_BASE_URL": "http://localhost:11434/v1",
+    "PARSE_EFFORT": "none",
+    "PARSE_MODEL": "qwen2.5:14b-instruct-q4_K_M"
+  },
+  "note": "Ollama on this machine; Jev's identify still goes to OpenRouter",
+  "row": {
+    "variant": "local-qwen2.5-14b",
+    "model": "qwen2.5:14b-instruct-q4_K_M",
+    "effort": "none",
+    "strategy": "parse + identify",
+    "local": true,
+    "passed": 0,
+    "scored": 0,
+    "cases_failed": 46,
+    "p50_ms": 8324,
+    "p90_ms": 29576,
+    "cost_per_cart_usd": 0.0000964965217391304,
+    "errors": 0
+  },
+  "subject": "parse",
+  "summary": {
+    "Plays": 138,
+    "Failed": 0,
+    "P50": 8664,
+    "P90": 29842,
+    "Cost": 0.013316519999999995,
+    "Stages": {
+      "identify": {
+        "P50": 283,
+        "P90": 412,
+        "Cost": 0.013316519999999995
+      },
+      "parse": {
+        "P50": 8324,
+        "P90": 29576,
+        "Cost": 0
+      }
+    }
+  },
+  "tested": "qwen2.5:14b-instruct-q4_K_M (none) + jev-1.13 · parse 23abf308 · identify fae24511 · parse + identify",
+  "variant": "local-qwen2.5-14b"
+}

@@ -1,6 +1,6 @@
 {
   "id": "fidele-liste-autre-film",
-  "note": "Deux écritures du volet 2 et un film hors saga, une ligne chacun, 1 exemplaire : la lecture exacte. Garde contre une fausse alerte de quantity, qui compterait les deux titres du volet 2 ensemble, ou d'asked sur La chèvre.",
+  "note": "Deux écritures du volet 2 et un film hors saga, une ligne chacun, 1 exemplaire : la lecture exacte. Garde contre une fausse alerte de count, qui doit compter les deux titres du volet 2 ensemble dans les deux lectures, ou d'asked sur La chèvre.",
   "tags": [
     "fidele",
     "doublon",

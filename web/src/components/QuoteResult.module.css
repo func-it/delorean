@@ -126,6 +126,13 @@
   cursor: pointer;
 }
 
+.reread {
+  margin-left: 8px;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+
 .whyBody {
   display: grid;
   gap: 12px;

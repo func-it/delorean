@@ -1,6 +1,6 @@
 {
   "id": "quantite-sous-lue",
-  "note": "« trois exemplaires » lus comme un : la quantité, faiblesse connue de Jev, est ce que ce cas mesure.",
+  "note": "« trois exemplaires » lus comme un (15 € au lieu de 45 €) : le recomptage doit en lire trois, et count voir l'écart. Jev ne compte pas : ce cas mesure le second lecteur.",
   "tags": [
     "infidele",
     "quantite",
@@ -18,6 +18,6 @@
   },
   "expect": {
     "faithful": false,
-    "check": "quantity"
+    "check": "count"
   }
 }

@@ -14,16 +14,38 @@ export type Usage = Schemas["Usage"];
 
 /**
  * Problem codes the browser can receive from the BFF: every code of the
- * backend contract, plus two the BFF raises itself.
+ * quoter contract, plus four the BFF raises itself.
  *
  * - `no_session` (401): no valid session cookie; log in again.
- * - `backend_unavailable` (502): the backend could not be reached, did not
- *   answer within `BACKEND_TIMEOUT_MS`, or answered out of contract.
+ * - `too_many_refusals` (429): the session, the username or the client
+ *   address had `STRIKE_LIMIT` carts refused as injections within
+ *   `STRIKE_WINDOW_S`; it is blocked for `retry_after_s` more seconds.
+ * - `quote_in_progress` (429): a quote is already in flight for the session,
+ *   the username or the client address; one at a time, retry in a second.
+ * - `quoter_unavailable` (502): the quoter could not be reached, did not
+ *   answer within `QUOTER_TIMEOUT_MS`, or answered out of contract.
  */
-export type ProblemCode = Schemas["ProblemCode"] | "no_session" | "backend_unavailable";
+export type ProblemCode =
+  | Schemas["ProblemCode"]
+  | "no_session"
+  | "too_many_refusals"
+  | "quote_in_progress"
+  | "quoter_unavailable";
 
-/** An RFC 9457 problem as the BFF returns it (`application/problem+json`). */
-export type Problem = Omit<Schemas["Problem"], "code"> & { code: ProblemCode };
+/**
+ * An RFC 9457 problem as the BFF returns it (`application/problem+json`), with
+ * two extensions of the BFF's:
+ *
+ * - `retry_after_s` (`too_many_refusals`, `quote_in_progress`): seconds
+ *   before trying again, also in the `Retry-After` header;
+ * - `remembered` (`injection`): this text was refused before, and the refusal
+ *   is repeated without asking the quoter again.
+ */
+export type Problem = Omit<Schemas["Problem"], "code"> & {
+  code: ProblemCode;
+  retry_after_s?: number;
+  remembered?: boolean;
+};
 
 export function isProblem(value: unknown): value is Problem {
   if (typeof value !== "object" || value === null) return false;

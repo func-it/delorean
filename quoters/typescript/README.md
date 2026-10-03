@@ -1,0 +1,197 @@
+# quoters/typescript: the TypeScript implementation
+
+The delorean API ([`api/openapi.yaml`](../../api/openapi.yaml)) on Node 26,
+interchangeable with the Go implementation: the same contract, the same
+pipeline, the same prompts (read from [`prompts/`](../../prompts)), the same
+fake engines. The end-to-end suite ([`e2e/`](../../e2e)) proves it, and the
+system bench compares the two on accuracy, latency and cost.
+[`docs/architecture.md`](../../docs/architecture.md) is the specification;
+this file says how this implementation runs and why it is built the way it is.
+
+## Run
+
+```sh
+npm ci
+ENGINES=fake npm start         # :24793, deterministic fake engines, no key, no cost
+OPENROUTER_API_KEY=… npm start # :24793, the real models through OpenRouter
+```
+
+or, from the repository's root, `task ts:run:fake` and `task ts:run` (which
+reads `OPENROUTER_API_KEY` and `LANGFUSE_*` from the root `.env`).
+
+`node src/main.ts version` prints the version, `node src/main.ts tokenizer`
+the size of the bundled o200k_base vocabulary.
+
+There is no build step: Node runs the TypeScript sources as they are (type
+stripping), and `tsc` only checks them.
+
+```sh
+curl -s localhost:24793/v1/quotes -d '{"cart": "Back to the Future 1\nBack to the Future 2\nLa chèvre"}'
+```
+
+In Docker, the image is built from the repository's root, for `prompts/`:
+
+```sh
+docker build -f quoters/typescript/Dockerfile -t delorean-typescript .   # or task ts:docker
+docker run -p 24793:24793 -e ENGINES=fake delorean-typescript
+docker compose up --build quoter-typescript                              # with the root .env
+```
+
+## Test
+
+```sh
+npm test                 # unit tests (Vitest); no model is ever called
+npm run lint             # ESLint, typescript-eslint strict type-checked
+npm run typecheck        # tsc, strict
+npm run format:check     # Prettier
+task e2e:typescript      # the end-to-end suite against this quoter on fake engines, :24798
+```
+
+The unit tests cover what decides: normalization and token counts (the Go
+cases, ported), pricing, the pipeline on the fake engines (refusal codes, the
+stages each refusal reports, the guard and judge thresholds, the parse beside
+the recount), the fake engines' rules, the HTTP surface, and the live engines
+against stand-ins of OpenRouter (Jev's wire format, retries, cost and tokens;
+the readers' request, schema checks and cost), the trace shape, and the
+configuration.
+
+## Configure
+
+The variables and defaults of
+[docs/architecture.md](../../docs/architecture.md#configuration), all read at
+startup; every wrong one is reported at once, and the service does not start.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `24793` | HTTP listen port |
+| `ENGINES` | `live` | `live` or `fake` |
+| `OPENROUTER_API_KEY` | — | required with `live` |
+| `PARSE_MODEL`, `PARSE_EFFORT` | `openai/gpt-6-luna`, `minimal` | the parsing LLM; effort `none` (no reasoning field), `minimal`, `low`, `medium`, `high` |
+| `PARSE_BASE_URL`, `RECOUNT_BASE_URL` | `https://openrouter.ai/api/v1` | each reader's OpenAI-compatible API (Ollama: `http://localhost:11434/v1`) |
+| `PARSE_IDENTIFIES` | `false` | the parse gives each line its film (`parse-films.json`), and identify skips those titles |
+| `RECOUNT_MODEL`, `RECOUNT_EFFORT` | `deepseek/deepseek-v4.1-flash`, `low` | the recounting LLM, of another family |
+| `JEV_MODEL` | `typesafe/jev-1.13` | Jev, pinned |
+| `MAX_BODY_BYTES` | `65536` | largest body (413 above) |
+| `MAX_INPUT_TOKENS` | `2048` | largest cart, in o200k_base tokens (422 `too_long` above) |
+| `GUARD_MIN_CONFIDENCE` | `0.5` | least confidence of a `valid` verdict |
+| `JUDGE_THRESHOLD` | `0.5` | lowest judge score priced |
+| `IDENTIFY_CACHE_SIZE` | `10000` | titles whose film is kept in memory across requests (LRU, keyed by merge key, identify version and `JEV_MODEL`); 0 turns it off |
+| `READ_ATTEMPTS` | `3` | most readings of one cart, told what failed, before `unfaithful_reading` |
+| `REQUEST_TIMEOUT` | `30s` | budget of one request, model calls included; Go's syntax (`1m30s`, `500ms`) |
+| `FAKE_LATENCY` | `off` | `real`: each fake call waits its stage's time, as docs/architecture.md computes it (load bench) |
+| `FAKE_CPU_MS` | `0` | milliseconds of busy CPU at the start of each fake call |
+| `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` (or `LANGFUSE_HOST`, a URL) | — | traces and scores, when all are set; a half setting is a configuration error |
+| `LANGFUSE_TRACING_ENVIRONMENT`, `LANGFUSE_RELEASE` | — | the traces' environment and release |
+| `PROMPTS_DIR` | the repository's `prompts/` | where the shared prompts are read, at startup; their versions are in `/healthz`; `/app/prompts` in the image |
+| `DELOREAN_VERSION` | `dev` | the version `/healthz` reports; the image and the tasks set it from `git describe` |
+
+## Layout
+
+```
+src/
+  main.ts                 entry: configuration, tracing, engines, server, graceful shutdown
+  config.ts               the environment, checked
+  cart.ts  text.ts        the vocabulary (films, mentions, lines); titles compared as Go compares them
+  prompts.ts              prompts/*.json read, checked and versioned (sha256, 8 hex digits, in /healthz)
+  prepare/                normalize (NFC, invisible characters), TokenCounter (o200k_base)
+  pricing.ts              integer cents, the catalog, the saga discount
+  pipeline/
+    ports.ts              the engines' interfaces, EngineError
+    pipeline.ts           the stages, in order, their spans and their usage
+    reading.ts            the rules on what engines answer: verdict, merge, copies, identification, count
+    rejection.ts          Rejection: a refusal, its code, its facts, its report
+  engines/
+    fake.ts               ENGINES=fake, the rules of docs/architecture.md
+    pace.ts               FAKE_LATENCY and FAKE_CPU_MS: the fakes given a model's time, for the load bench
+    live/                 Jev (jev.ts, questions.ts) and the LLM readers (reader.ts), on OpenRouter
+  http/                   Hono app: routes, problems, the body read strictly (body.ts, json.ts), contract mapping
+  telemetry/              Langfuse export (langfuse.ts) and spans (trace.ts)
+  generated/openapi.ts    the contract's types (npm run generate)
+test/                     Vitest
+scripts/e2e-fake.sh       the end-to-end suite against this quoter on fake engines
+```
+
+## Choices
+
+- **Node 26, TypeScript strict, ESM, no build step.** Node strips the types
+  and runs `src/` as written; `tsconfig.json` (`erasableSyntaxOnly`,
+  `verbatimModuleSyntax`) keeps the code to what stripping allows. What runs
+  is what you read, in development, in tests and in the image.
+- **Hono on `@hono/node-server`** for HTTP. Small, typed, built on the web
+  standard `Request`/`Response`, so the app is tested in-process
+  (`app.request()`) without a socket, and the client's disconnect reaches the
+  pipeline as an `AbortSignal`. Express has no types of its own nor a fetch
+  API; Fastify's plugins and schemas would duplicate what the contract and
+  the code already say.
+- **Errors are values of three kinds.** A `Rejection` is a refusal (422, with
+  its facts and the usage so far); an `EngineError` is a model that failed,
+  answered off contract or too late (502, cause logged, never shown);
+  anything else is a bug (500). The request's deadline and the client's
+  disconnect are one `AbortSignal`, passed to every engine call.
+- **A refused reading is read again** (docs/architecture.md, "read again"),
+  up to `READ_ATTEMPTS` readings: the parser is told its last reading and
+  the checks that failed, the recount stays blind. Nothing is asked twice in
+  a request: `Identifications` keeps each title's film, and a reading
+  already judged (`readingKey`: titles, quantities and films, in any order)
+  keeps its Jev findings, only its count checks made anew, so a wrong
+  reading does not get three throws of Jev's dice. Usage adds up stage by
+  stage; each stage's span carries its attempt.
+- **The rules live in the pipeline, the engines only read.** The guard
+  engines answer `order` and `steer`; the pipeline makes the verdict. The
+  judge engines answer `asked`, `identity`, `missing`; the pipeline adds
+  `count`. So the fake and live engines cannot drift apart on a rule.
+- **Connections are kept alive**, one undici `Agent` per engine (Jev, the
+  parse, the recount): a quote's dozens of Jev calls reuse their TLS connections.
+- **A title already identified is not asked again** (`engines/live/cache.ts`):
+  an in-memory LRU of `IDENTIFY_CACHE_SIZE` films, keyed by merge key,
+  identify prompt version and `JEV_MODEL`; hits make no call and show as
+  `cache_hits` on the identify span; errors and off-contract answers are not
+  kept. The fakes are not cached: they cost nothing, and their one call per
+  stage is part of the test contract.
+- **Jev through `fetch`.** It has no SDK; its client is small: the wire
+  format, answers checked against their questions, cost and tokens
+  under either spelling, at most 16 requests in flight, the first failure
+  stops the rest. It can wait out a 429/5xx (`attempts`), but the server does
+  not: a customer waits, and a failure is a 502 at once, as in Go.
+- **The LLM readers through the official `openai` SDK**, pointed at
+  OpenRouter: strict `json_schema` output, `usage: {include: true}` for the
+  cost, no retry. The answer is checked against the schema (Ajv), never
+  trusted.
+- **Tokens with js-tiktoken's o200k_base ranks, merged in a heap.** The
+  counts are tiktoken's (a test holds them to js-tiktoken on random text),
+  but tiktoken's merge rescans a piece after each merge: quadratic, so one
+  64 KB word under the body limit would hold Node's single thread for
+  minutes. The heap merges the same pairs in the same order in milliseconds.
+- **Langfuse, as docs/architecture.md says it** ("Usage, cost and traces",
+  "Identical quoters"): the spans through its OpenTelemetry SDK
+  (`@langfuse/tracing`, `@langfuse/otel`, the resource naming the service
+  `delorean`), opened by the HTTP layer once the body decodes, the trace's
+  attributes propagated to every observation; the scores as one ingestion
+  batch per quote, posted with `fetch`, at most 256 on their way. The SDK's
+  logger is silenced: what fails is said by ours. Without `LANGFUSE_*`
+  nothing is registered and every span is a no-op.
+- **The body is read in the order every quoter checks it** (`http/body.ts`,
+  `http/json.ts`): a small scan of the first JSON value tells a truncated
+  body from an invalid one and from data after it, in words no parser's
+  wording leaks into; `JSON.parse` then reads the value.
+- **Logs are JSON lines on stdout** (`log.ts`), in the fields and order the
+  quoters share; no logger dependency for that.
+- **Dependencies are few**: hono, @hono/node-server, undici, openai, ajv,
+  js-tiktoken, @langfuse/core, @langfuse/tracing, @langfuse/otel and
+  @opentelemetry's api, resources and sdk-trace-node; pinned by
+  `package-lock.json`, as in `web/` and `e2e/`.
+
+## Benches
+
+- **The system bench** (`e2e/`, `task bench:system -- --base-url
+  http://localhost:24793`) runs the shared `cases/quote` against this quoter
+  as against the others, and compares them on accuracy, latency and cost.
+- **The parity suite** (`task e2e:parity`) starts the three quoters on fake
+  engines and compares their bodies, logs and commands byte for byte.
+- **The component benches** (guard, identify, reading, judge) share one CLI
+  and `bench/variants.yaml`; they are planned here, not ported yet. Until
+  then the Go quoter's runs measure the shared prompts every quoter reads.
+
+One thing JavaScript cannot write as Go does: a quantity past 2^53 loses
+precision instead of saturating at 2^63 − 1. Such a cart is refused as
+`quantity_too_large` all the same, with an approximate count.

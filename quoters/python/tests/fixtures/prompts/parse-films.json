@@ -1,0 +1,47 @@
+{
+  "instruction": "READ AND NAME",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "films": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "quantity": {
+              "type": "integer"
+            },
+            "film": {
+              "enum": [
+                "bttf_1",
+                "bttf_2",
+                "bttf_3",
+                "other"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "required": [
+      "films"
+    ]
+  },
+  "message": {
+    "before": "<m>\n",
+    "after": "\n</m>"
+  },
+  "retry": {
+    "turn": "FAILED:\n{findings}\nAGAIN",
+    "finding": "{check}|{label}|{meaning}",
+    "meanings": {
+      "asked": "A",
+      "identity": "I",
+      "missing": "M",
+      "count": "C"
+    }
+  }
+}

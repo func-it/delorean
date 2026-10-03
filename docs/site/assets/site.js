@@ -8,15 +8,15 @@ import { marked } from "../vendor/marked.esm.js";
 // the service is up.
 const SERVICES = [
   { name: "Web app", detail: "UI and BFF · :24790", url: "http://localhost:24790", probe: "http://localhost:24790/login" },
-  { name: "Go API", detail: "/healthz · :24791", url: "http://localhost:24791/healthz", probe: "http://localhost:24791/healthz" },
+  { name: "Go quoter", detail: "/healthz · :24791", url: "http://localhost:24791/healthz", probe: "http://localhost:24791/healthz" },
+  { name: "TypeScript quoter", detail: "/healthz · :24793", url: "http://localhost:24793/healthz", probe: "http://localhost:24793/healthz" },
+  { name: "Python quoter", detail: "/healthz · :24792", url: "http://localhost:24792/healthz", probe: "http://localhost:24792/healthz" },
   { name: "Langfuse", detail: "traces and benches · :24794", url: "http://localhost:24794", probe: "http://localhost:24794/api/public/health" },
-  { name: "Python API", detail: "planned · :24792", url: "http://localhost:24792/healthz", probe: "http://localhost:24792/healthz", planned: true },
-  { name: "TypeScript API", detail: "planned · :24793", url: "http://localhost:24793/healthz", probe: "http://localhost:24793/healthz", planned: true },
 ];
 
 const LINKS = [
   { name: "Stack diagram", detail: "Claude artifact", url: "https://claude.ai/artifact/NeFtxWJeCbKS3RtPhgbTrH" },
-  { name: "Catalog of the Go API", detail: "GET /v1/catalog", url: "http://localhost:24791/v1/catalog" },
+  { name: "Catalog of the Go quoter", detail: "GET /v1/catalog", url: "http://localhost:24791/v1/catalog" },
   { name: "OpenAPI contract", detail: "api/openapi.yaml", url: "content/openapi.yaml" },
 ];
 
@@ -28,6 +28,7 @@ const PAGES = {
   "docs/testing.md": "testing.html",
   "testing.md": "testing.html",
   "api/openapi.yaml": "api.html",
+  "docs/site/quoters.html": "quoters.html",
 };
 
 const OPEN_ICON =
@@ -40,7 +41,7 @@ function el(tag, attrs = {}, html = "") {
   return node;
 }
 
-async function probe(url) {
+export async function probe(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 2500);
   try {
@@ -121,8 +122,8 @@ function rewriteLinks(root) {
       a.rel = "noopener";
       continue;
     }
-    // anchors, buttons and the site's own files are already right
-    if (href.startsWith("#") || href.startsWith("content/") || a.matches(".anchor, .button")) continue;
+    // anchors, buttons, the site's own pages and files are already right
+    if (/^(#|content\/|[\w-]+\.html(#|$))/.test(href) || a.matches(".anchor, .button")) continue;
     const [path, hash] = href.split("#");
     const clean = path.replace(/^(\.\.\/)+|^\.\//, "");
     const page = PAGES[clean];

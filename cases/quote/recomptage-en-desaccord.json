@@ -1,0 +1,15 @@
+{
+  "id": "recomptage-en-desaccord",
+  "note": "Le second lecteur compte un exemplaire de plus du volet 1 que le premier (#fake:miscount) : les deux lectures ne s'accordent pas, la vérification count échoue et le panier n'est pas chiffré. Garde contre un prix posé sur une lecture que le recomptage contredit.",
+  "tags": [
+    "recomptage",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 1\n#fake:miscount"
+  },
+  "expect": {
+    "status": 422,
+    "code": "unfaithful_reading"
+  }
+}

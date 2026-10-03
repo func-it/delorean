@@ -1,0 +1,3 @@
+{
+  "film": {"key": "film", "kind": "choice", "instructions": "WHICH?", "criteria": {"bttf_1": "ONE", "bttf_2": "TWO", "bttf_3": "THREE", "other": "OTHER"}}
+}

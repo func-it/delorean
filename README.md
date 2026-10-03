@@ -18,10 +18,10 @@ refuses what is not an order, and returns a detailed price.
 |---|---|
 | **Input** | a cart in free text, `POST /v1/quotes {"cart": "…"}` |
 | **Output** | a quote in integer cents, or a refusal with a stable code and the facts behind it |
-| **Reading** | six stages: `prepare` → `guard` → `parse` → `identify` → `judge` → `price` |
-| **Models** | Jev 1.13 decides (guard, identify, judge); GPT-6 Luna extracts titles and quantities; both through OpenRouter |
+| **Reading** | seven stages: `prepare` → `guard` → `parse` beside `recount` → `identify` → `judge` → `price` |
+| **Models** | Jev 1.13 decides (guard, identify, judge); GPT-6 Luna extracts titles and quantities, DeepSeek V4.1 Flash recounts them; all through OpenRouter |
 | **Contract** | one OpenAPI 3.1 file, [`api/openapi.yaml`](api/openapi.yaml), for every implementation |
-| **Implementations** | Go today; Python and TypeScript next, measured against each other |
+| **Implementations** | Go, TypeScript on Node, and Python: interchangeable, same contract, same prompts, same end-to-end suite, measured against each other |
 | **Observability** | one Langfuse trace per request, one span per stage, cost included |
 
 ## Services
@@ -33,15 +33,16 @@ other projects on the same machine.
 |---|---|---|
 | Web app (Next.js: UI + BFF) | <http://localhost:24790> | any username, no password |
 | Go API | <http://localhost:24791/healthz> | `ENGINES=live` or `fake` |
-| Python API | `http://localhost:24792` | planned, same contract |
-| TypeScript API | `http://localhost:24793` | planned, same contract |
+| Python API | <http://localhost:24792/healthz> | `ENGINES=live` or `fake` |
+| TypeScript API | <http://localhost:24793/healthz> | `ENGINES=live` or `fake` |
 | Langfuse | <http://localhost:24794> | account `admin@delorean.local`, password `LF_USER_PASSWORD` in `.env` |
 | Documentation site | <http://localhost:24795> | this guide, the architecture, the API reference, testing; `task docs` without Docker |
 
 ## Quick start
 
-Requirements: Docker, or Go 1.26 and Node 26. [Task](https://taskfile.dev)
-is optional (`task --list`).
+Requirements: Docker, or Go 1.26, Node 26 and Python 3.14 with
+[uv](https://docs.astral.sh/uv/). [Task](https://taskfile.dev) is optional
+(`task --list`).
 
 ### Without a key, at no cost (fake engines)
 
@@ -63,15 +64,19 @@ task langfuse:up                           # optional: traces at http://localhos
 docker compose up --build
 ```
 
-A quote costs about $0.0006 and takes about 4 s (19 model calls for a
-four-film cart: 18 Jev, 1 Luna).
+A four-film cart takes 17 model calls: 15 Jev (2 guard, 4 identify, 9
+judge) and 2 LLM (the reading and the recount). Before the recount, when the
+same cart took 18 Jev calls and 1 Luna, a quote cost about $0.0006 and took
+about 4 s; it has not been measured since.
 
 ### Without Docker
 
 ```sh
 task setup
-task go:run:fake            # the API on :24791 (task go:run for the real models)
-cd web && npm run dev       # the web app on :24790
+task go:run:fake            # the Go API on :24791 (task go:run for the real models)
+task ts:run:fake            # the TypeScript API on :24793 (task ts:run)
+task py:run:fake            # the Python API on :24792 (task py:run)
+cd web && npm run dev       # the web app on :24790, which can call each of them
 ```
 
 ### The API alone
@@ -85,25 +90,29 @@ curl -s localhost:24791/v1/quotes -H 'content-type: application/json' \
 ## How it works
 
 ```
-browser ─► web (Next.js: UI + BFF, session) ─► API (Go; Python and TypeScript next)
+browser ─► web (Next.js: UI + BFF, session) ─► API (Go | TypeScript | Python)
                                                  │
-   prepare   code   normalises, counts tokens, bounds the size
-   guard     Jev    valid | injection | invalid
-   parse     LLM    titles and quantities (GPT-6 Luna, strict JSON schema)
-   identify  Jev    each distinct title → volume 1, 2, 3 or another film, in parallel
-   judge     Jev    is the reading faithful to the text? one question per fact
-   price     code   integer cents
+   prepare   code      normalises, counts tokens, bounds the size
+   guard     Jev       is it an order? does it speak to the system? → valid | injection | invalid
+   parse     LLM       titles and quantities (GPT-6 Luna, strict JSON schema)    ┐ in parallel
+   recount   LLM 2     the same reading, by another model (DeepSeek V4.1 Flash) ┘
+   identify  Jev       each distinct title of both readings → volume 1, 2, 3 or another film
+   judge     Jev+code  is the reading faithful to the text? do both readings count the same?
+                       a refused reading is read again, told what failed: 3 readings at most
+   price     code      integer cents
                                                  │
-                              OpenRouter (Jev, GPT-6 Luna) · traces → Langfuse
+                     OpenRouter (Jev, GPT-6 Luna, DeepSeek) · traces → Langfuse
 ```
 
 Every stage may refuse the cart with a stable code (`too_long`, `injection`,
 `invalid_request`, `no_film`, `quantity_too_large`, `unfaithful_reading`…) and
-says why: the guard's verdict and probabilities, the token count, the judge's
-checks. Every quote carries the cost and duration of each stage.
+says why: the guard's verdict, its two answers and probabilities, the token
+count, the judge's checks. Every quote carries the cost and duration of each
+stage.
 
-The stages, thresholds and questions put to the models are in
-[`docs/architecture.md`](docs/architecture.md).
+The stages and thresholds are in [`docs/architecture.md`](docs/architecture.md).
+Every word put to a model is in [`prompts/`](prompts), shared by the
+implementations: they are compared on their code, not on their prompts.
 
 ## Design decisions
 
@@ -114,23 +123,48 @@ The stages, thresholds and questions put to the models are in
   quantities goes to an LLM under a strict JSON schema.
 - **A judge before every price.** The LLM's reading is held against the text
   by short questions, one per observable fact (is this film asked for? is the
-  title the film it was identified as? this many copies? is a film missing?),
-  asked separately and in parallel; the worst score decides. It is the
-  evaluator of the benches, put in production.
+  title the film it was identified as? is a film missing?), asked separately
+  and in parallel; the worst score decides. It is the evaluator of the
+  benches, put in production.
+- **Two readings, compared in code.** Jev cannot count, so a second LLM of
+  another family reads the cart again; the code compares both readings film by
+  film, and any disagreement refuses the cart. The recount never sets the
+  price.
+- **A refused reading is read again, never re-judged as is.** A reading the
+  judge refuses goes back to the model with what failed, up to three
+  readings: a slip of the model should not cost the customer a refusal. Only
+  a different reading goes back to Jev: judging the same one again would draw
+  the lottery of a probabilistic judge until it said yes.
+- **Three injections, then a pause.** The BFF, the only public entry, blocks
+  a session or a username after 3 injection refusals in 15 minutes (an
+  address after 10, for customers behind a shared one), keeps one quote in
+  flight per key, and answers a text already refused at once.
+- **One fact per question, the guard included.** The guard asks two things in
+  two requests: does the message order films, does it speak to the system?
+  The verdict is computed from both answers.
 - **An injection cannot set a price.** The guard rejects it; and if it slipped
   through, every model can only answer among bounded options: at worst a title
   is misread, never an amount invented.
-- **A pre-parser counts tokens** before any call, with a BPE tokenizer compiled
-  into the binary: Jev accepts at most 64k tokens, the cart is capped at 2048.
-- **Contract first, three implementations next.** One `openapi.yaml`, one
-  end-to-end suite, one system bench: Go, Python and TypeScript are compared on
-  measurements (accuracy, latency, cost), not on opinions. Go is the first.
+- **A pre-parser counts tokens** before any call, offline, with the same
+  counts in the three implementations: Jev accepts at most 64k tokens, the
+  cart is capped at 2048. Its BPE merge is O(n log n): the textbook one is
+  quadratic, and a 64 KB one-word body took 2 s of CPU before it was refused.
+- **Contract first, three implementations.** One `openapi.yaml`, one
+  `prompts/`, one end-to-end suite, one system bench: Go, TypeScript and
+  Python are compared on measurements (accuracy, latency, cost), not on
+  opinions. `/healthz` serves the prompt versions each one runs, and the suite
+  fails a quoter that runs other prompts.
 - **Fake engines to test without paying.** Deterministic and identical in the
   three implementations, they run the end-to-end suite in CI.
 - **The session identifies, it does not authenticate:** a username, which ties
   Langfuse traces to a person.
 - **Integer cents, and at most 1000 copies of one title:** a safeguard, not a
   business rule.
+- **Three quoters, chosen for the people, not the runtime.** Waiting on
+  models, Go, Node and Python serve the same load; models are over 99 % of a
+  quote's cost. Go is cheapest to run, TypeScript shares the web app's
+  language, Python owns the work on models (evals, fine-tuning, local
+  models). See the [load bench](docs/testing.md#load-bench-the-three-images-no-model).
 - **A box set is its films.** "The trilogy" is not a product of its own: it
   counts as the three volumes, so it gets the 20 % discount like any cart
   with the three of them.
@@ -139,8 +173,10 @@ The stages, thresholds and questions put to the models are in
 
 | What | Command | Cost |
 |---|---|---|
-| Unit tests (Go with `-race`, web, e2e harness) | `task test` | none |
-| End-to-end suite against the Go API, fake engines | `task e2e` | none |
+| Unit tests (the three quoters, web, e2e harness) | `task test` | none |
+| End-to-end suite against the three quoters, fake engines | `task e2e:all` (or `task e2e`, `e2e:typescript`, `e2e:python`) | none |
+| The three quoters against each other, byte for byte | `task e2e:parity` | none |
+| Load bench of the three images, fake engines that wait as models do | `task bench:load` | none |
 | Validate the shared cases | `task cases:check` | none |
 | Everything CI runs | `task ci` | none |
 | Component benches (guard, identify, reading, judge) | `RUN_LIVE=1 task bench -- run guard --runs 1` | OpenRouter |
@@ -151,52 +187,58 @@ The details are in [`docs/testing.md`](docs/testing.md).
 
 ## Status
 
-- Pricing, the pipeline, the Go API, the web app, the end-to-end suite and the
-  benches are done and tested: 12 Go packages, 113 web tests, 136 harness
-  tests, 59 end-to-end tests, 338 shared cases.
-- The real models are wired and verified end to end: example 5 of the brief
-  priced at 56.00 € in about 4 s.
-- Last live component benches, 3 runs per case:
+- The three quoters, the web app, the end-to-end suite and the benches are
+  done and tested: Go (`-race`), TypeScript, Python (mypy strict), web, the
+  e2e harness, and the end-to-end suite at 70 of 70 on each quoter; 341
+  shared cases. `task ci` runs all of it, with no model called.
+- The real models are verified end to end on the three quoters: example 5 of
+  the brief priced at 56.00 € by each, for about $0.0006, in 3.3 to 5.9 s.
+- Last live component benches (3 runs per case, $0.153):
 
   | Bench | Cases | Runs passed |
   |---|---|---|
   | guard | 113 | 324 / 339 |
   | identify | 61 | 180 / 183 |
-  | judge | 42 | 119 / 126 |
-  | reading | 46 | 135 / 138, films right in 138 |
+  | judge | 42 | 126 / 126 |
+  | reading | 46 | 133 / 138 |
 
-  What still fails: one injection (a fake tool result granting a discount)
-  accepted by the guard, though the code still prices the cart right; two
-  real films whose titles read like orders (*Forget Paris*, *No se aceptan
-  devoluciones*) refused; the judge's count of copies, which Jev cannot do
-  reliably (see the roadmap).
-- The thresholds (`GUARD_MIN_CONFIDENCE`, `JUDGE_THRESHOLD`, both 0.5) hold on
-  the benches: faithful readings score far above, unfaithful ones far below,
-  except on counting.
-- The Python and TypeScript implementations are next, on the same contract.
+  No run priced a cart wrong: every wrong reading was refused. The guard
+  still lets a fake tool result through once in three, and refuses two real
+  films whose titles read like orders; the reading, the judge and the code
+  hold behind it.
+- The parser was chosen on a matrix of ten models and settings ($0.30):
+  GPT-6 Luna at effort `minimal`, 135 of 138 right, 1.2 s at p50, $0.08 per
+  1,000 carts. Small and local models read under half of the carts right.
+  The details are in [`docs/testing.md`](docs/testing.md).
+- Under load, with the models' time simulated, the three quoters serve 200
+  quotes in flight alike (57 req/s on one CPU); with CPU-bound work, Go
+  spreads over four cores (56 req/s) while Node and Python stay on one (20):
+  [Load bench](docs/testing.md#load-bench-the-three-images-no-model).
+- Every quote is a Langfuse trace with its cost, latency, attempts and
+  outcome as scores: `task langfuse:report` gives the mean, median and p90
+  per quoter.
 
 ## Roadmap
 
-1. Guard: one question per fact, as the judge does: a second Jev request,
-   "does this message speak to the system?", beside the verdict.
-2. Counting: take it away from Jev. A second, independent reading by another
-   LLM, compared film by film in code; a disagreement refuses the cart.
-3. Pick the parse model on the numbers (GPT-6 Luna against others, through
-   OpenRouter).
-4. Write the Python and TypeScript backends, then compare the three with the
-   system bench.
-5. Record real model answers to replay the live engines in CI, at no cost.
-6. Cache the identification of a title already seen: titles repeat.
+1. Choose the recount on latency: DeepSeek V4.1 Flash is the most accurate
+   reader but sets a quote's p90 (11 s); the recount only has to agree.
+2. Compare the three quoters live with the system bench.
+3. Measure the parse that also identifies (identify skipped), and the judge
+   asked only when the two readings disagree.
+4. Record real model answers to replay the live engines in CI, at no cost.
 
 ## Repository
 
 ```
 api/openapi.yaml      the contract, source of truth
+prompts/              every word put to a model, shared by the implementations
 docs/                 architecture, testing, and the documentation site (docs/site)
 cases/                shared cases: quote, guard, identify, reading, judge
-backends/go/          the Go implementation (pipeline, engines, API, benches)
+quoters/go/           the Go implementation (pipeline, engines, API, component benches)
+quoters/typescript/   the TypeScript implementation, on Node
+quoters/python/       the Python implementation
 web/                  Next.js: UI, BFF, session
-e2e/                  end-to-end suite and system bench, for any backend
+e2e/                  end-to-end suite and system bench, for any quoter
 deploy/langfuse/      self-hosted Langfuse, for traces and benches
 deploy/docs/          the documentation site's web server (nginx)
 scripts/              e2e-fake.sh, langfuse-secrets.sh, docs.sh
@@ -209,5 +251,11 @@ reports/              bench reports (not versioned by default)
   judge, fake engines, shared cases and configuration.
 - [`docs/testing.md`](docs/testing.md): tests, cases, benches and their cost.
 - [`api/openapi.yaml`](api/openapi.yaml): the HTTP contract.
+- [`quoters/typescript/README.md`](quoters/typescript/README.md) and
+  [`quoters/python/README.md`](quoters/python/README.md): each quoter's
+  stack and choices.
+- [`docs/site/quoters.html`](docs/site/quoters.html) (the Quoters page of
+  `task docs`): the three quoters side by side, their code and key functions,
+  and one request through each.
 - [`e2e/README.md`](e2e/README.md) and [`web/README.md`](web/README.md): each
   part on its own.

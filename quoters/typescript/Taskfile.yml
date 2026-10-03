@@ -1,0 +1,48 @@
+# delorean — the TypeScript implementation of api/openapi.yaml, on Node.
+# Included by the root Taskfile as ts: task ts:test, task ts:run:fake…
+version: "3"
+
+vars:
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo dev
+  IMAGE: delorean-typescript
+
+tasks:
+  setup:
+    desc: Dependencies, as the lock file pins them
+    cmds: [npm ci]
+
+  generate:
+    desc: The contract's types, from api/openapi.yaml
+    cmds: [npm run generate]
+    sources: [../../api/openapi.yaml]
+    generates: [src/generated/openapi.ts]
+
+  lint:
+    desc: ESLint, the type check and Prettier
+    cmds: [npm run lint, npm run typecheck, npm run format:check]
+
+  format:
+    desc: Prettier, in place
+    cmds: [npm run format]
+
+  test:
+    desc: Unit tests; no model is called
+    cmds: [npm test]
+
+  run:
+    desc: "The API on the live engines, :24793 (OPENROUTER_API_KEY, LANGFUSE_* from the root .env)"
+    dotenv: [../../.env]
+    env: { DELOREAN_VERSION: "{{.VERSION}}" }
+    cmds: [node src/main.ts]
+
+  run:fake:
+    desc: The API on the fake engines, :24793 — no key, no cost
+    env: { ENGINES: fake, DELOREAN_VERSION: "{{.VERSION}}" }
+    cmds: [node src/main.ts]
+
+  docker:
+    desc: "The image {{.IMAGE}}:<version>, built from the repository's root"
+    dir: ../..
+    cmds:
+      - docker build -f quoters/typescript/Dockerfile --build-arg VERSION={{.VERSION}} -t {{.IMAGE}}:{{.VERSION}} -t {{.IMAGE}}:latest .

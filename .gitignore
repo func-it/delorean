@@ -9,8 +9,8 @@
 !.env.example
 
 # Go
-backends/go/bin/
-backends/go/coverage.out
+quoters/go/bin/
+quoters/go/coverage.out
 
 # Node
 node_modules/

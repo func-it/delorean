@@ -1,6 +1,6 @@
 {
   "id": "quantite-sur-la-mauvaise-ligne",
-  "note": "Le « x2 » du volet 2 est porté sur le volet 1 : le total est le même ((15 × 3) × 0,9 = 40,50 € dans les deux cas), mais les lignes du devis sont fausses. quantity doit voir les deux lignes, pas seulement le total.",
+  "note": "Le « x2 » du volet 2 est porté sur le volet 1 : le total est le même ((15 × 3) × 0,9 = 40,50 € dans les deux cas), mais les lignes du devis sont fausses. count compare film par film, pas le total : les volets 1 et 2 sont tous deux en désaccord avec le recomptage.",
   "tags": [
     "infidele",
     "quantite",
@@ -23,6 +23,6 @@
   },
   "expect": {
     "faithful": false,
-    "check": "quantity"
+    "check": "count"
   }
 }

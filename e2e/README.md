@@ -1,7 +1,7 @@
 # e2e: end-to-end suite and system bench
 
 A black box: the suite and the bench only talk to the HTTP contract
-(`api/openapi.yaml`). They apply to all three backends, Go, Python and
+(`api/openapi.yaml`). They apply to all three quoters, Go, Python and
 TypeScript, without a single line specific to any of them.
 
 ## What the suite guarantees
@@ -31,13 +31,13 @@ TypeScript, without a single line specific to any of them.
 
 ```sh
 npm ci
-npm run e2e                                   # backend on http://localhost:24791
+npm run e2e                                   # quoter on http://localhost:24791
 BASE_URL=http://localhost:24792 npm run e2e    # python
 BASE_URL=http://localhost:24793 npm run e2e    # typescript
 ```
 
-The suite first reads `GET /healthz`. Backend in `fake` mode: contract + cases
-tagged `fake`, nothing is billed. Backend in `live` mode: every request costs
+The suite first reads `GET /healthz`. Quoter in `fake` mode: contract + cases
+tagged `fake`, nothing is billed. Quoter in `live` mode: every request costs
 OpenRouter credits, so the suite refuses to start without `RUN_LIVE=1`, then
 runs every case:
 
@@ -86,7 +86,7 @@ that its total follows from its `films`.
 ## The harness itself
 
 ```sh
-npm test            # harness tests, against an embedded fake backend
+npm test            # harness tests, against an embedded fake quoter
 npm run typecheck
 npm run lint
 npm run format      # Prettier; format:check in CI
@@ -94,7 +94,7 @@ npm run generate    # after a change to api/openapi.yaml
 ```
 
 `npm test` also runs the suite and the bench against
-`test/support/stub-backend.ts`, a minimal implementation of the contract with
-fake engines, and checks that the suite fails against a backend that gets the
+`test/support/stub-quoter.ts`, a minimal implementation of the contract with
+fake engines, and checks that the suite fails against a quoter that gets the
 total wrong. It also fails if `src/generated/openapi.ts` no longer matches the
 contract.

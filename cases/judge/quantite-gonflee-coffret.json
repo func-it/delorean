@@ -1,6 +1,6 @@
 {
   "id": "quantite-gonflee-coffret",
-  "note": "Un seul coffret lu comme trois exemplaires de chaque volet ((15 × 9) × 0,8 = 108 € au lieu de (15 × 3) × 0,8 = 36 €) : quantity doit voir qu'un coffret compte un exemplaire de chaque film.",
+  "note": "Un seul coffret lu comme trois exemplaires de chaque volet ((15 × 9) × 0,8 = 108 € au lieu de (15 × 3) × 0,8 = 36 €) : le recomptage compte un exemplaire de chaque film par coffret, et count doit voir l'écart.",
   "tags": [
     "infidele",
     "trilogie",
@@ -29,6 +29,6 @@
   },
   "expect": {
     "faithful": false,
-    "check": "quantity"
+    "check": "count"
   }
 }

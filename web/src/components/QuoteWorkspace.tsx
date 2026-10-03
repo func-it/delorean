@@ -17,13 +17,13 @@ import { useCatalog } from "./useCatalog";
 
 interface Props {
   username: string;
-  /** Configured backend names, the default first. */
-  backends: string[];
+  /** Configured quoter names, the default first. */
+  quoters: string[];
 }
 
-export function QuoteWorkspace({ username, backends }: Props) {
-  const [backend, setBackend] = useState(backends[0]);
-  const catalog = useCatalog(backend);
+export function QuoteWorkspace({ username, quoters }: Props) {
+  const [quoter, setQuoter] = useState(quoters[0]);
+  const catalog = useCatalog(quoter);
   const [cart, setCart] = useState("");
   const [outcome, setOutcome] = useState<BffResult<Quote>>();
   const [pending, startTransition] = useTransition();
@@ -31,7 +31,7 @@ export function QuoteWorkspace({ username, backends }: Props) {
   function submit() {
     if (pending) return;
     startTransition(async () => {
-      const result = await requestQuote(cart, backend);
+      const result = await requestQuote(cart, quoter);
       startTransition(() => setOutcome(result));
     });
   }
@@ -40,7 +40,7 @@ export function QuoteWorkspace({ username, backends }: Props) {
     // One root element: a fragment of siblings can be reordered around the nodes Next keeps in <body>
     // when arriving from the login page.
     <div>
-      <Header username={username} backends={backends} backend={backend} onBackendChange={setBackend} />
+      <Header username={username} quoters={quoters} quoter={quoter} onQuoterChange={setQuoter} />
       <main className={styles.main}>
         <div className={styles.primary}>
           <CartForm cart={cart} onCartChange={setCart} onSubmit={submit} pending={pending} />

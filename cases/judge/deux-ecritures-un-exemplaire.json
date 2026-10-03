@@ -1,6 +1,6 @@
 {
   "id": "deux-ecritures-un-exemplaire",
-  "note": "« BTTF 2 » perdu à la lecture : un exemplaire du volet 2 au lieu de deux (15 € au lieu de 15 × 2 = 30 €). Angle mort connu : asked et identity sont justes, quantity ne compte que les copies sous le titre de la ligne (1, juste), missing ne cherche qu'un film absent (le volet 2 est là). Aucune vérification ne l'attrape peut-être aujourd'hui : le cas existe pour le mesurer.",
+  "note": "« BTTF 2 » perdu à la lecture : un exemplaire du volet 2 au lieu de deux (15 € au lieu de 15 × 2 = 30 €). asked et identity sont justes, missing ne cherche qu'un film absent (le volet 2 est là) : c'était l'angle mort du juge. Le recomptage lit les deux écritures, trouve deux exemplaires du volet 2, et count doit voir l'écart.",
   "tags": [
     "infidele",
     "doublon",
@@ -18,6 +18,7 @@
     ]
   },
   "expect": {
-    "faithful": false
+    "faithful": false,
+    "check": "count"
   }
 }

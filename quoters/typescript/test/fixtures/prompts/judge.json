@@ -1,0 +1,35 @@
+{
+  "asked": {
+    "key": "asked",
+    "kind": "noul",
+    "instructions": "Fixture question asked.",
+    "criteria": {
+      "true": "Fixture yes for asked.",
+      "false": "Fixture no for asked."
+    }
+  },
+  "identity": {
+    "key": "identity",
+    "kind": "noul",
+    "instructions": "Fixture question identity.",
+    "criteria": {
+      "true": "Fixture yes for identity.",
+      "false": "Fixture no for identity."
+    }
+  },
+  "missing": {
+    "key": "missing",
+    "kind": "noul",
+    "instructions": "Fixture question missing.",
+    "criteria": {
+      "true": "Fixture yes for missing.",
+      "false": "Fixture no for missing."
+    }
+  },
+  "films": {
+    "bttf_1": "film one",
+    "bttf_2": "film two",
+    "bttf_3": "film three",
+    "other": "another film"
+  }
+}

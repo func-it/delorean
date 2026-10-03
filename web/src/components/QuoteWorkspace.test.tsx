@@ -24,9 +24,9 @@ describe("QuoteWorkspace", () => {
 
   it("prices a cart through the BFF and announces the total", async () => {
     const bff = stubBff(() => Response.json(quote));
-    render(<QuoteWorkspace username="marty" backends={["go", "python"]} />);
+    render(<QuoteWorkspace username="marty" quoters={["go", "python"]} />);
 
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Backend" }), "python");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Quoter" }), "python");
     await userEvent.type(screen.getByRole("textbox", { name: "Votre panier" }), "Back to the Future 1");
     await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
 
@@ -34,7 +34,7 @@ describe("QuoteWorkspace", () => {
     expect(screen.getByRole("status")).toHaveTextContent(/Devis prêt : 56,00\s€ à payer\./);
     expect(bff).toHaveBeenCalledWith("/api/quotes", expect.objectContaining({ method: "POST" }));
     const [, init] = bff.mock.calls.find(([input]) => input === "/api/quotes")!;
-    expect(JSON.parse(String(init!.body))).toEqual({ cart: "Back to the Future 1", backend: "python" });
+    expect(JSON.parse(String(init!.body))).toEqual({ cart: "Back to the Future 1", quoter: "python" });
   });
 
   it("explains a refusal and lets the visitor try again", async () => {
@@ -44,7 +44,7 @@ describe("QuoteWorkspace", () => {
         headers: { "Content-Type": "application/problem+json" },
       }),
     );
-    render(<QuoteWorkspace username="marty" backends={["go"]} />);
+    render(<QuoteWorkspace username="marty" quoters={["go"]} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
 
@@ -61,7 +61,7 @@ describe("QuoteWorkspace", () => {
         throw new TypeError("Failed to fetch");
       }),
     );
-    render(<QuoteWorkspace username="marty" backends={["go"]} />);
+    render(<QuoteWorkspace username="marty" quoters={["go"]} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
 
@@ -69,17 +69,17 @@ describe("QuoteWorkspace", () => {
   });
 
   it("shows the rules of the catalog", async () => {
-    render(<QuoteWorkspace username="marty" backends={["go"]} />);
+    render(<QuoteWorkspace username="marty" quoters={["go"]} />);
 
     await waitFor(() => expect(screen.getByText("Tout autre film")).toBeInTheDocument());
     expect(screen.getByText("3 volets différents")).toBeInTheDocument();
     expect(screen.getByText(/2\s048 tokens, et 1\s000 exemplaires d'un même film\./)).toBeInTheDocument();
   });
 
-  it("shows the connected username, and a backend selector only when there is a choice", () => {
-    render(<QuoteWorkspace username="marty" backends={["go"]} />);
+  it("shows the connected username, and a quoter selector only when there is a choice", () => {
+    render(<QuoteWorkspace username="marty" quoters={["go"]} />);
 
     expect(screen.getByText("marty")).toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: "Backend" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Quoter" })).not.toBeInTheDocument();
   });
 });

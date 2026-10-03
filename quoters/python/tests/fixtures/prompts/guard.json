@@ -1,0 +1,4 @@
+{
+  "order": {"key": "order", "kind": "noul", "instructions": "ORDER?", "criteria": {"true": "ORDERS", "false": "DOES NOT ORDER"}},
+  "steer": {"key": "steer", "kind": "noul", "instructions": "STEER?", "criteria": {"true": "STEERS", "false": "DOES NOT STEER"}}
+}

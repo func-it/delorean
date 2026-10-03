@@ -1,7 +1,7 @@
 {
   "name": "@delorean/e2e",
   "private": true,
-  "description": "Black-box end-to-end suite and system bench of the delorean API, for every backend.",
+  "description": "Black-box end-to-end suite and system bench of the delorean API, for every quoter.",
   "type": "module",
   "engines": {
     "node": ">=26"
@@ -9,9 +9,13 @@
   "scripts": {
     "generate": "openapi-typescript ../api/openapi.yaml -o src/generated/openapi.ts",
     "e2e": "vitest run --project e2e",
+    "parity": "vitest run --project parity",
     "test": "vitest run --project harness",
     "bench": "node src/bench/cli.ts",
     "bench:compare": "node src/bench/compare.ts",
+    "bench:load": "node src/load/cli.ts",
+    "langfuse:report": "node src/langfuse/report.ts",
+    "langfuse:dashboard": "node src/langfuse/dashboard.ts",
     "typecheck": "tsc",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -21,6 +25,7 @@
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "openapi-fetch": "^0.17.0",
+    "undici": "^8.11.2",
     "yaml": "^2.9.1"
   },
   "devDependencies": {

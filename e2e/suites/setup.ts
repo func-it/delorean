@@ -11,7 +11,7 @@ declare module 'vitest' {
   }
 }
 
-/** Finds out which backend answers, and refuses live engines unless RUN_LIVE=1. */
+/** Finds out which quoter answers, and refuses live engines unless RUN_LIVE=1. */
 export default async function setup(project: TestProject): Promise<void> {
   const baseUrl = baseUrlFrom(process.env);
   const health = await fetchHealth(baseUrl);

@@ -14,27 +14,30 @@ concurrency:
 
 jobs:
   go:
-    name: Go backend
+    name: Go quoter
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backends/go
+        working-directory: quoters/go
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
-          go-version-file: backends/go/go.mod
-          cache-dependency-path: backends/go/go.sum
+          go-version-file: quoters/go/go.mod
+          cache-dependency-path: quoters/go/go.sum
       - name: Generated code matches the contract
         run: go generate ./... && git diff --exit-code
       - uses: golangci/golangci-lint-action@v8
         with:
           version: v2.12
-          working-directory: backends/go
+          working-directory: quoters/go
       - name: Tests (race detector, no model called)
         run: go test -race ./...
       - name: Shared cases are valid
         run: go run ./cmd/bench check
+      - name: Image builds
+        working-directory: .
+        run: docker build -f quoters/go/Dockerfile -t delorean-go:ci .
 
   web:
     name: Web app
@@ -60,14 +63,14 @@ jobs:
           SESSION_SECRET: ci-only-secret-of-at-least-32-characters
 
   e2e:
-    name: End-to-end (Go backend, fake engines)
+    name: End-to-end (Go quoter, fake engines)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
-          go-version-file: backends/go/go.mod
-          cache-dependency-path: backends/go/go.sum
+          go-version-file: quoters/go/go.mod
+          cache-dependency-path: quoters/go/go.sum
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
@@ -81,5 +84,100 @@ jobs:
       - name: Harness lint, types and tests
         working-directory: e2e
         run: npm run lint && npm run typecheck && npm run format:check && npm test
-      - name: Suite against the Go backend
+      - name: Suite against the Go quoter
         run: scripts/e2e-fake.sh
+
+  typescript:
+    name: TypeScript quoter, and the end-to-end suite against it (fake engines)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: quoters/typescript
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            quoters/typescript/package-lock.json
+            e2e/package-lock.json
+      - run: npm ci
+      - name: Generated types match the contract
+        run: npm run generate && git diff --exit-code
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run format:check
+      - name: Tests (no model called)
+        run: npm test
+      - run: npm ci
+        working-directory: e2e
+      - name: Suite against the TypeScript quoter
+        run: scripts/e2e-fake.sh
+      - name: Image builds
+        working-directory: .
+        run: docker build -f quoters/typescript/Dockerfile -t delorean-typescript:ci .
+
+  python:
+    name: Python quoter, and the end-to-end suite against it (fake engines)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: quoters/python
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.12.22"
+          enable-cache: true
+          cache-dependency-glob: quoters/python/uv.lock
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - name: Dependencies, as uv.lock pins them (Python 3.14 from .python-version)
+        run: uv sync --locked
+      - name: Lint and format
+        run: uv run --locked ruff check . && uv run --locked ruff format --check .
+      - name: Types (mypy --strict)
+        run: uv run --locked mypy
+      - name: The tokenizer's vocabulary, checked against its pinned SHA-256
+        run: uv run --locked delorean tokenizer
+      - name: Tests (no model called)
+        run: uv run --locked pytest
+      - run: npm ci
+        working-directory: e2e
+      - name: Suite against the Python quoter
+        run: scripts/e2e-fake.sh
+      - name: Image builds
+        working-directory: .
+        run: docker build -f quoters/python/Dockerfile -t delorean-python:ci .
+
+  parity:
+    name: The three quoters against each other (fake engines)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: quoters/go/go.mod
+          cache-dependency-path: quoters/go/go.sum
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.12.22"
+          enable-cache: true
+          cache-dependency-glob: quoters/python/uv.lock
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            quoters/typescript/package-lock.json
+            e2e/package-lock.json
+      - run: npm ci
+        working-directory: quoters/typescript
+      - run: npm ci
+        working-directory: e2e
+      - name: Same answers, logs and commands, byte for byte
+        run: scripts/e2e-parity.sh

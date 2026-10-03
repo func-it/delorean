@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadQuoteCases, selectCases } from '../src/cases.ts';
-import { startStubBackend, type Stub, type StubOptions } from './support/stub-backend.ts';
+import { promptVersions } from '../src/prompts.ts';
+import { startStubQuoter, type Stub, type StubOptions } from './support/stub-quoter.ts';
 
 const E2E_DIR = fileURLToPath(new URL('..', import.meta.url));
 const VITEST = join(E2E_DIR, 'node_modules/vitest/vitest.mjs');
@@ -23,9 +24,9 @@ afterEach(async () => {
   stub = undefined;
 });
 
-/** Runs `npm run e2e` against a stub backend, in a child process. */
+/** Runs `npm run e2e` against a stub quoter, in a child process. */
 async function runSuite(options: StubOptions = {}, env: NodeJS.ProcessEnv = {}): Promise<SuiteRun> {
-  stub = await startStubBackend(options);
+  stub = await startStubQuoter(options);
   const outputFile = join(mkdtempSync(join(tmpdir(), 'e2e-')), 'results.json');
   // The child is a vitest of its own: none of this run's VITEST_* variables.
   const inherited = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('VITEST')));
@@ -58,8 +59,8 @@ async function runSuite(options: StubOptions = {}, env: NodeJS.ProcessEnv = {}):
   });
 }
 
-describe('the e2e suite, against a stub backend', { timeout: 60_000 }, () => {
-  it('passes on a faithful backend, every test and every fake case played', async () => {
+describe('the e2e suite, against a stub quoter', { timeout: 60_000 }, () => {
+  it('passes on a faithful quoter, every test and every fake case played', async () => {
     const run = await runSuite();
     expect(run.code, run.output).toBe(0);
     expect(
@@ -69,12 +70,19 @@ describe('the e2e suite, against a stub backend', { timeout: 60_000 }, () => {
     for (const c of selectCases(loadQuoteCases(), 'fake')) expect(run.results.get(c.id)).toBe('passed');
   });
 
-  it('fails on a backend whose totals are off', async () => {
+  it('fails on a quoter whose totals are off', async () => {
     const run = await runSuite({ tamper: (q) => ({ ...q, total_cents: q.total_cents - 1 }) });
     expect(run.code).not.toBe(0);
     expect(run.results.get('enonce-1')).toBe('failed');
     expect(run.results.get('echoes the X-Request-Id it receives')).toBe('failed');
     expect(run.results.get('rejects the blank cart "" as empty_cart')).toBe('passed');
+  });
+
+  it('fails on a quoter that runs other prompts', async () => {
+    const run = await runSuite({ health: { prompts: { ...promptVersions(), parse: '00000000' } } });
+    expect(run.code).not.toBe(0);
+    expect(run.results.get("serves the versions of the repository's prompts")).toBe('failed');
+    expect(run.results.get('enonce-1')).toBe('passed');
   });
 
   it('refuses live engines without RUN_LIVE=1, before any request', async () => {
