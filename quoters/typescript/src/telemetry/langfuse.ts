@@ -1,7 +1,7 @@
 import { LogLevel, configureGlobalLogger } from '@langfuse/core';
 import { LangfuseSpanProcessor } from '@langfuse/otel';
 import { resourceFromAttributes } from '@opentelemetry/resources';
-import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+import { NodeTracerProvider, type SpanExporter } from '@opentelemetry/sdk-trace-node';
 import type { Logger } from '../log.ts';
 
 /**
@@ -91,11 +91,24 @@ const IN_FLIGHT = 256;
  */
 export function startTracing(
   langfuse: Langfuse | undefined,
-  { version, log, fetch = globalThis.fetch }: { version: string; log: Logger; fetch?: typeof globalThis.fetch },
+  {
+    version,
+    log,
+    fetch = globalThis.fetch,
+    exporter,
+  }: {
+    version: string;
+    log: Logger;
+    /** How scores are posted; tests answer for Langfuse. */
+    fetch?: typeof globalThis.fetch;
+    /** Where spans go; Langfuse's OTLP endpoint unless a test keeps them. */
+    exporter?: SpanExporter;
+  },
 ): Tracing {
   if (!langfuse) return OFF;
   configureGlobalLogger({ level: LogLevel.NONE });
   const processor = new LangfuseSpanProcessor({
+    ...(exporter && { exporter }),
     publicKey: langfuse.publicKey,
     secretKey: langfuse.secretKey,
     baseUrl: langfuse.baseUrl,

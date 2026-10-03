@@ -1,5 +1,7 @@
 import { startObservation } from '@langfuse/tracing';
 import { context, trace } from '@opentelemetry/api';
+import { ExportResultCode } from '@opentelemetry/core';
+import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace-node';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Logger } from '../src/log.ts';
 import { startTracing } from '../src/telemetry/langfuse.ts';
@@ -8,6 +10,20 @@ import { startTracing } from '../src/telemetry/langfuse.ts';
 // logger, in the words every quoter uses. No test reaches a Langfuse.
 
 const langfuse = { publicKey: 'pk', secretKey: 'sk', baseUrl: 'http://langfuse.test' };
+
+/** Spans kept in memory, never posted: no test waits on a network. `failing`, it refuses them and its shutdown fails. */
+function exporter(failing = false): SpanExporter & { spans: ReadableSpan[] } {
+  const spans: ReadableSpan[] = [];
+  return {
+    spans,
+    export(batch, done) {
+      if (!failing) spans.push(...batch);
+      done({ code: failing ? ExportResultCode.FAILED : ExportResultCode.SUCCESS });
+    },
+    shutdown: () => (failing ? Promise.reject(new Error('offline')) : Promise.resolve()),
+    forceFlush: () => Promise.resolve(),
+  };
+}
 
 function logger() {
   const lines: { level: string; msg: string; attributes: Record<string, unknown> }[] = [];
@@ -32,7 +48,7 @@ describe('scores', () => {
       return Promise.resolve(new Response('{"successes":[],"errors":[]}', { status: 207 }));
     }) as typeof globalThis.fetch;
     const { lines, log } = logger();
-    const tracing = startTracing(langfuse, { version: 'test', log, fetch });
+    const tracing = startTracing(langfuse, { version: 'test', log, fetch, exporter: exporter() });
     tracing.score('t1', [
       { name: 'cost_usd', value: 0.002 },
       { name: 'outcome', value: 'priced' },
@@ -77,17 +93,15 @@ describe('scores', () => {
 describe('spans', () => {
   it('name the service delorean, at its version, and set no SDK logger of their own', async () => {
     const { lines, log } = logger();
-    const tracing = startTracing(langfuse, {
-      version: '1.2.3',
-      log,
-      fetch: () => Promise.reject(new Error('offline')),
-    });
+    const tracing = startTracing(langfuse, { version: '1.2.3', log, exporter: exporter(true) });
     const span = startObservation('probe');
     span.end();
     const resource = (span.otelSpan as unknown as { resource: { attributes: Record<string, unknown> } }).resource;
     expect(resource.attributes).toMatchObject({ 'service.name': 'delorean', 'service.version': '1.2.3' });
     await tracing.shutdown();
     // the export failed: said in our words, once, and nothing else
-    expect(lines.map((l) => l.msg)).toEqual(['traces not flushed']);
+    expect(lines).toEqual([
+      { level: 'WARN', msg: 'traces not flushed', attributes: { err: 'BatchSpanProcessor: span export failed' } },
+    ]);
   });
 });
