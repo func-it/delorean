@@ -14,7 +14,7 @@ export type Usage = Schemas["Usage"];
 
 /**
  * Problem codes the browser can receive from the BFF: every code of the
- * quoter contract, plus four the BFF raises itself.
+ * quoter contract, plus five the BFF raises itself.
  *
  * - `no_session` (401): no valid session cookie; log in again.
  * - `too_many_refusals` (429): the session, the username or the client
@@ -22,6 +22,9 @@ export type Usage = Schemas["Usage"];
  *   `STRIKE_WINDOW_S`; it is blocked for `retry_after_s` more seconds.
  * - `quote_in_progress` (429): a quote is already in flight for the session,
  *   the username or the client address; one at a time, retry in a second.
+ * - `daily_budget_exhausted` (503): the day's spending (UTC) reached
+ *   `DAILY_BUDGET_USD`; the quoter was not called, and `retry_after_s` is the
+ *   time left until midnight UTC.
  * - `quoter_unavailable` (502): the quoter could not be reached, did not
  *   answer within `QUOTER_TIMEOUT_MS`, or answered out of contract.
  */
@@ -30,13 +33,15 @@ export type ProblemCode =
   | "no_session"
   | "too_many_refusals"
   | "quote_in_progress"
+  | "daily_budget_exhausted"
   | "quoter_unavailable";
 
 /**
  * An RFC 9457 problem as the BFF returns it (`application/problem+json`), with
  * two extensions of the BFF's:
  *
- * - `retry_after_s` (`too_many_refusals`, `quote_in_progress`): seconds
+ * - `retry_after_s` (`too_many_refusals`, `quote_in_progress`,
+ *   `daily_budget_exhausted`): seconds
  *   before trying again, also in the `Retry-After` header;
  * - `remembered` (`injection`): this text was refused before, and the refusal
  *   is repeated without asking the quoter again.

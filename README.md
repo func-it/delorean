@@ -69,6 +69,12 @@ judge) and 2 LLM (the reading and the recount). Before the recount, when the
 same cart took 18 Jev calls and 1 Luna, a quote cost about $0.0006 and took
 about 4 s; it has not been measured since.
 
+A public demo should cap what it can spend: `DAILY_BUDGET_USD=5` in `.env`
+(absent or `0`: no cap) stops the web app from calling the quoters once the
+quotes relayed that UTC day have cost that much, with a French message to the
+visitor; the total survives restarts, in the `web-data` volume
+([budget](web/README.md#daily-budget)).
+
 ### Without Docker
 
 ```sh

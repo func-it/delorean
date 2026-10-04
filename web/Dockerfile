@@ -23,6 +23,8 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0
 # Owned by the unprivileged `node` user: Next writes its fetch cache under .next/cache.
 COPY --from=build --chown=node:node /app/.next/standalone ./
+# The daily budget's total (BUDGET_FILE): a volume mounted here starts out owned by `node`.
+RUN mkdir /data && chown node:node /data
 USER node
 EXPOSE 24790
 CMD ["node", "server.js"]
