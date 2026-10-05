@@ -154,6 +154,25 @@ async def test_answers_outside_the_question_are_refused(body: dict[str, Any]) ->
         await jev(answering(200, body)).decide(Ask(state={}, questions=[FILM]))
 
 
+async def test_a_noul_answer_without_its_probability_is_an_engine_error_not_zero() -> None:
+    answer = {"answers": {"yes": {"confidence": 1}}}
+    with pytest.raises(JevError, match=r"jev-1.13: 'yes' has no noul probability"):
+        await jev(answering(200, answer)).decide(Ask(state={}, questions=[YES]))
+
+
+async def test_a_noul_of_zero_is_an_answer() -> None:
+    decision = await jev(answering(200, {"answers": {"yes": {"noul": 0, "confidence": 1}}})).decide(
+        Ask(state={}, questions=[YES])
+    )
+    assert decision.answers["yes"].noul == 0
+
+
+async def test_a_choice_has_no_noul_to_give() -> None:
+    answer = {"answers": {"film": {"choice": "other", "confidence": 1, "probabilities": {"other": 1}}}}
+    decision = await jev(answering(200, answer)).decide(Ask(state={}, questions=[FILM]))
+    assert decision.answers["film"].choice == "other"
+
+
 @pytest.mark.parametrize(
     ("status", "body", "message", "transient"),
     [

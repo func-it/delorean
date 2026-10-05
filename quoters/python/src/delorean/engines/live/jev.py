@@ -87,7 +87,8 @@ class _Wire(BaseModel):
 
 
 class _Answer(_Wire):
-    noul: float = 0.0
+    noul: float | None = None
+    """Absent from an answer to a choice; one to a noul that lacks it is out of contract."""
     choice: str = ""
     confidence: float = 0.0
     probabilities: dict[str, float] = {}
@@ -270,10 +271,14 @@ class Jev:
                 status=status,
                 transient=status in TRANSIENT,
             )
+        for q in ask.questions:
+            # a noul's probability is its answer: left out, it is not "0", it is an engine that drifted
+            if q.kind == "noul" and (a := out.answers.get(q.key)) is not None and a.noul is None:
+                raise JevError(f"{self.engine}: {q.key!r} has no noul probability")
         decision = Decision(
             answers={
                 k: Answer(
-                    noul=a.noul,
+                    noul=0.0 if a.noul is None else a.noul,
                     choice=a.choice,
                     confidence=a.confidence,
                     probabilities=a.probabilities,
