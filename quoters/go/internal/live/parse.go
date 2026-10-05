@@ -182,7 +182,9 @@ func (p *Parser) Parse(ctx context.Context, text string, again *pipeline.Retry) 
 		mentions, err = decodeReading(answer, p.prompt.films)
 		return err
 	})
-	u := pipeline.Usage{Engine: p.model, Model: p.model, Calls: m.calls, Ms: time.Since(start).Milliseconds(), CostUSD: m.cost}
+	// a call that went out counts, answered or not: a response is counted as it comes,
+	// so a call cut by its time has none to count
+	u := pipeline.Usage{Engine: p.model, Model: p.model, Calls: max(m.calls, 1), Ms: time.Since(start).Milliseconds(), CostUSD: m.cost}
 	if err != nil {
 		return nil, u, failed(p.stage, err)
 	}
