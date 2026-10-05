@@ -634,12 +634,13 @@ async def test_a_reading_read_again_is_priced(pipeline: Pipeline) -> None:
     assert [p.line.title for p in q.price.lines] == ["Back to the Future 1", "Back to the Future 2"]
     assert q.judgement.attempts == 2
     assert q.judgement.score == 1
-    # the recount read both titles on the first attempt: nothing new to identify
+    # the recount read both titles on the first attempt: nothing new to identify,
+    # and it is not asked again, the first one that succeeded being kept
     assert calls(q) == {
         Stage.PREPARE: 0,
         Stage.GUARD: 1,
         Stage.PARSE: 2,
-        Stage.RECOUNT: 2,
+        Stage.RECOUNT: 1,
         Stage.IDENTIFY: 1,
         Stage.JUDGE: 2,
         Stage.PRICE: 0,
@@ -653,7 +654,7 @@ async def test_an_unfaithful_reading_is_refused_after_the_last_attempt(pipeline:
     assert rej.judgement.attempts == 3
     # the same reading three times: put to the judge once
     assert calls(rej)[Stage.PARSE] == 3
-    assert calls(rej)[Stage.RECOUNT] == 3
+    assert calls(rej)[Stage.RECOUNT] == 1, "asked once, kept for the three readings"
     assert calls(rej)[Stage.JUDGE] == 1
     assert stages(rej) == [s for s in Stage if s != Stage.PRICE]
 
@@ -804,13 +805,8 @@ async def test_a_failure_on_a_later_attempt_with_no_film_is_a_502(pipeline: Pipe
 
 async def test_a_reading_judged_once_is_reused_in_any_order(pipeline: Pipeline) -> None:
     heat, ronin = Mention("Heat", 1), Mention("Ronin", 2)
-    script = Script([heat, ronin], [ronin, heat])
-    recounts = iter([[heat], [heat, ronin]])
-
-    class Recount:
-        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
-            return next(recounts), fake.USAGE
-
+    script = Script([heat, ronin], [ronin, heat], [ronin, heat])
+    recount = Says([heat], asked=[])  # the one recount, kept: every reading is counted against it
     judge = Says(
         [
             Finding(Check.ASKED, "Heat", 1.0),
@@ -821,17 +817,20 @@ async def test_a_reading_judged_once_is_reused_in_any_order(pipeline: Pipeline) 
         ],
         asked=[],
     )
-    q = await quote(engines(pipeline, parser=script, recounter=Recount(), judge=judge), "Heat\n2 x Ronin")
-    assert q.judgement.attempts == 2, "the recount now agrees"
+    rej = await rejection(engines(pipeline, parser=script, recounter=recount, judge=judge), "Heat\n2 x Ronin")
+    assert rej.judgement is not None
+    assert rej.judgement.attempts == 3, "the kept recount disagrees at every reading"
     assert judge.asked is not None
     assert len(judge.asked) == 1, "the same lines are not put to the judge again"
-    assert [(f.check, f.label, f.score) for f in q.judgement.findings] == [
+    assert recount.asked is not None
+    assert len(recount.asked) == 1, "the recount that succeeded is not asked again"
+    assert [(f.check, f.label, f.score) for f in rej.judgement.findings] == [
         (Check.ASKED, "Ronin", 0.8),
         (Check.IDENTITY, "Ronin", 0.7),
         (Check.ASKED, "Heat", 1.0),
         (Check.IDENTITY, "Heat", 0.9),
         (Check.MISSING, "the whole reading", 1.0),
-        (Check.COUNT, "other: 3 read, 3 recounted", 1.0),
+        (Check.COUNT, "other: 3 read, 1 recounted", 0.0),
     ]
 
 
@@ -871,7 +870,8 @@ async def test_a_span_per_stage_per_attempt(traced: Pipeline, spans: Spans) -> N
         [
             ("prepare", None),
             ("guard", None),
-            *[(stage, n) for n in (1, 2) for stage in ("parse", "recount", "identify", "judge")],
+            *[(stage, n) for n in (1, 2) for stage in ("parse", "identify", "judge")],
+            ("recount", 1),  # the first one that succeeded is kept: not asked at the second reading
             ("price", None),
         ],
         key=str,
@@ -1048,7 +1048,8 @@ async def test_a_degraded_reading_is_still_judged(pipeline: Pipeline) -> None:
 
 async def test_a_recount_failure_on_a_later_attempt_with_no_film_is_no_502(pipeline: Pipeline) -> None:
     class Later:
-        """Reads Heat twice first, nothing later; the recount fails from its second call."""
+        """Reads Heat twice first, nothing later; the recount is down: it is asked at every reading,
+        none having succeeded."""
 
         def __init__(self, *, parse: bool) -> None:
             self.parse, self.reads = parse, 0
@@ -1057,13 +1058,15 @@ async def test_a_recount_failure_on_a_later_attempt_with_no_film_is_no_502(pipel
             self.reads += 1
             if self.parse:
                 return ([Mention("Heat", 2)] if self.reads == 1 else []), fake.USAGE
-            if self.reads >= 2:
+            if self.reads >= 1:
                 raise EngineError("recount down", usage=fake.USAGE)
             return [Mention("Heat", 1)], fake.USAGE
 
-    rej = await rejection(engines(pipeline, parser=Later(parse=True), recounter=Later(parse=False)), "Heat")
+    recounter = Later(parse=False)
+    rej = await rejection(engines(pipeline, parser=Later(parse=True), recounter=recounter), f"Heat\n{fake.UNFAITHFUL}")
     assert rej.code == Code.UNFAITHFUL_READING
     assert recount_usage(rej).degraded
+    assert recounter.reads == 3, "none succeeded: asked again at each reading"
 
 
 class Flaky:

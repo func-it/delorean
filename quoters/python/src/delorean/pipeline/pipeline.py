@@ -161,10 +161,12 @@ class Pipeline:
         judgement: Judgement | None = None
         for attempt in range(1, self.read_attempts + 1):
             run.attempt = run.readings = attempt
-            readings = await self._read_twice(run, text, retry)
+            readings = await self._read_twice(run, text, retry, memory)
             if isinstance(readings, Rejection):
                 return readings
             parsed, recounted = readings  # recounted None: degraded, no recount
+            if recounted is not None and memory.recount is None:
+                memory.recount = recounted
             if parsed.reading:
                 reading, recount = await self._identify(run, memory, parsed.reading, recounted)
                 judgement = await self._judge(run, memory, text, reading, recount)
@@ -187,12 +189,21 @@ class Pipeline:
         )
 
     async def _read_twice(
-        self, run: _Run, text: str, retry: Retry | None
+        self, run: _Run, text: str, retry: Retry | None, memory: _Memory
     ) -> tuple[_Parsed, list[Mention] | None] | Rejection:
         """The parse and the recount, side by side. The parse decides first:
         its failure, which cancels the recount; then its refusal, which waits
         for the recount and reports what both took. The recount's own failure
-        decides nothing: the reading goes on without it (None)."""
+        decides nothing: the reading goes on without it (None).
+
+        The recount reads blind: its input never changes between readings. The
+        first one that succeeded is kept for the request (`memory.recount`):
+        later readings are not given a new call, span or usage for it, and
+        are counted against it. One left out is asked again at the next
+        reading."""
+        if memory.recount is not None:
+            parsed = await self._parse(run, text, retry)
+            return parsed if isinstance(parsed, Rejection) else (parsed, memory.recount)
         # both start before anything can cancel them: each opens its span
         beside = _Beside()
         parse = asyncio.create_task(self._parse(run, text, retry, beside))
@@ -338,8 +349,8 @@ class Pipeline:
         """The judgement of a reading. One an earlier attempt judged — the same
         lines, in any order — is not put to Jev again: a wrong reading Jev
         refuses two times in three must not get three throws. Only `count` is
-        computed anew, against this attempt's recount; without one (degraded)
-        there is nothing to count against."""
+        computed anew, against the recount kept for the request; without one
+        (degraded) there is nothing to count against."""
         with run.stage(Stage.JUDGE) as stage:
             usage = None
             judged = memory.judged.get(rules.facts(reading))
@@ -520,6 +531,8 @@ class _Memory:
 
     identified: dict[str, Identification] = field(default_factory=dict)
     judged: dict[frozenset[rules.Fact], rules.Judged] = field(default_factory=dict)
+    recount: list[Mention] | None = None
+    """The first recount that succeeded, merged: kept for every later reading."""
 
 
 @dataclass(slots=True)
