@@ -64,7 +64,7 @@ def test_every_variable() -> None:
             "RECOUNT_EFFORT": "minimal",
             "JEV_MODEL": "typesafe/jev-2.0",
             "IDENTIFY_CACHE_SIZE": "0",
-            "MODEL_TIMEOUT": "4s",
+            "MODEL_TIMEOUT": "2s",
             "RECOUNT_TIMEOUT": "2500ms",
             "MAX_BODY_BYTES": "1024",
             "MAX_INPUT_TOKENS": "512",
@@ -93,7 +93,7 @@ def test_every_variable() -> None:
         recount_base_url="http://localhost:11434/v1",
         jev_model="typesafe/jev-2.0",
         identify_cache_size=0,
-        model_timeout=4.0,
+        model_timeout=2.0,
     )
     assert (s.prompts_dir, s.tokenizer_dir) == (Path("/srv/prompts"), Path("/srv/tiktoken"))
     assert s.langfuse == LangfuseSettings(public_key="pk", secret_key="sk", base_url="http://localhost:24794")
@@ -203,10 +203,50 @@ def test_go_duration(text: str, seconds: float) -> None:
     assert go_duration(text) == pytest.approx(seconds)
 
 
+@pytest.mark.parametrize(
+    ("text", "seconds"),
+    [("1.1s", 1.1), ("1.0004s", 1.0), ("1.0005s", 1.001), ("0.0004ms", 0.0), ("2.3s", 2.3), ("1500us", 0.002)],
+)
+def test_go_duration_is_whole_milliseconds(text: str, seconds: float) -> None:
+    assert go_duration(text) == seconds, "the very float, not one that drifts: 1.1000000000000001"
+
+
 @pytest.mark.parametrize("text", ["", "30", "s", "30 s", "1d", "1m-30s", "thirty seconds"])
 def test_go_duration_refuses(text: str) -> None:
     with pytest.raises(ValueError, match="duration"):
         go_duration(text)
+
+
+@pytest.mark.parametrize(
+    ("env", "lines"),
+    [
+        ({"MODEL_TIMEOUT": "7s"}, ["RECOUNT_TIMEOUT must be at least MODEL_TIMEOUT"]),
+        ({"RECOUNT_TIMEOUT": "20s"}, ["REQUEST_TIMEOUT must be at least RECOUNT_TIMEOUT"]),
+        # the recount's own line says it: the next comparison is then left out
+        (
+            {"MODEL_TIMEOUT": "9s", "RECOUNT_TIMEOUT": "8s", "REQUEST_TIMEOUT": "7s"},
+            ["RECOUNT_TIMEOUT must be at least MODEL_TIMEOUT"],
+        ),
+        # a variable that failed its own check is not compared
+        (
+            {"MODEL_TIMEOUT": "0", "RECOUNT_TIMEOUT": "20s"},
+            ["MODEL_TIMEOUT must be positive", "REQUEST_TIMEOUT must be at least RECOUNT_TIMEOUT"],
+        ),
+        (
+            {"RECOUNT_TIMEOUT": "oops", "MODEL_TIMEOUT": "20s"},
+            ['RECOUNT_TIMEOUT="oops" is not a duration such as "30s"'],
+        ),
+    ],
+)
+def test_the_timeouts_are_ordered(env: dict[str, str], lines: list[str]) -> None:
+    with pytest.raises(ConfigError) as raised:
+        Settings.from_env({"ENGINES": "fake", **env})
+    assert str(raised.value).splitlines() == lines
+
+
+def test_equal_timeouts_are_ordered() -> None:
+    s = Settings.from_env({"ENGINES": "fake", "MODEL_TIMEOUT": "3s", "RECOUNT_TIMEOUT": "3s", "REQUEST_TIMEOUT": "3s"})
+    assert (s.live.model_timeout, s.recount_timeout, s.request_timeout) == (3.0, 3.0, 3.0)
 
 
 def test_reader_endpoints_and_options_are_checked() -> None:
