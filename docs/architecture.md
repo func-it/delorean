@@ -649,10 +649,6 @@ The end-to-end suite and the system bench read the same cases.
 | Folder | Subject | `input` | `expect` |
 |---|---|---|---|
 | `quote/` | the API end to end | `{cart}` | `{status: 200, total_cents, films?}` or `{status, code}` |
-| `guard/` | the guard alone | `{text}` | `{verdict}` |
-| `identify/` | one title | `{title}` | `{film}` |
-| `reading/` | parse + identify | `{text}` | `{films: {film: total quantity}}` |
-| `judge/` | the judge | `{text, lines: [{title, quantity, film}]}` | `{faithful: bool, check?}` |
 
 - `films` compares the total quantities per film (`other` adds up all the
   other films).
@@ -665,9 +661,9 @@ The end-to-end suite and the system bench read the same cases.
   the quoter; correct price rate, correct rejection rate, p50 / p90 latency,
   cost per cart and per stage.
 - **Component benches** (guard, identify, reading, judge, a matrix of parser
-  models) were run by a tool of the earlier Go tree, on the `guard/`,
-  `identify/`, `reading/` and `judge/` cases, which stay in `cases/`. Their
-  results, and what they decided, are kept in
+  models) were run by a tool of the earlier Go tree, on `guard/`,
+  `identify/`, `reading/` and `judge/` cases that went with it (they are in
+  git history). Their results, and what they decided, are kept in
   [testing](testing.md#results-kept-from-the-earlier-benches).
 
 No bench runs without `RUN_LIVE=1` and an OpenRouter key.

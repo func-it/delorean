@@ -188,7 +188,7 @@ api/openapi.yaml      the contract, source of truth
 quoters/typescript/   the quoter: pipeline, engines, pricing, API (Node)
 web/                  Next.js: the page, the BFF, the session, the budget
 prompts/              every word put to a model
-cases/                shared cases: quote, guard, identify, reading, judge
+cases/                the cases the end-to-end suite and the system bench play
 e2e/                  end-to-end suite and system bench, for any quoter
 docs/                 architecture, testing, and the documentation site
 deploy/               Langfuse (optional), the docs server, the browser-test stack

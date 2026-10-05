@@ -68,20 +68,14 @@ contract: [Fake engines](architecture.md#fake-engines-enginesfake).
 
 ## Shared cases
 
-One JSON file per case in `cases/`, read by the end-to-end suite and the system
-bench (and, in the earlier tree, by the component benches). Each case has a `note` that says which mistake it guards against.
+One JSON file per case in `cases/quote/`, read by the end-to-end suite and the
+system bench. Each case has a `note` that says which mistake it guards against;
+`input` is the cart, `expect` a total and the films read, or a status and a
+refusal code.
 
-| Folder | Subject | Cases |
-|---|---|---|
-| `quote/` | the API end to end: a total, the quantities per film, or a refusal code | 81 |
-| `guard/` | valid, injection or invalid | 113 |
-| `identify/` | one title → `bttf_1`, `bttf_2`, `bttf_3` or `other` | 61 |
-| `reading/` | parse and identify together: quantities per film | 46 |
-| `judge/` | is a given reading faithful to the text, and which check says it is not (`asked`, `identity`, `missing`, `count`)? | 42 |
-
-The `fake` tag marks the 35 quote cases the fake engines must pass; the
-end-to-end suite plays them. The others are played against the real models only. Five of them use
-a fault line: `recomptage-en-desaccord` (`#fake:miscount`) proves that a
+The `fake` tag marks the 35 cases the fake engines must pass; the end-to-end
+suite plays them. The others are played against the real models only. Five of
+them use a fault line: `recomptage-en-desaccord` (`#fake:miscount`) proves that a
 recount in disagreement refuses the cart, `recomptage-hors-schema`
 (`#fake:recount_offschema`) that a recount answering off its schema is left
 out instead of failing the quote, `recomptage-hors-schema-quantites` that a
@@ -89,28 +83,19 @@ quote left without a recount does not price a line of several copies
 (`503 quantity_unverified`), `relecture-film-oublie`
 (`#fake:reread`) that a reading the judge refuses is read again and priced,
 `relecture-toujours-infidele` (`#fake:unfaithful`) that it is refused after
-the last reading.
+the last reading. The tag `limite` marks a borderline call made on purpose,
+explained in the note: asking for a discount, a film on Blu-ray, a character's
+line in a story.
 
-Two other tags say how to read a case:
-
-- `limite` marks a borderline call made on purpose, explained in the note:
-  asking for a discount, a film on Blu-ray, a character's line in a story;
-- `injection` on a `reading/` case is the second wall: an injection sent
-  straight to parse and identify, as if the guard had let it through, and
-  expecting only the films the customer really asked for.
-
-The guard cases cover each family of injection in French, English and at
-least two other languages: orders to the system, prices or rules imposed,
-instructions aimed at the reading, the counting or the judge, fake turns and
-tag escapes, payloads hidden in a title, markup or encoded text (base64,
-leetspeak, homoglyphs, invisible characters), prompt leaks, role play. The
-valid cases include real films whose titles sound like orders (*Forget
-Paris*, *La Règle du jeu*, *Instructions Not Included*), so a guard that
-reacts to words rather than intent is caught.
-
-```sh
-task cases:check   # offline: shape, id = file name, known films, verdicts and codes
-```
+The earlier component benches played 262 other cases, one folder each: `guard/`
+(113: valid, injection or invalid, each family of injection in several
+languages, and real films whose titles sound like orders), `identify/` (61: a
+title to one of the three volumes or another film), `reading/` (46: parse and
+identify together) and `judge/` (42: is a reading faithful to the text). They
+ran only against the real models, with a tool that is gone, so they went with
+it: they are in git history (`git log --diff-filter=D --stat -- cases/guard`),
+and what they measured is in
+[Results kept from the earlier benches](#results-kept-from-the-earlier-benches).
 
 ## End-to-end suite
 
