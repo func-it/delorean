@@ -146,6 +146,9 @@ class FakeReader:
     mention when the text has a #fake:miscount line; with a
     #fake:recount_offschema line it answers off its schema."""
 
+    engine: Final = "fake"
+    """What a call cut by its time is attributed to, as USAGE says."""
+
     def __init__(self, *, recount: bool = False, pace: Pace = INSTANT) -> None:
         self._recount = recount
         self._pace = pace

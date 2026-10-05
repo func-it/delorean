@@ -1135,6 +1135,60 @@ async def test_a_recount_that_does_not_answer_is_cut_at_its_timeout(pipeline: Pi
     assert q.price.total_cents == 2000
 
 
+async def test_a_recount_cut_by_its_time_counts_the_call_that_went_out(pipeline: Pipeline) -> None:
+    class Hung:
+        model = "openai/gpt-6-luna"
+
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            await asyncio.sleep(60)
+            raise AssertionError("not cut")
+
+    q = await quote(engines(replace(pipeline, recount_timeout=0.08), recounter=Hung()), "Heat")
+    usage = recount_usage(q)
+    assert (usage.engine, usage.model, usage.calls, usage.cost_usd, usage.degraded) == (
+        "openai/gpt-6-luna",
+        "openai/gpt-6-luna",
+        1,
+        0.0,
+        True,
+    ), "one call, its model known, its cost not"
+
+    # one that names nothing is an engine not known, the call counted all the same
+    class Nameless:
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            await asyncio.sleep(60)
+            raise AssertionError("not cut")
+
+    q = await quote(engines(replace(pipeline, recount_timeout=0.08), recounter=Nameless()), "Heat")
+    assert (recount_usage(q).engine, recount_usage(q).calls) == ("unknown", 1)
+
+
+async def test_a_retry_cut_by_the_recount_time_counts_both_calls(pipeline: Pipeline) -> None:
+    class FailsThenHangs:
+        model = "openai/gpt-6-luna"
+        reads = 0
+
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            FailsThenHangs.reads += 1
+            if FailsThenHangs.reads == 1:
+                raise EngineError("answer off schema", usage=Usage(engine=self.model, model=self.model, calls=1))
+            await asyncio.sleep(60)
+            raise AssertionError("not cut")
+
+    q = await quote(engines(replace(pipeline, recount_timeout=0.4), recounter=FailsThenHangs()), "Heat")
+    usage = recount_usage(q)
+    assert (usage.engine, usage.calls, usage.degraded) == ("openai/gpt-6-luna", 2, True)
+
+
+async def test_the_fake_recount_cut_by_its_time_is_the_fake_engine(pipeline: Pipeline) -> None:
+    async def hang(seconds: float) -> None:
+        await asyncio.sleep(60)
+
+    recounter = fake.FakeReader(recount=True, pace=fake.Pace(latency="real", sleep=hang))
+    q = await quote(engines(replace(pipeline, recount_timeout=0.08), recounter=recounter), "Heat")
+    assert (recount_usage(q).engine, recount_usage(q).calls) == ("fake", 1)
+
+
 async def test_only_a_request_that_is_over_fails_on_the_recount(pipeline: Pipeline) -> None:
     class Hung:
         async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:

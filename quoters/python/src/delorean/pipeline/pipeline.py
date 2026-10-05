@@ -295,6 +295,7 @@ class Pipeline:
         loop = asyncio.get_running_loop()
         started, budget = loop.time(), self.recount_timeout
         taken: Usage | None = None
+        retrying = False
         try:
             async with asyncio.timeout_at(started + budget):
                 try:
@@ -303,13 +304,24 @@ class Pipeline:
                     taken = _usage_of(err)
                     if beside.failed or loop.time() - started >= budget / 2:
                         raise _RecountError(err, taken) from err
+                retrying = True
                 try:
                     mentions, usage = await self._recount_once(text)
                 except EngineError as err:
                     raise _RecountError(err, _added(taken, _usage_of(err))) from err
                 return mentions, _added(taken, usage)
         except TimeoutError as err:
-            raise _RecountError(EngineError("no answer in time"), taken or _UNKNOWN) from err
+            # the call under way went out: it counts, whose it was known, its cost not
+            cut = self._cut_usage()
+            raise _RecountError(EngineError("no answer in time"), _added(taken, cut) if retrying else cut) from err
+
+    def _cut_usage(self) -> Usage:
+        """What a recount call cut by its time shows: one call, to the model
+        the recounter names — the call itself never said — at a cost not
+        known, 0."""
+        recounter = self.engines.recounter
+        model: str | None = getattr(recounter, "model", None)
+        return Usage(engine=getattr(recounter, "engine", None) or model or _UNKNOWN.engine, model=model, calls=1)
 
     async def _recount_once(self, text: str) -> tuple[list[Mention], Usage]:
         mentions, usage = await self.engines.recounter.read(text)
