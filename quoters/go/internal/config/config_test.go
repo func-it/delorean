@@ -190,6 +190,43 @@ func TestLoadListsErrorsInTableOrder(t *testing.T) {
 	}
 }
 
+// With live engines a key goes along with every call to a reader's URL: over
+// http it would cross the network in the clear, so http is for the local
+// machine (exactly localhost, 127.0.0.1 and ::1). With fake engines nothing
+// is sent, and nothing is checked.
+func TestLoadRefusesAnHTTPBaseURLWhenAKeyGoesWithIt(t *testing.T) {
+	live := func(vars map[string]string) (Config, error) {
+		vars["ENGINES"], vars["OPENROUTER_API_KEY"] = "live", "k"
+		return Load(from(vars))
+	}
+	_, err := live(map[string]string{"PARSE_BASE_URL": "http://x/v1", "RECOUNT_BASE_URL": "http://example.com:8080/v1"})
+	want := []string{
+		`PARSE_BASE_URL is "http://x/v1", not https: a key is sent with it (http is for localhost only)`,
+		`RECOUNT_BASE_URL is "http://example.com:8080/v1", not https: a key is sent with it (http is for localhost only)`,
+	}
+	if err == nil || err.Error() != strings.Join(want, "\n") {
+		t.Errorf("err = %v, want\n%s", err, strings.Join(want, "\n"))
+	}
+	for _, base := range []string{"http://localhost:11434/v1", "http://127.0.0.1:11434/v1", "http://[::1]:11434/v1", "https://example.com/v1", "https://localhost/v1"} {
+		if _, err := live(map[string]string{"PARSE_BASE_URL": base, "RECOUNT_BASE_URL": base}); err != nil {
+			t.Errorf("%s: %v", base, err)
+		}
+	}
+	for _, base := range []string{"http://localhost.example.com/v1", "http://127.0.0.1.nip.io/v1", "http://127.0.0.2/v1", "http://[::2]/v1", "http://LOCALHOST.evil/v1", "HTTP://example.com/v1"} {
+		if _, err := live(map[string]string{"PARSE_BASE_URL": base}); err == nil || !strings.HasPrefix(err.Error(), "PARSE_BASE_URL") {
+			t.Errorf("%s: err = %v, want it refused", base, err)
+		}
+	}
+	if _, err := Load(from(map[string]string{"ENGINES": "fake", "PARSE_BASE_URL": "http://example.com/v1", "RECOUNT_BASE_URL": "http://x/v1"})); err != nil {
+		t.Errorf("fake engines: %v", err)
+	}
+	// not an http(s) URL at all: one line, the first
+	_, err = live(map[string]string{"PARSE_BASE_URL": "ftp://x"})
+	if err == nil || strings.Count(err.Error(), "PARSE_BASE_URL") != 1 || !strings.Contains(err.Error(), "not an http(s) URL") {
+		t.Errorf("err = %v, want the one line of the first check", err)
+	}
+}
+
 // A duration is read in whole milliseconds, and the timeouts are ordered: a
 // call, then the recount that holds it, then the request that holds both.
 func TestLoadTimeouts(t *testing.T) {

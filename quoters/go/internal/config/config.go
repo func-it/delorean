@@ -93,6 +93,11 @@ func Load(getenv func(string) string) (Config, error) {
 	for _, v := range []struct{ name, base string }{{"PARSE_BASE_URL", c.Live.ParseBaseURL}, {"RECOUNT_BASE_URL", c.Live.RecountBaseURL}} {
 		u, err := url.Parse(v.base)
 		e.check(err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != "", v.name, fmt.Sprintf("is %q, not an http(s) URL", v.base))
+		// with live engines the key goes along with every call: over http it would cross the network in the
+		// clear, so http is for the local machine only (a variable already wrong is not told twice)
+		if err == nil && !e.bad(v.name) && c.Engines == EnginesLive && u.Scheme == "http" && !isLocalhost(u.Hostname()) {
+			e.check(false, v.name, fmt.Sprintf("is %q, not https: a key is sent with it (http is for localhost only)", v.base))
+		}
 	}
 	e.check(c.Live.ModelTimeout > 0, "MODEL_TIMEOUT", "must be positive")
 	e.check(c.RecountTimeout > 0, "RECOUNT_TIMEOUT", "must be positive")
@@ -116,6 +121,11 @@ func Load(getenv func(string) string) (Config, error) {
 		e.check(false, "ENGINES", fmt.Sprintf("is %q, want %s or %s", c.Engines, EnginesLive, EnginesFake))
 	}
 	return c, e.err()
+}
+
+// isLocalhost reports whether host is the local machine, by exactly these names.
+func isLocalhost(host string) bool {
+	return host == "localhost" || host == "127.0.0.1" || host == "::1"
 }
 
 // Variables are the variables Load reads, in the order of the
