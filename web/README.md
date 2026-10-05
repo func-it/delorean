@@ -38,6 +38,8 @@ docker run -p 24790:24790 -e SESSION_SECRET=… -e QUOTER_URL=http://go:24791 de
 | `STRIKE_WINDOW_S` | `900` | the window those refusals are counted in, in seconds |
 | `STRIKE_BLOCK_S` | `900` | how long a block lasts, in seconds |
 | `REFUSAL_MEMORY_S` | `21600` | how long a text refused as an injection is answered from memory, in seconds |
+| `DAILY_BUDGET_USD` | `0` (no cap) | daily spending cap in USD, UTC day, over the quoters' `usage.cost_usd` ([daily budget](#daily-budget)) |
+| `BUDGET_FILE` | `.data/budget.json` | where the day's total is kept; `/data/budget.json` in `docker compose`, on the `web-data` volume |
 | `TRUST_PROXY_HOPS` | `0` | how many proxies of ours stand in front of the app, each appending to `X-Forwarded-For` ([client address](#client-address)) |
 
 The browser picks a quoter by its **name**, checked against this list, never
@@ -77,6 +79,9 @@ On top of the contract's codes, the BFF adds its own, in the same format
 - `quote_in_progress` (429): a quote is already in flight for the session or
   the username, or `IP_MAX_IN_FLIGHT` for the client address;
   `Retry-After: 1`;
+- `daily_budget_exhausted` (503): the day's [budget](#daily-budget) is spent;
+  `Retry-After` and `retry_after_s` say how many seconds remain until
+  midnight UTC;
 - `quoter_unavailable` (502): the quoter is unreachable, too slow, or
   answers outside the contract.
 
@@ -129,6 +134,45 @@ shared store**, such as Redis (a sorted set per key for the window, `SET … PX`
 for the blocks and the refusals, `SET … NX PX` for the keys in flight, the
 lease outliving `QUOTER_TIMEOUT_MS` in case an instance dies), behind the
 same interface, whose methods already return promises.
+
+## Daily budget
+
+Nothing else bounds what a public demo costs in model calls, so the BFF keeps
+a daily total (`src/lib/budget.ts`). Every Quote and every quoter Problem
+carries `usage.cost_usd`; the BFF adds it to the day's total after relaying
+the answer. A BFF problem, a remembered refusal and a quoter that was down
+carry none and cost nothing.
+
+- `DAILY_BUDGET_USD` absent, empty, `0` or invalid: no cap, and nothing is
+  counted or written. Otherwise, once the total of the UTC day reaches it, a
+  request gets `503 daily_budget_exhausted` before the quoter is called, with
+  `Retry-After` the seconds left until midnight UTC; the UI says « le
+  vidéoclub a épuisé son budget du jour ». The total starts again from zero
+  with the next UTC day.
+- **503, not 429**: 429 tells a client it sent too much, and the cure is on its
+  side (`too_many_refusals`, `quote_in_progress`). Here every visitor is
+  refused alike because the service has stopped spending: it is temporarily
+  unavailable, and a client that backs off for its own sake changes nothing.
+- The order of the checks: session, in-flight keys, strike block, body, the
+  remembered refusal (free, still served and still a strike), then the
+  budget, then the quoter.
+- The total is `{"day": "2026-10-04", "spent_usd": 1.25}` in `BUDGET_FILE`,
+  rewritten for each answer by writing a sibling file, fsync, then `rename`
+  over it: a restart, or a kill in the middle of a write, finds the previous
+  total or the new one, never a half. Costs are summed in millionths of a dollar
+  to keep the float drift out. Compose mounts the `web-data` volume on
+  `/data` (owned by `node` in the image); without a volume, a recreated
+  container starts from zero.
+- A missing file counts as zero; an unreadable one counts as zero too, with an
+  error in the log; a write that fails is logged and the total stays right in
+  memory, the quote is still answered.
+- The cap is soft by the quotes in flight: they were let through before the
+  total reached the limit, and each adds its cost when it ends. The overshoot
+  is at most what the quotes in flight cost (one per session or username,
+  `IP_MAX_IN_FLIGHT` per address).
+- One process, like the strike store: several web instances would each count
+  their own spending and need a shared counter (Redis `INCRBYFLOAT` on a key
+  per day) behind the same `BudgetStore` interface.
 
 ### Client address
 

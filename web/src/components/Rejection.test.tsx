@@ -30,6 +30,7 @@ const TITLES: Record<ProblemCode, [number, string]> = {
   no_session: [401, "Votre session a expiré."],
   too_many_refusals: [429, "Trop de paniers refusés."],
   quote_in_progress: [429, "Un devis est déjà en cours."],
+  daily_budget_exhausted: [503, "Le vidéoclub a épuisé son budget du jour."],
   quoter_unavailable: [502, "Le service de calcul ne répond pas."],
 };
 

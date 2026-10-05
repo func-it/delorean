@@ -25,10 +25,11 @@ browser ──► web (Next.js: UI + BFF, session) ──► quoter (go | python
   password: this is identification, not authentication), hides the quoter
   URL from the browser and forwards `X-User-Id` / `X-Session-Id` for the
   traces.
-- The BFF adds four codes to the contract's, in the same problem format:
+- The BFF adds five codes to the contract's, in the same problem format:
   `401 no_session` (no session), `429 too_many_refusals` (blocked by the
   strike rule, below), `429 quote_in_progress` (too many quotes in flight on
-  one key, below) and `502 quoter_unavailable` (quoter unreachable or too
+  one key, below), `503 daily_budget_exhausted` (the day's spending cap is
+  reached, below) and `502 quoter_unavailable` (quoter unreachable or too
   slow).
 - **The quoters** are stateless and interchangeable: same contract, same E2E
   suite, same system bench.
@@ -75,6 +76,23 @@ the username are the visitor's choice, so the address and the text memory
 carry the rule. Its price, with the looser address limits: an attacker gets
 up to 10 refusals per address and 4 draws at once, and a fifth customer behind
 a busy NAT waits a second.
+
+### The BFF's daily budget
+
+The strike rule bounds one visitor; nothing bounded the whole demo. Every
+Quote and every quoter Problem carries `usage.cost_usd`, so the BFF, the only
+public entry point, keeps the day's total (UTC) of what it relayed.
+`DAILY_BUDGET_USD` (absent or `0`: no cap) is the limit: once reached, a
+request gets `503 daily_budget_exhausted` with `Retry-After` until midnight
+UTC, before any quoter is called, and the UI tells the visitor in French to
+come back tomorrow. 503 and not 429: the service stops spending for everyone, a
+client cannot cure it by waiting its turn.
+
+The total is a small JSON file replaced atomically (write beside, fsync,
+rename) on the `web-data` volume, so it survives a restart of the container.
+It is one process's counter, like the strike store; several instances would
+need a shared one (Redis). The cap is soft by the quotes in flight, which end
+after the total crossed the limit. Details: [`web/README.md`](../web/README.md#daily-budget).
 
 ## The stages of `POST /v1/quotes`
 

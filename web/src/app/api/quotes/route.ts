@@ -1,3 +1,4 @@
+import { budgetStore, dailyBudgetUsd, secondsUntilUtcMidnight } from "@/lib/budget";
 import { resolveQuoter } from "@/lib/quoters";
 import { problemJson, problemResponse, relay } from "@/lib/bff";
 import { clientIp } from "@/lib/client-ip";
@@ -23,6 +24,10 @@ interface QuoteBody {
  * same refusal again; none of them reaches the quoter. Never a retry of the
  * guard on our side either: each draw of a probabilistic classifier is one
  * more chance to slip past it.
+ *
+ * Then the daily budget (lib/budget.ts): once `DAILY_BUDGET_USD` is spent
+ * (UTC day), `503 daily_budget_exhausted` before the quoter is called. What
+ * every relayed answer cost (`usage.cost_usd`) is added to the day's total.
  */
 export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
@@ -77,6 +82,17 @@ async function quote(request: Request, requestId: string, session: Session, stri
     return problemJson({ ...remembered, request_id: requestId, remembered: true }, requestId);
   }
 
+  const budget = dailyBudgetUsd();
+  if (budget > 0 && (await budgetStore().spentToday()) >= budget) {
+    return problemResponse(
+      503,
+      "daily_budget_exhausted",
+      "The daily spending budget is exhausted: try again after midnight UTC.",
+      requestId,
+      { retry_after_s: secondsUntilUtcMidnight(Date.now()) },
+    );
+  }
+
   const response = await relay(quoter, requestId, (client, signal) =>
     client.POST("/v1/quotes", {
       body: { cart: body.cart },
@@ -87,12 +103,22 @@ async function quote(request: Request, requestId: string, session: Session, stri
     }),
   );
 
+  if (budget > 0) await budgetStore().add(await costOf(response));
+
   const refusal = await injectionRefusal(response);
   if (refusal) {
     await strikes.strike(keys);
     await strikes.remember(digest, refusal);
   }
   return response;
+}
+
+/** `usage.cost_usd` of a relayed Quote or Problem; 0 for what carries none (a BFF problem, a quoter that was down). */
+async function costOf(response: Response): Promise<number> {
+  const answer: unknown = await response.clone().json().catch(() => null);
+  const usage = typeof answer === "object" && answer !== null ? (answer as { usage?: { cost_usd?: unknown } }).usage : undefined;
+  const cost = usage?.cost_usd;
+  return typeof cost === "number" ? cost : 0;
 }
 
 /**
