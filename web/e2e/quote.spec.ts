@@ -15,6 +15,23 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/");
 });
 
+test("answers with its security headers, and the page still works under them", async ({ page, request }) => {
+  const response = await request.get("/");
+  const headers = response.headers();
+  expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(headers["x-content-type-options"]).toBe("nosniff");
+  expect(headers["strict-transport-security"]).toBeDefined();
+  expect(headers["x-powered-by"]).toBeUndefined();
+
+  const refused: string[] = [];
+  page.on("console", (message) => {
+    if (/Content Security Policy/i.test(message.text())) refused.push(message.text());
+  });
+  await price(page, "Back to the Future 1");
+  await expect(result(page)).toContainText(amount("15,00 €"));
+  expect(refused).toEqual([]);
+});
+
 test("prices a cart written in free text: the total, the lines, the saga discount", async ({ page }) => {
   await price(page, "Back to the Future 1\nBack to the Future 2\nBack to the Future 3\nLa chèvre");
 
@@ -68,12 +85,6 @@ test("refuses a text that orders no film", async ({ page }) => {
   await expect(refusal(page)).toContainText("Nous n'y lisons pas une commande de films");
 });
 
-test("refuses a cart over the token limit, saying the limit", async ({ page }) => {
-  await price(page, "Back to the Future 1 ".repeat(150));
-
-  await expect(refusal(page)).toContainText(/Votre panier est trop long \(.+ tokens, pour 256 au plus\)/);
-});
-
 test("prices from the parse alone when the recount answers off its schema", async ({ page }) => {
   await price(page, "Back to the Future 1\n#fake:recount_offschema");
 
@@ -87,15 +98,47 @@ test("does not price several copies nobody could count, and says to retry", asyn
   await expect(result(page)).toHaveCount(0);
 });
 
-test("does not send a cart over the size the server reads, and says so", async ({ page }) => {
+/** The pages Karim is shown: one picture per case and per screen, in test-results/screenshots. */
+async function shot(page: Page, name: string, project: string) {
+  await page.screenshot({ path: `test-results/screenshots/${name}-${project}.png`, fullPage: true });
+}
+
+const size = (page: Page) => page.locator("#cart-size");
+
+test("shows how long the cart is, quietly, only near the limit", async ({ page }, testInfo) => {
+  await page.getByLabel("Votre panier").fill("Back to the Future 1\nLa chèvre");
+  await expect(size(page)).toHaveCount(0);
+
+  // 256 tokens, about 770 characters: near it from about 540
+  await page.getByLabel("Votre panier").fill("Back to the Future 1\n".repeat(30));
+  await expect(size(page)).toContainText(/caractères : vous approchez de la longueur maximale/);
+  await expect(size(page)).not.toContainText(/token/i);
+  await expect(page.getByRole("button", { name: "Calculer le prix" })).toBeEnabled();
+  await shot(page, "1-near-the-limit", testInfo.project.name);
+});
+
+test("warns of a cart that is probably too long, and says in plain words when the quoter refuses it", async ({ page }, testInfo) => {
+  await page.getByLabel("Votre panier").fill("Back to the Future 1 ".repeat(100));
+  await expect(size(page)).toContainText("votre panier est probablement trop long, gardez seulement les titres et les quantités");
+  await shot(page, "2-over-256-tokens-before", testInfo.project.name);
+
+  await page.getByRole("button", { name: "Calculer le prix" }).click();
+  await expect(refusal(page)).toContainText("Votre panier est trop long : gardez seulement les titres et les quantités.");
+  await expect(refusal(page)).not.toContainText(/token/i);
+  await shot(page, "2-over-256-tokens-after", testInfo.project.name);
+});
+
+test("does not send a cart over 8 KB: the button is off and a sentence says why", async ({ page }, testInfo) => {
   let sent = 0;
   await page.route("**/api/quotes", (route) => {
     sent += 1;
     return route.continue();
   });
-  await price(page, "a".repeat(70_000));
+  await page.getByLabel("Votre panier").fill("a".repeat(9000));
 
-  await expect(refusal(page)).toContainText("Votre panier est trop volumineux");
+  await expect(size(page)).toContainText("Votre panier dépasse 8 Ko : raccourcissez-le pour pouvoir le calculer.");
+  await expect(page.getByRole("button", { name: "Calculer le prix" })).toBeDisabled();
+  await shot(page, "3-over-8-kb", testInfo.project.name);
   expect(sent).toBe(0);
 });
 

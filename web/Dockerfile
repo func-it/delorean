@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
 # Dependencies, cached apart from the sources.
-FROM node:24-alpine AS deps
+FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
 # The contract types are committed (src/generated): the build needs nothing outside web/.
-FROM node:24-alpine AS build
+FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
@@ -15,7 +15,7 @@ COPY . .
 RUN npm run build
 
 # The standalone server only (postbuild copies the static assets into it): no npm, no sources.
-FROM node:24-alpine AS run
+FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS run
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
