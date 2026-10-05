@@ -29,7 +29,7 @@ describe('langfuseReport', () => {
       const query = queryOf(url);
       const quoter = query.filters.find((f) => f.column === 'tags')?.value[0];
       const name = query.filters.find((f) => f.column === 'name')?.value;
-      if (quoter !== 'quoter:go') return { data: query.view === 'scores-numeric' ? [{}] : [] };
+      if (quoter !== 'quoter:typescript') return { data: query.view === 'scores-numeric' ? [{}] : [] };
       if (name === 'outcome') {
         return {
           data: [
@@ -51,7 +51,7 @@ describe('langfuseReport', () => {
 
     expect(reports).toEqual([
       {
-        quoter: 'go',
+        quoter: 'typescript',
         quotes: 4,
         cost_usd: { mean: 0.0005, median: 0.0004, p90: 0.0009 },
         latency_ms: { mean: 3810, median: 3500, p90: 5200 },
@@ -60,8 +60,6 @@ describe('langfuseReport', () => {
           { outcome: 'injection', share: 0.25 },
         ],
       },
-      { quoter: 'typescript', quotes: 0, outcomes: [] },
-      { quoter: 'python', quotes: 0, outcomes: [] },
     ]);
     expect(calls[0]?.url.pathname).toBe('/api/public/v2/metrics');
     expect(queryOf(calls[0]?.url)).toMatchObject({
@@ -77,7 +75,7 @@ describe('langfuseReport', () => {
     });
     expect(formatReport(reports, from)).toContain('engines:live only');
     expect(formatReport(reports, from)).toContain(
-      'go: 4 quotes\n  cost      $0.00050 / $0.00040 / $0.00090\n  latency   3810 ms / 3500 ms / 5200 ms\n  outcomes  priced 75 %, injection 25 %',
+      'typescript: 4 quotes\n  cost      $0.00050 / $0.00040 / $0.00090\n  latency   3810 ms / 3500 ms / 5200 ms\n  outcomes  priced 75 %, injection 25 %',
     );
   });
 });

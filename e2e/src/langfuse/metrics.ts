@@ -1,7 +1,7 @@
 import type { LangfuseConfig } from '../bench/langfuse.ts';
 
 /** The quoters, as the `quoter:<name>` tag of their traces names them. */
-export const QUOTERS = ['go', 'typescript', 'python'] as const;
+export const QUOTERS = ['typescript'] as const;
 export type Quoter = (typeof QUOTERS)[number];
 
 /** A filter of Langfuse's metrics API, the same in a dashboard widget. */

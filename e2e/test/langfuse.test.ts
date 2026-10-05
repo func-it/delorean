@@ -80,10 +80,10 @@ function benchReport(): Report {
     })),
   );
   return {
-    implementation: 'go',
+    implementation: 'typescript',
     engines: 'fake',
     version: '1.0.0',
-    base_url: 'http://localhost:24791',
+    base_url: 'http://localhost:24793',
     tag: null,
     runs: 2,
     concurrency: 4,

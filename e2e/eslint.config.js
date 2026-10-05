@@ -14,7 +14,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['test/**', 'parity/**'],
+    files: ['test/**'],
     rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
   { files: ['**/*.js'], extends: [tseslint.configs.disableTypeChecked] },

@@ -1,6 +1,6 @@
 /**
  * OTLP/HTTP trace requests, as the quoters' exporters send them to Langfuse:
- * protobuf (Go, Python) or JSON (TypeScript), read into one shape. Only the
+ * protobuf or JSON, read into one shape. Only the
  * fields Langfuse reads are kept; a small wire decoder stands in for the
  * protobuf runtime and its .proto files.
  */

@@ -1,8 +1,8 @@
 # e2e: end-to-end suite and system bench
 
 A black box: the suite and the bench only talk to the HTTP contract
-(`api/openapi.yaml`). They apply to all three quoters, Go, Python and
-TypeScript, without a single line specific to any of them.
+(`api/openapi.yaml`): they apply to any implementation of it, without a
+single line specific to the TypeScript quoter that runs here.
 
 ## What the suite guarantees
 
@@ -31,9 +31,8 @@ TypeScript, without a single line specific to any of them.
 
 ```sh
 npm ci
-npm run e2e                                   # quoter on http://localhost:24791
-BASE_URL=http://localhost:24792 npm run e2e    # python
-BASE_URL=http://localhost:24793 npm run e2e    # typescript
+npm run e2e                                   # quoter on http://localhost:24793
+BASE_URL=http://localhost:9000 npm run e2e    # another one
 ```
 
 The suite first reads `GET /healthz`. Quoter in `fake` mode: contract + cases
@@ -42,14 +41,13 @@ OpenRouter credits, so the suite refuses to start without `RUN_LIVE=1`, then
 runs every case:
 
 ```sh
-RUN_LIVE=1 BASE_URL=http://localhost:24791 npm run e2e
+RUN_LIVE=1 BASE_URL=http://localhost:24793 npm run e2e
 ```
 
 ## System bench
 
 ```sh
-npm run bench -- --base-url http://localhost:24791 --runs 3 [--tag injection] [--concurrency 4]
-npm run bench:compare -- ../reports/go-live-….json ../reports/python-live-….json
+npm run bench -- --base-url http://localhost:24793 --runs 3 [--tag injection] [--concurrency 4]
 ```
 
 The bench announces the number of requests, then runs each case N times (in
@@ -57,7 +55,7 @@ The bench announces the number of requests, then runs each case N times (in
 rejections and per-film quantities, the error rate (no response, 5xx, response
 outside the contract), p50 / p90 / max latency, and cost per cart and per
 stage. It writes `reports/<implementation>-<engines>-<timestamp>.json` and
-`.md`; `bench:compare` puts reports side by side.
+`.md`.
 
 With `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL`, the
 bench also pushes its results: the cases become the `quote` dataset (items

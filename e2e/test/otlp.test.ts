@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { decodeJson, decodeProtobuf, type Span } from '../src/otlp.ts';
-import { scoresOf, treeOf } from '../src/trace-parity.ts';
 
 // A protobuf writer just big enough to build an ExportTraceServiceRequest.
 const varint = (n: bigint): number[] => {
@@ -106,44 +105,5 @@ describe('OTLP', () => {
       ],
     });
     expect(decodeJson(json)).toEqual([guard]);
-  });
-});
-
-describe('trace comparison', () => {
-  it('builds the tree with typed values, the quoter replaced, children in a stable order', () => {
-    const child = (name: string, id: string, attempt: string): Span => ({
-      ...guard,
-      name,
-      spanId: id,
-      parentSpanId: guard.spanId,
-      attributes: { 'langfuse.observation.metadata.attempt': { int: attempt } },
-      events: [],
-    });
-    const tree = treeOf(guard, [guard, child('recount', '02', '1'), child('parse', '01', '1')], 'go');
-    expect(tree.attributes['langfuse.trace.tags']).toEqual(['quoter:<quoter>', 'engines:fake']);
-    expect(tree.attributes.score).toEqual({ double: 0.5 });
-    expect(tree.children.map((c) => c.name)).toEqual(['parse', 'recount']);
-  });
-
-  it('keeps a score event whose id is not the score id', () => {
-    const t = guard.traceId;
-    const body = { id: `${t}-latency_ms`, traceId: t, name: 'latency_ms', value: 12, dataType: 'NUMERIC' };
-    const [same] = scoresOf(
-      [{ id: body.id, type: 'score-create', timestamp: '2026-10-03T13:10:22.946Z', body }],
-      t,
-      'go',
-    );
-    expect(same).toEqual({
-      id: '<score id>',
-      type: 'score-create',
-      timestamp: '<time>',
-      body: { id: '<trace-id>-<name>', traceId: '<trace-id>', name: 'latency_ms', value: '<ms>', dataType: 'NUMERIC' },
-    });
-    const [other] = scoresOf(
-      [{ id: 'uuid', type: 'score-create', timestamp: '2026-10-03T13:10:22.946123Z', body }],
-      t,
-      'go',
-    );
-    expect(other).toMatchObject({ id: 'uuid', timestamp: '2026-10-03T13:10:22.946123Z' });
   });
 });

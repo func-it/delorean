@@ -13,16 +13,6 @@ export default defineConfig({
         },
       },
       {
-        // The three quoters against each other, on their fake engines
-        // (scripts/e2e-parity.sh): same bytes, same logs, same commands.
-        test: {
-          name: 'parity',
-          include: ['parity/**/*.parity.ts'],
-          testTimeout: 60_000,
-          fileParallelism: false,
-        },
-      },
-      {
         // Tests of the harness itself: no quoter needed.
         test: {
           name: 'harness',

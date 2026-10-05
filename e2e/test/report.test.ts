@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Usage } from '../src/contract.ts';
-import { renderComparison, renderReport } from '../src/bench/markdown.ts';
+import { renderReport } from '../src/bench/markdown.ts';
 import { percentile, rate, reportName, summarize, type Report } from '../src/bench/report.ts';
 import type { Attempt } from '../src/bench/run.ts';
 
@@ -108,7 +108,7 @@ describe('reports', () => {
       implementation,
       engines: 'fake',
       version: '1.0.0',
-      base_url: 'http://localhost:24791',
+      base_url: 'http://localhost:24793',
       tag: null,
       runs: 1,
       concurrency: 4,
@@ -140,9 +140,4 @@ describe('reports', () => {
     expect(markdown).toContain('| enonce-1 | 0/1 | total_cents: expected 3600, got 4500 |');
   });
 
-  it('compares reports side by side', () => {
-    const table = renderComparison([report('go', true), report('python', false)]);
-    expect(table.split('\n')[0]).toBe('| Metric | go · fake | python · fake |');
-    expect(table).toContain('| Accuracy | 100.0 % (1/1) | 0.0 % (0/1) |');
-  });
 });

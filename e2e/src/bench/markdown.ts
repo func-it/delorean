@@ -39,16 +39,6 @@ export function renderReport(report: Report): string {
   ].join('\n');
 }
 
-/** The reports side by side, one column each. */
-export function renderComparison(reports: Report[]): string {
-  const stages = [...new Set(reports.flatMap((r) => r.summary.stages.map((s) => s.stage)))];
-  const stageRows = stages.map((stage) => [
-    `${stage}: p50 · mean cost`,
-    ...reports.map((r) => stageCell(r.summary.stages.find((s) => s.stage === stage))),
-  ]);
-  return table(['Metric', ...reports.map(label)], [...headlineRows(reports), ...stageRows]);
-}
-
 /** One row per metric: its name, then its value in each report. */
 function headlineRows(reports: Report[]): string[][] {
   const row = (metric: string, render: (report: Report) => string) => [metric, ...reports.map(render)];

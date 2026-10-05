@@ -1,6 +1,6 @@
 import type { Health } from './contract.ts';
 
-export const DEFAULT_BASE_URL = 'http://localhost:24791';
+export const DEFAULT_BASE_URL = 'http://localhost:24793';
 
 export function baseUrlFrom(env: NodeJS.ProcessEnv): string {
   return env.BASE_URL ?? DEFAULT_BASE_URL;
