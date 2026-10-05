@@ -782,6 +782,26 @@ prints `o200k_base: <n> ranks`). Anything else is a usage error, exit code 2:
   `timestamp` is UTC with milliseconds.
 - Strings in a trace are written as the bodies are (JSON.stringify's way).
 
+## Operations
+
+- **Network MTU.** On a host whose uplink has an MTU below Docker's 1500 (a cloud
+  private network at 1450, say), containers send packets the path drops: a TLS
+  handshake to the models stalls for about 3.6 s on roughly one cold connection
+  in two, which can outlast `MODEL_TIMEOUT` on the first quote after a start.
+  compose.yml leaves the network at Docker's default; set the MTU of the host's
+  uplink in a compose override file (`compose.override.yml`, not versioned):
+
+  ```yaml
+  networks:
+    default:
+      driver_opts:
+        com.docker.network.driver.mtu: "1450"
+  ```
+
+- **Ports.** compose publishes the web app, the quoter and the documentation
+  site on `127.0.0.1`; `WEB_PORT`, `QUOTER_PORT` and `DOCS_PORT` (default 24790,
+  24793, 24795) move them. An override file can bind them to another address.
+
 ## History
 
 The project started as three implementations of one contract, in Go,

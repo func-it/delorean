@@ -23,7 +23,7 @@ Docker image (`standalone` output, non-root user, port 24790):
 
 ```sh
 docker build -t delorean-web .
-docker run -p 24790:24790 -e SESSION_SECRET=… -e QUOTER_URL=http://go:24791 delorean-web
+docker run -p 24790:24790 -e SESSION_SECRET=… -e QUOTER_URL=http://quoter:24793 delorean-web
 ```
 
 ## Environment variables
