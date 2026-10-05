@@ -117,11 +117,9 @@ export function llmReader(prompts: ReadingPrompt, options: ReaderOptions): Reade
   };
 }
 
-/** A reading as the model answers it: `{"films":[{"title":…,"quantity":…}]}`, each line's film too when it has one; compact. */
+/** A reading as the model answers it: `{"films":[{"title":…,"quantity":…}]}`, compact. */
 function readingJSON(mentions: readonly Mention[]): string {
-  return JSON.stringify({
-    films: mentions.map(({ title, quantity, film }) => ({ title, quantity, ...(film !== undefined && { film }) })),
-  });
+  return JSON.stringify({ films: mentions.map(({ title, quantity }) => ({ title, quantity })) });
 }
 
 /** The closing tag of the fence the customer's text is put in, in any case mix. */
@@ -194,6 +192,6 @@ function decodeReading(completion: ChatCompletion, valid: ValidateFunction, mode
   return films.map((film, i) => {
     const title = trimSpace(film.title);
     if (title === '') throw new EngineError(`${model}: answer off schema: film ${i + 1} has no title`);
-    return { title, quantity: film.quantity, ...(film.film !== undefined && { film: film.film }) };
+    return { title, quantity: film.quantity };
   });
 }

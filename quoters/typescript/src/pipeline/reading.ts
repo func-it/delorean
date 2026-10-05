@@ -49,15 +49,10 @@ export function merge(mentions: readonly Mention[]): Mention[] {
     if (!Number.isInteger(m.quantity) || m.quantity < 1) {
       throw new EngineError(`${JSON.stringify(title)}: quantity ${m.quantity} is not an integer of at least 1`);
     }
-    if (m.film !== undefined && !isFilm(m.film)) {
-      throw new EngineError(`${JSON.stringify(title)}: film ${JSON.stringify(m.film)}`);
-    }
     const key = titleKey(title);
     const line = merged.get(key) ?? { title, quantity: 0 };
     // a sum past 2^53 loses precision, never its size: it is refused all the same
     line.quantity += m.quantity;
-    // the first film a mention of the title gives
-    if (line.film === undefined && m.film !== undefined) line.film = m.film;
     merged.set(key, line);
   }
   return [...merged.values()];
@@ -89,16 +84,14 @@ export class Identifications {
   readonly #byKey = new Map<string, Identification>();
 
   /**
-   * The titles of the readings to put to Jev: those not identified yet, nor
-   * given a film by a reading; distinct by their merge key, in the order
-   * they come.
+   * The titles of the readings to put to Jev: those not identified yet,
+   * distinct by their merge key, in the order they come.
    */
   unknown(...readings: (readonly Mention[])[]): string[] {
-    const given = filmsGiven(readings);
     const titles = new Map<string, string>();
     for (const { title } of readings.flat()) {
       const key = titleKey(title);
-      if (!this.#byKey.has(key) && !given.has(key) && !titles.has(key)) titles.set(key, title);
+      if (!this.#byKey.has(key) && !titles.has(key)) titles.set(key, title);
     }
     return [...titles.values()];
   }
@@ -121,30 +114,14 @@ export class Identifications {
     });
   }
 
-  /**
-   * Each mention of `reading` with its film: the one a reading of `together`
-   * gave its title, at confidence 1, or else Jev's.
-   */
-  lines(reading: readonly Mention[], together: readonly (readonly Mention[])[] = [reading]): Line[] {
-    const given = filmsGiven(together);
+  /** Each mention of `reading` with the film and the confidence Jev gave its title. */
+  lines(reading: readonly Mention[]): Line[] {
     return reading.map((m) => {
-      const film = m.film ?? given.get(titleKey(m.title));
-      if (film !== undefined) return { ...m, film, confidence: 1 };
       const id = this.#byKey.get(titleKey(m.title));
       if (!id) throw new Error(`${JSON.stringify(m.title)} was never identified`);
       return { ...m, film: id.film, confidence: id.confidence };
     });
   }
-}
-
-/** The film each title is given by the readings (the parse's, with PARSE_IDENTIFIES), by merge key, the first given. */
-function filmsGiven(readings: readonly (readonly Mention[])[]): Map<string, Film> {
-  const given = new Map<string, Film>();
-  for (const m of readings.flat()) {
-    const key = titleKey(m.title);
-    if (m.film !== undefined && !given.has(key)) given.set(key, m.film);
-  }
-  return given;
 }
 
 /** What makes two readings the same to the judge: their lines' titles, quantities and films, in any order. */

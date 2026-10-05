@@ -37,8 +37,6 @@ export const MAX_QUANTITY = 1000;
 export interface Mention {
   title: string;
   quantity: number;
-  /** Set when the parser identified the title too (PARSE_IDENTIFIES): the title is then not put to Jev. */
-  film?: Film;
 }
 
 /** A mention once its title is identified. */

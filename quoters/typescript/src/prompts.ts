@@ -20,7 +20,7 @@ export interface Question {
   criteria: Readonly<Record<string, string>>;
 }
 
-/** A file a reader reads with: parse.json, or parse-films.json when the parse identifies the films too. */
+/** A file a reader reads with: parse.json. */
 export interface ReadingPrompt {
   instruction: string;
   /** The JSON schema of a reading, asked of the model and checked on its answer. */
@@ -33,8 +33,6 @@ export interface ReadingPrompt {
    * `{meaning}` filled in, the meaning from `meanings`.
    */
   retry: { turn: string; finding: string; meanings: Readonly<Record<Check, string>> };
-  /** Whether each line of the reading carries its film. */
-  films: boolean;
   version: string;
 }
 
@@ -42,8 +40,6 @@ export interface Prompts {
   guard: { order: Question; steer: Question; version: string };
   /** The parse's and the recount's file. */
   parse: ReadingPrompt;
-  /** The parse's file when it identifies the films too (PARSE_IDENTIFIES). */
-  parseFilms: ReadingPrompt;
   identify: { film: Question; version: string };
   judge: {
     asked: Question;
@@ -67,8 +63,7 @@ export function loadPrompts(dir: string): Prompts {
   const judge = read(dir, 'judge.json');
   return {
     guard: { order: guard.question('order', 'noul'), steer: guard.question('steer', 'noul'), version: guard.version },
-    parse: readingPrompt(read(dir, 'parse.json'), false),
-    parseFilms: readingPrompt(read(dir, 'parse-films.json'), true),
+    parse: readingPrompt(read(dir, 'parse.json')),
     identify: { film: identify.question('film', 'choice', FILMS), version: identify.version },
     judge: {
       asked: judge.question('asked', 'noul'),
@@ -80,17 +75,14 @@ export function loadPrompts(dir: string): Prompts {
   };
 }
 
-/** A reader's file, checked: its schema's lines carry a film exactly when the file gives one. */
-function readingPrompt(file: ReturnType<typeof read>, films: boolean): ReadingPrompt {
+/** A reader's file, checked. */
+function readingPrompt(file: ReturnType<typeof read>): ReadingPrompt {
   const message = object(file.at('message'), file.where('message'));
   const retry = object(file.at('retry'), file.where('retry'));
   const meanings = object(retry.meanings, file.where('retry.meanings'));
   const turn = string(retry.turn, file.where('retry.turn'));
   if (!turn.includes('{findings}')) throw new Error(`${file.where('retry.turn')} must hold {findings}`);
   const schema = object(file.at('schema'), file.where('schema'));
-  if (JSON.stringify(schema).includes('"film"') !== films) {
-    throw new Error(`${file.where('schema')}: its films must have a film exactly when the file gives one`);
-  }
   return {
     instruction: file.string('instruction'),
     schema,
@@ -105,18 +97,13 @@ function readingPrompt(file: ReturnType<typeof read>, films: boolean): ReadingPr
         CHECKS.map((c) => [c, string(meanings[c], file.where(`retry.meanings.${c}`))]),
       ) as Record<Check, string>,
     },
-    films,
     version: file.version,
   };
 }
 
-/** The version of each stage's file, as /healthz reports them: the parse's is parse-films.json's when it identifies. */
-export function promptVersions(
-  prompts: Prompts,
-  parseIdentifies = false,
-): Record<'guard' | 'parse' | 'identify' | 'judge', string> {
-  const { guard, identify, judge } = prompts;
-  const parse = parseIdentifies ? prompts.parseFilms : prompts.parse;
+/** The version of each stage's file, as /healthz reports them. */
+export function promptVersions(prompts: Prompts): Record<'guard' | 'parse' | 'identify' | 'judge', string> {
+  const { guard, identify, judge, parse } = prompts;
   return { guard: guard.version, parse: parse.version, identify: identify.version, judge: judge.version };
 }
 

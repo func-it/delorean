@@ -275,48 +275,6 @@ describe('Pipeline.quote, the two readings', () => {
   });
 });
 
-describe('Pipeline.quote, a parse that identifies', () => {
-  it("keeps the parse's films at confidence 1, gives them to the recount's lines, and asks Jev only for the rest", async () => {
-    const asked: string[][] = [];
-    const identifier: Identifier = {
-      identify: (titles) => {
-        asked.push([...titles]);
-        return Promise.resolve({
-          identifications: titles.map(() => ({ film: 'other' as const, confidence: 0.8 })),
-          usage: free,
-        });
-      },
-    };
-    const parser = reads(
-      { title: 'BTTF 2', quantity: 1, film: 'bttf_2' },
-      { title: 'Heat', quantity: 1, film: 'other' },
-    );
-    const recounter = reads(
-      { title: 'bttf 2', quantity: 1 },
-      { title: 'Heat', quantity: 1 },
-      { title: 'Ronin', quantity: 1 },
-    );
-    const rej = await rejection(
-      quote(newPipeline({ parser, recounter, identifier }, { readAttempts: 1 }), 'BTTF 2, Heat'),
-    );
-    expect(asked).toEqual([['Ronin']]);
-    expect(rej.facts.judgement?.findings.filter((f) => f.check === 'count')).toEqual([
-      { check: 'count', label: 'bttf_2: 1 read, 1 recounted', score: 1 },
-      { check: 'count', label: 'other: 1 read, 2 recounted', score: 0 },
-    ]);
-  });
-
-  it('merges a title under the first film a mention gives it, and refuses a film out of the contract', () => {
-    expect(
-      merge([
-        { title: 'Heat', quantity: 1 },
-        { title: 'heat', quantity: 1, film: 'other' },
-      ]),
-    ).toEqual([{ title: 'Heat', quantity: 2, film: 'other' }]);
-    expect(() => merge([{ title: 'Heat', quantity: 1, film: 'bttf_4' as never }])).toThrow(EngineError);
-  });
-});
-
 describe('Pipeline.quote engine failures', () => {
   const identifiesAs = (...identifications: { film: string; confidence: number }[]): Identifier => ({
     identify: () => Promise.resolve({ identifications: identifications as never, usage: free }),

@@ -220,8 +220,8 @@ export class Pipeline {
         ({ identifications: answers }) => {
           identifications.learn(unknown, answers);
           return [
-            identifications.lines(read, readings),
-            recounted === undefined ? undefined : identifications.lines(recounted, readings),
+            identifications.lines(read),
+            recounted === undefined ? undefined : identifications.lines(recounted),
           ] as const;
         },
         { show: ([reading, recount]) => ({ reading, recount: recount ?? null }) },

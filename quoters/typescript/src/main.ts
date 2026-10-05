@@ -68,7 +68,7 @@ async function run(config: Config, log: Logger): Promise<void> {
   const app = createApp({
     pipeline,
     version: VERSION,
-    prompts: promptVersions(prompts, config.engines === 'live' && config.live.parseIdentifies),
+    prompts: promptVersions(prompts),
     tracing,
     maxBodyBytes: config.maxBodyBytes,
     requestTimeoutMs: config.requestTimeoutMs,
@@ -85,7 +85,7 @@ async function run(config: Config, log: Logger): Promise<void> {
     version: VERSION,
     engines: engines.name,
     tracing: tracing.enabled,
-    prompts: promptVersions(prompts, config.engines === 'live' && config.live.parseIdentifies),
+    prompts: promptVersions(prompts),
   });
 
   const signal = await stopSignal();

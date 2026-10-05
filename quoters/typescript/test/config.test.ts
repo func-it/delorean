@@ -15,7 +15,6 @@ describe('loadConfig', () => {
         parseModel: 'openai/gpt-6-luna',
         parseEffort: 'minimal',
         parseBaseUrl: 'https://openrouter.ai/api/v1',
-        parseIdentifies: false,
         recountModel: 'openai/gpt-6-luna',
         recountEffort: 'none',
         recountBaseUrl: 'https://openrouter.ai/api/v1',
@@ -42,7 +41,6 @@ describe('loadConfig', () => {
       PARSE_MODEL: 'p',
       PARSE_EFFORT: 'high',
       PARSE_BASE_URL: 'http://localhost:11434/v1',
-      PARSE_IDENTIFIES: 'true',
       RECOUNT_BASE_URL: 'https://example.test/v1',
       RECOUNT_MODEL: 'r',
       RECOUNT_EFFORT: 'medium',
@@ -112,19 +110,17 @@ describe('loadConfig', () => {
     );
   });
 
-  it('refuses an effort, a base URL or a boolean it cannot read', () => {
+  it('refuses an effort or a base URL it cannot read', () => {
     expect(() =>
       loadConfig({
         ENGINES: 'fake',
         PARSE_EFFORT: 'max',
         RECOUNT_BASE_URL: 'ftp://models',
-        PARSE_IDENTIFIES: 'yes',
       }),
     ).toThrow(
       [
         'configuration:',
         'PARSE_EFFORT is "max", want one of none, minimal, low, medium, high',
-        'PARSE_IDENTIFIES="yes" is not true or false',
         'RECOUNT_BASE_URL is "ftp://models", not an http(s) URL',
       ].join('\n'),
     );
@@ -288,15 +284,12 @@ describe('loadPrompts', () => {
     expect(prompts.judge.films).toEqual(file('judge.json').films);
     expect(prompts.parse.message).toEqual(file('parse.json').message);
     expect(prompts.parse.retry).toEqual(file('parse.json').retry);
-    expect(prompts.parseFilms.version).toBe(version('parse-films.json'));
-    expect([prompts.parse.films, prompts.parseFilms.films]).toEqual([false, true]);
-    expect(promptVersions(prompts, true).parse).toBe(prompts.parseFilms.version);
     expect(promptVersions(prompts).parse).toBe(prompts.parse.version);
   });
 
   it('stops at a prompt file that lacks a question, naming the file and the field', () => {
     const dir = mkdtempSync(join(tmpdir(), 'prompts-'));
-    for (const name of ['guard.json', 'parse.json', 'parse-films.json', 'identify.json', 'judge.json']) {
+    for (const name of ['guard.json', 'parse.json', 'identify.json', 'judge.json']) {
       writeFileSync(join(dir, name), readFileSync(join(DEFAULT_PROMPTS_DIR, name)));
     }
     const judge = JSON.parse(readFileSync(join(dir, 'judge.json'), 'utf8')) as Record<string, unknown>;

@@ -295,34 +295,6 @@ describe('live readers', () => {
     expect(sent[0]?.body).not.toHaveProperty('reasoning_effort');
   });
 
-  it('reads each line with its film when the parse identifies, and sends them back so on a retry', async () => {
-    const identifies = { ...config, parseIdentifies: true };
-    const { sent, engines } = openRouter(
-      () => [200, completion('{"films":[{"title":"BTTF 2","quantity":1,"film":"bttf_2"}]}')],
-      identifies,
-    );
-    const retry = { previous: [{ title: 'BTTF 2', quantity: 2, film: 'bttf_2' as const }], failed: [] };
-    const { mentions } = await engines.parser.read('BTTF 2', call, retry);
-    expect(mentions).toEqual([{ title: 'BTTF 2', quantity: 1, film: 'bttf_2' }]);
-    expect(sent[0]?.body).toMatchObject({
-      messages: [
-        { content: prompts.parseFilms.instruction },
-        {},
-        { role: 'assistant', content: '{"films":[{"title":"BTTF 2","quantity":2,"film":"bttf_2"}]}' },
-        {},
-      ],
-      response_format: { json_schema: { schema: prompts.parseFilms.schema } },
-    });
-  });
-
-  it('holds a film out of the enum off schema', async () => {
-    const { engines } = openRouter(
-      () => [200, completion('{"films":[{"title":"Heat","quantity":1,"film":"bttf_4"}]}')],
-      { ...config, parseIdentifies: true },
-    );
-    await expect(engines.parser.read('Heat', call)).rejects.toBeInstanceOf(EngineError);
-  });
-
   it('asks the recount of its own model, with the same instruction and schema: Luna without reasoning by default', async () => {
     const { sent, engines } = openRouter(() => [200, completion('{"films":[]}')]);
     await expect(engines.recounter.read('Heat', call)).resolves.toMatchObject({

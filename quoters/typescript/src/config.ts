@@ -48,8 +48,6 @@ export interface LiveConfig {
   parseEffort: string;
   /** The OpenAI-compatible API of the parse: OpenRouter, or a local server such as Ollama. */
   parseBaseUrl: string;
-  /** The parse gives each line its film too (parse-films.json), and identify skips those titles. */
-  parseIdentifies: boolean;
   recountModel: string;
   recountEffort: string;
   recountBaseUrl: string;
@@ -91,7 +89,6 @@ export function loadConfig(env: Env): Config {
       parseModel: string('PARSE_MODEL', 'openai/gpt-6-luna'),
       parseEffort: string('PARSE_EFFORT', 'minimal'),
       parseBaseUrl: string('PARSE_BASE_URL', OPENROUTER_URL),
-      parseIdentifies: read('PARSE_IDENTIFIES', false, parseBool, 'true or false'),
       recountModel: string('RECOUNT_MODEL', 'openai/gpt-6-luna'),
       recountEffort: string('RECOUNT_EFFORT', 'none'),
       recountBaseUrl: string('RECOUNT_BASE_URL', OPENROUTER_URL),
@@ -176,7 +173,6 @@ const ORDER = [
   'PARSE_MODEL',
   'PARSE_EFFORT',
   'PARSE_BASE_URL',
-  'PARSE_IDENTIFIES',
   'RECOUNT_MODEL',
   'RECOUNT_EFFORT',
   'RECOUNT_BASE_URL',
@@ -213,13 +209,7 @@ function isLocalhost(raw: string): boolean {
   return name === 'localhost' || name === '127.0.0.1' || name === '::1';
 }
 
-/** A boolean: `1`, `t`, `T`, `TRUE`, `true`, `True` or `0`, `f`, `F`, `FALSE`, `false`, `False`. */
-function parseBool(raw: string): boolean | undefined {
-  if (['1', 't', 'T', 'TRUE', 'true', 'True'].includes(raw)) return true;
-  if (['0', 'f', 'F', 'FALSE', 'false', 'False'].includes(raw)) return false;
-  return undefined;
-}
-
+/** Whether x is a probability, 0 to 1. */
 function isUnit(x: number): boolean {
   return x >= 0 && x <= 1;
 }

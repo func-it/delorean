@@ -19,7 +19,7 @@ ENV NODE_ENV=production PORT=24793 ENGINES=live PROMPTS_DIR=/app/prompts
 COPY --from=deps /app/node_modules ./node_modules
 COPY quoters/typescript/package.json ./
 COPY quoters/typescript/src ./src
-COPY prompts/guard.json prompts/parse.json prompts/parse-films.json prompts/identify.json prompts/judge.json ./prompts/
+COPY prompts/guard.json prompts/parse.json prompts/identify.json prompts/judge.json ./prompts/
 ARG VERSION=dev
 ENV DELOREAN_VERSION=${VERSION}
 EXPOSE 24793

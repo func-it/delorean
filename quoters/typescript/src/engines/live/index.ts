@@ -32,7 +32,7 @@ export function liveEngines(config: LiveConfig, prompts: Prompts, fetch?: typeof
     fetch: fetch ?? pooled(jevAgent),
     timeoutMs: config.modelTimeoutMs,
   } satisfies JevOptions);
-  const parser = llmReader(config.parseIdentifies ? prompts.parseFilms : prompts.parse, {
+  const parser = llmReader(prompts.parse, {
     key,
     model: config.parseModel,
     effort: config.parseEffort,
