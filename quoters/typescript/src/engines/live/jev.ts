@@ -64,6 +64,8 @@ export interface JevOptions {
    */
   attempts?: number;
   retryWaitMs?: number;
+  /** How the wait between two attempts is made; a test records it instead of waiting. */
+  wait?: (ms: number, signal: AbortSignal) => Promise<void>;
 }
 
 /**
@@ -89,7 +91,7 @@ export class Jev {
   /** The engine, as usage and traces name it: "jev-1.13". */
   readonly engine: string;
   readonly model: string;
-  readonly #options: Required<Omit<JevOptions, 'model'>>;
+  readonly #options: Required<Omit<JevOptions, 'model' | 'wait'>> & Pick<JevOptions, 'wait'>;
 
   constructor({ model = JEV_MODEL, ...options }: JevOptions) {
     this.model = model;
@@ -181,7 +183,7 @@ export class Jev {
         return await this.#call(body, request, signal);
       } catch (error) {
         if (!(error instanceof JevError) || !error.transient || attempt >= this.#options.attempts) throw error;
-        await wait(this.#options.retryWaitMs * 2 ** (attempt - 1), signal);
+        await (this.#options.wait ?? wait)(this.#options.retryWaitMs * 2 ** (attempt - 1), signal);
       }
     }
   }

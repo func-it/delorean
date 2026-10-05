@@ -161,14 +161,28 @@ describe('Jev.decide', () => {
   it('waits out a transient failure when told to, and not a lasting one', async () => {
     const answered = '{"answers":{"film":{"choice":"other"}}}';
     const transient = stub([503, '{"error":{"message":"reset"}}'], [200, answered]);
-    const jev = new Jev({ key: 'k', fetch: transient.fetch, attempts: 3, retryWaitMs: 1 });
+    const waits: number[] = [];
+    const wait = (ms: number) => {
+      waits.push(ms);
+      return Promise.resolve();
+    };
+    const jev = new Jev({ key: 'k', fetch: transient.fetch, attempts: 3, wait });
     await expect(jev.decide({ state: {}, questions: [film] }, never)).resolves.toBeDefined();
     expect(transient.sent).toHaveLength(2);
+    // the wait is the one a customer would have had: 5 s, no real pause in the test
+    expect(waits).toEqual([5000]);
+
+    const twice = stub([503, '{"error":{"message":"reset"}}'], [503, '{"error":{"message":"reset"}}'], [200, answered]);
+    waits.length = 0;
+    await new Jev({ key: 'k', fetch: twice.fetch, attempts: 3, wait }).decide({ state: {}, questions: [film] }, never);
+    expect(waits).toEqual([5000, 10_000]);
 
     const lasting = stub([402, '{"error":{"message":"insufficient credits"}}']);
-    const refused = new Jev({ key: 'k', fetch: lasting.fetch, attempts: 3, retryWaitMs: 1 });
+    waits.length = 0;
+    const refused = new Jev({ key: 'k', fetch: lasting.fetch, attempts: 3, wait });
     await expect(refused.decide({ state: {}, questions: [film] }, never)).rejects.toThrow('402');
     expect(lasting.sent).toHaveLength(1);
+    expect(waits).toEqual([]);
   });
 
   it('gives up when the request is cancelled', async () => {
