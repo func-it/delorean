@@ -32,6 +32,33 @@ describe("normalizeCart", () => {
     expect(normalizeCart("Back to the Future 1\r\n#x")).toBe(normalizeCart("Back​ to the Future 1\n#x "));
   });
 
+  it.each([
+    ["U+034F", "a\u034fb"],
+    ["U+115F", "a\u115fb"],
+    ["U+1160", "a\u1160b"],
+    ["U+17B4", "a\u17b4b"],
+    ["U+17B5", "a\u17b5b"],
+    ["U+180B", "a\u180bb"],
+    ["U+180F", "a\u180fb"],
+    ["U+2800", "a\u2800b"],
+    ["U+3164", "a\u3164b"],
+    ["U+FE00", "a\ufe00b"],
+    ["U+FE0F", "a\ufe0fb"],
+    ["U+FFA0", "a\uffa0b"],
+    ["U+E0100", "a\u{e0100}b"],
+    ["U+E01EF", "a\u{e01ef}b"],
+  ])("drops %s, which draws nothing, between letters", (_, text) => {
+    expect(normalizeCart(text)).toBe("ab");
+  });
+
+  it("keeps the joiners, ordinary text and the character just outside each hidden range", () => {
+    expect(normalizeCart("a\u200cb\u200dc")).toBe("a\u200cb\u200dc");
+    expect(normalizeCart("é ñ 日本 ❤ 😀")).toBe("é ñ 日本 ❤ 😀");
+    for (const near of ["\u034e", "\u0350", "\u115e", "\u1161", "\u17b3", "\u17b6", "\u180a", "\u1810", "\u27ff", "\u2801", "\u3163", "\u3165", "\ufdff", "\ufe10", "\uff9f", "\uffa1", "\u{e00ff}", "\u{e01f0}"]) {
+      expect(normalizeCart(`a${near}b`), near.codePointAt(0)?.toString(16)).toBe(`a${near}b`);
+    }
+  });
+
   it("is idempotent", () => {
     const once = normalizeCart(" ‮A​́\r\n\tb ");
     expect(normalizeCart(once)).toBe(once);
