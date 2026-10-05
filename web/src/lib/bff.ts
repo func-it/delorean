@@ -40,7 +40,6 @@ export async function relay(
 
 const TITLES: Partial<Record<ProblemCode, string>> = {
   malformed_request: "Malformed request",
-  no_session: "No session",
   too_many_refusals: "Too many refusals",
   quote_in_progress: "Quote in progress",
   daily_budget_exhausted: "Daily budget exhausted",

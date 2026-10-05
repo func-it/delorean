@@ -21,14 +21,6 @@
 
   --warning-surface: light-dark(#fcefc7, #3a2c0a);
   --warning-ink: light-dark(#6e4a00, #f7cf6b);
-  --danger-surface: light-dark(#fbe9e7, #2e1411);
-  --danger-line: light-dark(#e9b3ab, #6b2a22);
-  --danger-ink: light-dark(#9b2c1f, #ffb4a8);
-
-  /* The time circuits keep their night look in both themes. */
-  --circuit: #000;
-  --circuit-digits: #ffb23e;
-  --circuit-label: #c9cdd1;
 
   --focus: light-dark(#16191c, #f5b03a);
 
@@ -95,16 +87,6 @@ a {
   outline-offset: 2px;
 }
 
-kbd {
-  padding: 0 0.3em;
-  border: 1px solid var(--line);
-  border-bottom-width: 2px;
-  border-radius: 4px;
-  background: var(--surface);
-  font: inherit;
-  font-size: 0.875em;
-}
-
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -155,19 +137,6 @@ kbd {
   background: var(--amber-hover);
 }
 
-/* Reads as text, so that it lines up with text when it wraps. */
-.button-quiet {
-  min-height: 36px;
-  padding-inline: 0;
-  border-color: transparent;
-  background: transparent;
-}
-
-.button-quiet:hover {
-  border-color: transparent;
-  text-decoration: underline;
-}
-
 /* Fields */
 
 .field {
@@ -182,27 +151,6 @@ kbd {
 
 .field:hover {
   border-color: var(--ink);
-}
-
-.field[aria-invalid="true"] {
-  border-color: var(--danger-ink);
-}
-
-/* Chips: small, secondary actions such as the example carts. */
-
-.chip {
-  min-height: 36px;
-  padding: 0.25rem 0.875rem;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: transparent;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.chip:hover {
-  border-color: var(--ink);
-  background: var(--surface);
 }
 
 @media (prefers-reduced-motion: reduce) {

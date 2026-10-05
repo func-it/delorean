@@ -8,22 +8,11 @@ import { formatCents } from "@/lib/format";
 import { explainProblem } from "@/lib/rejections";
 
 import { CartForm } from "./CartForm";
-import { Header } from "./Header";
-import { PromoRules } from "./PromoRules";
 import { QuoteResult } from "./QuoteResult";
 import styles from "./QuoteWorkspace.module.css";
 import { Rejection } from "./Rejection";
-import { useCatalog } from "./useCatalog";
 
-interface Props {
-  username: string;
-  /** Configured quoter names, the default first. */
-  quoters: string[];
-}
-
-export function QuoteWorkspace({ username, quoters }: Props) {
-  const [quoter, setQuoter] = useState(quoters[0]);
-  const catalog = useCatalog(quoter);
+export function QuoteWorkspace({ quoter }: { quoter: string }) {
   const [cart, setCart] = useState("");
   const [outcome, setOutcome] = useState<BffResult<Quote>>();
   const [pending, startTransition] = useTransition();
@@ -37,30 +26,24 @@ export function QuoteWorkspace({ username, quoters }: Props) {
   }
 
   return (
-    // One root element: a fragment of siblings can be reordered around the nodes Next keeps in <body>
-    // when arriving from the login page.
-    <div>
-      <Header username={username} quoters={quoters} quoter={quoter} onQuoterChange={setQuoter} />
+    <div className={styles.page}>
       <main className={styles.main}>
-        <div className={styles.primary}>
-          <CartForm cart={cart} onCartChange={setCart} onSubmit={submit} pending={pending} />
-          <p role="status" className="visually-hidden">
-            {announcement(pending, outcome)}
-          </p>
-          {outcome && (
-            <div className={styles.outcome} aria-busy={pending}>
-              {outcome.ok ? (
-                <QuoteResult quote={outcome.data} catalog={catalog.status === "ready" ? catalog.catalog : undefined} />
-              ) : (
-                <Rejection problem={outcome.problem} />
-              )}
-            </div>
-          )}
-        </div>
-        <PromoRules catalog={catalog} />
+        <h1 className={styles.title}>Delorean</h1>
+        <CartForm cart={cart} onCartChange={setCart} onSubmit={submit} pending={pending} />
+        <p role="status" className="visually-hidden">
+          {announcement(pending, outcome)}
+        </p>
+        {outcome && (
+          <div className={styles.outcome} aria-busy={pending}>
+            {outcome.ok ? <QuoteResult quote={outcome.data} /> : <Rejection problem={outcome.problem} />}
+          </div>
+        )}
       </main>
       <footer className={styles.footer}>
-        <p>Les modèles lisent votre texte, le code calcule le prix.</p>
+        <p>
+          Retour vers le futur : 15 € le DVD, tout autre film : 20 €. Deux volets différents de la saga dans le panier :
+          −10 % sur ses DVD, trois : −20 %.
+        </p>
       </footer>
     </div>
   );
@@ -69,7 +52,5 @@ export function QuoteWorkspace({ username, quoters }: Props) {
 function announcement(pending: boolean, outcome?: BffResult<Quote>): string {
   if (pending) return "Calcul en cours…";
   if (!outcome) return "";
-  return outcome.ok
-    ? `Devis prêt : ${formatCents(outcome.data.total_cents)} à payer.`
-    : explainProblem(outcome.problem).title;
+  return outcome.ok ? `Prix de la commande : ${formatCents(outcome.data.total_cents)}.` : explainProblem(outcome.problem).message;
 }

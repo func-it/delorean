@@ -17,7 +17,7 @@ const barlowSemiCondensed = Barlow_Semi_Condensed({
 
 export const metadata: Metadata = {
   title: { default: "Delorean, le vidéoclub", template: "%s · Delorean" },
-  description: "Écrivez votre panier de DVD comme vous voulez : nous le lisons, le code calcule le prix.",
+  description: "Écrivez votre panier de DVD : Delorean lit le texte et calcule le prix.",
 };
 
 export const viewport: Viewport = {

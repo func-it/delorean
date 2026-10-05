@@ -21,12 +21,13 @@ browser ──► web (Next.js: UI + BFF, session) ──► quoter (go | python
                                                     └─► OpenRouter (Jev, GPT-6 Luna, DeepSeek) · traces ► Langfuse
 ```
 
-- **The BFF** (Next.js route handlers) holds the session (a username, no
-  password: this is identification, not authentication), hides the quoter
+- **The BFF** (Next.js route handlers) holds the session (anonymous, started
+  by the first quote, with a generated name and no login: this is identification, not
+  authentication), hides the quoter
   URL from the browser and forwards `X-User-Id` / `X-Session-Id` for the
   traces.
-- The BFF adds five codes to the contract's, in the same problem format:
-  `401 no_session` (no session), `429 too_many_refusals` (blocked by the
+- The BFF adds four codes to the contract's, in the same problem format:
+  `429 too_many_refusals` (blocked by the
   strike rule, below), `429 quote_in_progress` (too many quotes in flight on
   one key, below), `503 daily_budget_exhausted` (the day's spending cap is
   reached, below) and `502 quoter_unavailable` (quoter unreachable or too
@@ -72,7 +73,7 @@ text; only a different text gets a new reading.
 
 The store is in memory, one process (`StrikeStore`, bounded, expired entries
 swept); several web instances would share one, such as Redis. The session and
-the username are the visitor's choice, so the address and the text memory
+its generated name are free to renew (clear the cookie), so the address and the text memory
 carry the rule. Its price, with the looser address limits: an attacker gets
 up to 10 refusals per address and 4 draws at once, and a fifth customer behind
 a busy NAT waits a second.

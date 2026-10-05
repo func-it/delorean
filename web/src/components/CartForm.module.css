@@ -1,54 +1,53 @@
 .form {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
-.title {
-  font-size: 2.25rem;
-}
-
-.hint {
-  max-width: 62ch;
-  color: var(--ink-muted);
+.label {
+  font-weight: 500;
 }
 
 .cart {
-  min-height: 11rem;
+  min-height: 9rem;
   resize: vertical;
 }
 
-.examples {
-  display: grid;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.examplesTitle {
-  font-family: var(--font-text);
-  font-size: 0.875rem;
-  font-weight: 500;
+.cart::placeholder {
   color: var(--ink-muted);
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 0;
-  list-style: none;
+  opacity: 1;
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 16px;
+  gap: 8px 20px;
   margin-top: 8px;
 }
 
-.shortcut {
+.examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+/* A text link in spirit: 44px tall to touch, nothing to look at. */
+.example {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   font-size: 0.875rem;
   color: var(--ink-muted);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.example:hover {
+  color: var(--ink);
 }
 
 .spinner {

@@ -36,13 +36,9 @@ export function CartForm({ cart, onCartChange, onSubmit, pending }: Props) {
         onSubmit();
       }}
     >
-      <h1 className={styles.title}>
-        <label htmlFor="cart">Votre panier</label>
-      </h1>
-      <p id="cart-hint" className={styles.hint}>
-        Écrivez-le comme vous voulez : une ligne par film, une phrase, plusieurs langues, une histoire. Nous le
-        lisons, puis le code calcule le prix.
-      </p>
+      <label htmlFor="cart" className={styles.label}>
+        Votre panier
+      </label>
       <textarea
         ref={textarea}
         id="cart"
@@ -51,33 +47,23 @@ export function CartForm({ cart, onCartChange, onSubmit, pending }: Props) {
         value={cart}
         onChange={(event) => onCartChange(event.target.value)}
         onKeyDown={submitOnModEnter}
-        rows={7}
-        aria-describedby="cart-hint cart-shortcut"
+        rows={6}
+        placeholder="Les films que vous achetez, comme vous voulez les écrire"
       />
-
-      <div className={styles.examples}>
-        <h2 id="examples-title" className={styles.examplesTitle}>
-          Partir d&apos;un exemple
-        </h2>
-        <ul className={styles.chips} aria-labelledby="examples-title">
-          {EXAMPLES.map((example) => (
-            <li key={example.id}>
-              <button type="button" className="chip" onClick={() => pickExample(example.cart)}>
-                {example.label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-
       <div className={styles.actions}>
         <button type="submit" className="button button-primary" disabled={pending}>
           {pending && <span className={styles.spinner} aria-hidden="true" />}
           {pending ? "Calcul en cours…" : "Calculer le prix"}
         </button>
-        <p id="cart-shortcut" className={styles.shortcut}>
-          ou <kbd>Ctrl</kbd> + <kbd>Entrée</kbd> (<kbd>⌘</kbd> + <kbd>Entrée</kbd> sur Mac)
-        </p>
+        <ul className={styles.examples} aria-label="Exemples de paniers">
+          {EXAMPLES.map((example) => (
+            <li key={example.id}>
+              <button type="button" className={styles.example} onClick={() => pickExample(example.cart)}>
+                {example.label}
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
     </form>
   );

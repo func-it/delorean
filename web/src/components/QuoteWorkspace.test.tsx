@@ -1,85 +1,88 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { catalog, problem, quote } from "@/test/fixtures";
+import { problem, quote } from "@/test/fixtures";
 
 import { QuoteWorkspace } from "./QuoteWorkspace";
 
-vi.mock("@/app/actions", () => ({ logout: vi.fn() }));
-
 /** Stands in for the BFF. */
-function stubBff(quoteAnswer: () => Response) {
-  const bff = vi.fn<typeof fetch>(async (input) =>
-    String(input).startsWith("/api/catalog") ? Response.json(catalog) : quoteAnswer(),
-  );
+function stubBff(answer: () => Response) {
+  const bff = vi.fn<typeof fetch>(async () => answer());
   vi.stubGlobal("fetch", bff);
   return bff;
 }
+
+/** The refusal as shown (the same sentence is also announced to screen readers, hidden). */
+const refusal = async () => within(await screen.findByRole("region", { name: "Refus" }));
+
+const problemAnswer = (code: Parameters<typeof problem>[0]["code"], status: number) =>
+  Response.json(problem({ code, status }), { status, headers: { "Content-Type": "application/problem+json" } });
 
 describe("QuoteWorkspace", () => {
   beforeEach(() => {
     stubBff(() => Response.json(quote));
   });
 
-  it("prices a cart through the BFF and announces the total", async () => {
-    const bff = stubBff(() => Response.json(quote));
-    render(<QuoteWorkspace username="marty" quoters={["go", "python"]} />);
+  it("is one page: a title, a text area, a button, and the rules in a footer", () => {
+    render(<QuoteWorkspace quoter="go" />);
 
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Quoter" }), "python");
+    expect(screen.getByRole("heading", { level: 1, name: "Delorean" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Votre panier" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Calculer le prix" })).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).toHaveTextContent(/15\s€ le DVD, tout autre film\s: 20\s€/);
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+  });
+
+  it("prices a cart through the BFF with the quoter it was given, and announces the total", async () => {
+    const bff = stubBff(() => Response.json(quote));
+    render(<QuoteWorkspace quoter="python" />);
+
     await userEvent.type(screen.getByRole("textbox", { name: "Votre panier" }), "Back to the Future 1");
     await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
 
-    expect(await screen.findByRole("heading", { name: "Votre devis" })).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(/Devis prêt : 56,00\s€ à payer\./);
-    expect(bff).toHaveBeenCalledWith("/api/quotes", expect.objectContaining({ method: "POST" }));
-    const [, init] = bff.mock.calls.find(([input]) => input === "/api/quotes")!;
+    expect(await screen.findByRole("region", { name: "Prix de la commande" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/Prix de la commande : 56,00\s€\./);
+    expect(bff).toHaveBeenCalledTimes(1);
+    const [path, init] = bff.mock.calls[0];
+    expect(path).toBe("/api/quotes");
     expect(JSON.parse(String(init!.body))).toEqual({ cart: "Back to the Future 1", quoter: "python" });
   });
 
-  it("explains a refusal and lets the visitor try again", async () => {
-    stubBff(() =>
-      Response.json(problem({ code: "empty_cart", status: 422 }), {
-        status: 422,
-        headers: { "Content-Type": "application/problem+json" },
-      }),
-    );
-    render(<QuoteWorkspace username="marty" quoters={["go"]} />);
+  it("says a refusal in one sentence and lets the visitor try again", async () => {
+    stubBff(() => problemAnswer("empty_cart", 422));
+    render(<QuoteWorkspace quoter="go" />);
 
     await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
 
-    expect(await screen.findByRole("heading", { name: "Votre panier est vide." })).toBeInTheDocument();
+    expect((await refusal()).getByText(/Votre panier est vide/)).toBeInTheDocument();
+    expect(screen.queryByText("détails")).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Votre panier" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Calculer le prix" })).toBeEnabled();
   });
 
-  it("explains that the service is out of reach when the BFF is", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
-        if (String(input).startsWith("/api/catalog")) return Response.json(catalog);
-        throw new TypeError("Failed to fetch");
-      }),
-    );
-    render(<QuoteWorkspace username="marty" quoters={["go"]} />);
+  it("tells the visitor to come back tomorrow when the budget is spent", async () => {
+    stubBff(() => problemAnswer("daily_budget_exhausted", 503));
+    render(<QuoteWorkspace quoter="go" />);
 
     await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
 
-    expect(await screen.findByRole("heading", { name: "Le service de calcul ne répond pas." })).toBeInTheDocument();
+    expect((await refusal()).getByText("Le vidéoclub a épuisé son budget du jour, revenez demain.")).toBeInTheDocument();
   });
 
-  it("shows the rules of the catalog", async () => {
-    render(<QuoteWorkspace username="marty" quoters={["go"]} />);
+  it("says the service is out of reach when the BFF is", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      }),
+    );
+    render(<QuoteWorkspace quoter="go" />);
 
-    await waitFor(() => expect(screen.getByText("Tout autre film")).toBeInTheDocument());
-    expect(screen.getByText("3 volets différents")).toBeInTheDocument();
-    expect(screen.getByText(/2\s048 tokens, et 1\s000 exemplaires d'un même film\./)).toBeInTheDocument();
-  });
+    await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
 
-  it("shows the connected username, and a quoter selector only when there is a choice", () => {
-    render(<QuoteWorkspace username="marty" quoters={["go"]} />);
-
-    expect(screen.getByText("marty")).toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: "Quoter" })).not.toBeInTheDocument();
+    expect((await refusal()).getByText(/momentanément indisponible/)).toBeInTheDocument();
   });
 });

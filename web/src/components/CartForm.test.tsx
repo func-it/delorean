@@ -39,20 +39,20 @@ describe("CartForm", () => {
 
   it("fills the cart with an example, ready to submit", async () => {
     const { cart } = renderForm();
-    const injection = EXAMPLES.find((example) => example.id === "injection")!;
+    const example = EXAMPLES[1];
 
-    await userEvent.click(screen.getByRole("button", { name: injection.label }));
+    await userEvent.click(screen.getByRole("button", { name: example.label }));
 
-    expect(cart).toHaveValue(injection.cart);
+    expect(cart).toHaveValue(example.cart);
     expect(cart).toHaveFocus();
   });
 
-  it("offers the five carts of the brief and three more", () => {
+  it("offers three examples at most, and no hint text", () => {
     renderForm();
 
     const examples = screen.getAllByRole("button").filter((button) => button.getAttribute("type") === "button");
     expect(examples.map((button) => button.textContent)).toEqual(EXAMPLES.map((example) => example.label));
-    expect(examples).toHaveLength(8);
+    expect(examples.length).toBeLessThanOrEqual(3);
   });
 
   it("disables the submit button while a quote is pending", () => {

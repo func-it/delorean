@@ -1,44 +1,37 @@
-import Link from "next/link";
-
-import type { Problem } from "@/lib/contract";
 import { explainProblem } from "@/lib/rejections";
+import type { Problem } from "@/lib/contract";
 
 import styles from "./Rejection.module.css";
 import { UsageLine } from "./UsageLine";
 
+/** One sentence. The facts behind it, when there are any, stay behind « détails ». */
 export function Rejection({ problem }: { problem: Problem }) {
-  const { title, detail, facts, showReference, relogin } = explainProblem(problem);
+  const { message, facts, reference } = explainProblem(problem);
+  const hasDetails = facts.length > 0 || reference !== undefined || problem.usage !== undefined;
 
   return (
-    <section
-      className={styles.rejection}
-      data-fault={showReference ? "ours" : "cart"}
-      aria-labelledby="rejection-title"
-    >
-      <h2 id="rejection-title" className={styles.title}>
-        {title}
-      </h2>
-      <p>{detail}</p>
-      {facts.length > 0 && (
-        <ul className={styles.facts}>
-          {facts.map((fact) => (
-            <li key={fact}>{fact}</li>
-          ))}
-        </ul>
+    <section className={styles.rejection} aria-label="Refus">
+      <p className={styles.message}>{message}</p>
+      {hasDetails && (
+        <details className={styles.details}>
+          <summary>détails</summary>
+          <div className={styles.detailsBody}>
+            {facts.length > 0 && (
+              <ul className={styles.facts}>
+                {facts.map((fact) => (
+                  <li key={fact}>{fact}</li>
+                ))}
+              </ul>
+            )}
+            {reference && (
+              <p className={styles.reference}>
+                Référence de la demande : <code>{reference}</code>
+              </p>
+            )}
+            {problem.usage && <UsageLine usage={problem.usage} />}
+          </div>
+        </details>
       )}
-      {relogin && (
-        <p>
-          <Link href="/login" className="button button-primary">
-            Se reconnecter
-          </Link>
-        </p>
-      )}
-      {showReference && problem.request_id && (
-        <p className={styles.reference}>
-          Référence de la demande : <code>{problem.request_id}</code>
-        </p>
-      )}
-      {problem.usage && <UsageLine usage={problem.usage} />}
     </section>
   );
 }

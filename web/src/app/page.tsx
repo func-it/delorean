@@ -1,10 +1,11 @@
 import { QuoteWorkspace } from "@/components/QuoteWorkspace";
 import { configuredQuoters } from "@/lib/quoters";
-import { requireSession } from "@/lib/session";
 
-export default async function HomePage() {
-  const { username } = await requireSession();
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ quoter?: string | string[] }> }) {
+  const { quoter } = await searchParams;
+  // `?quoter=python` picks a quoter for a demo; an unknown name falls back to the default one.
   // Names only: quoter URLs never reach the browser.
-  const quoters = configuredQuoters().map((quoter) => quoter.name);
-  return <QuoteWorkspace username={username} quoters={quoters} />;
+  const names = configuredQuoters().map((entry) => entry.name);
+  const picked = typeof quoter === "string" && names.includes(quoter) ? quoter : names[0];
+  return <QuoteWorkspace quoter={picked} />;
 }

@@ -31,7 +31,7 @@ other projects on the same machine.
 
 | Service | URL | Notes |
 |---|---|---|
-| Web app (Next.js: UI + BFF) | <http://localhost:24790> | any username, no password |
+| Web app (Next.js: UI + BFF) | <http://localhost:24790> | one page: write a cart, get the price; no login (`?quoter=python` picks another quoter) |
 | Go API | <http://localhost:24791/healthz> | `ENGINES=live` or `fake` |
 | Python API | <http://localhost:24792/healthz> | `ENGINES=live` or `fake` |
 | TypeScript API | <http://localhost:24793/healthz> | `ENGINES=live` or `fake` |
@@ -162,8 +162,9 @@ implementations: they are compared on their code, not on their prompts.
   fails a quoter that runs other prompts.
 - **Fake engines to test without paying.** Deterministic and identical in the
   three implementations, they run the end-to-end suite in CI.
-- **The session identifies, it does not authenticate:** a username, which ties
-  Langfuse traces to a person.
+- **The session identifies, it does not authenticate:** no login, the first
+  quote starts an anonymous session (`visiteur-1a2b3c4d`), which ties Langfuse
+  traces to a visit and gives the strike rule and the budget something to count on.
 - **Integer cents, and at most 1000 copies of one title:** a safeguard, not a
   business rule.
 - **Three quoters, chosen for the people, not the runtime.** Waiting on
