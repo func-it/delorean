@@ -9,7 +9,7 @@ option — and comes from prompts/: quality is tuned there, never here.
 
 import asyncio
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Final
 
@@ -119,8 +119,9 @@ class Jev:
     answers, usage}.
 
     `attempts` above 1 waits out transient failures, `wait` seconds apart,
-    doubled each time; at 1, the default, a failure is an EngineError at once:
-    in the request path a customer is waiting. `timeout` bounds a whole call,
+    doubled each time (through `sleep`, which a test replaces: no real pause);
+    at 1, the default, a failure is an EngineError at once: in the request path
+    a customer is waiting. `timeout` bounds a whole call,
     connecting, sending and reading the answer (MODEL_TIMEOUT): not the time of
     each phase, which a slow trickle never exceeds."""
 
@@ -135,6 +136,7 @@ class Jev:
         attempts: int = 1,
         wait: float = 5.0,
         timeout: float | None = None,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
         self._key = key
         self._client = client
@@ -144,6 +146,7 @@ class Jev:
         self.attempts = max(attempts, 1)
         self.wait = wait
         self._timeout = timeout
+        self._sleep = sleep
 
     @property
     def engine(self) -> str:
@@ -189,7 +192,7 @@ class Jev:
             except JevError as err:
                 if not err.transient or attempt >= self.attempts:
                     raise
-            await asyncio.sleep(self.wait * 2 ** (attempt - 1))
+            await self._sleep(self.wait * 2 ** (attempt - 1))
             attempt += 1
 
     def usage(self, decisions: Sequence[Decision]) -> Usage:

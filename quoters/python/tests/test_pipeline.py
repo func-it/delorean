@@ -351,9 +351,11 @@ async def test_engine_down(pipeline: Pipeline) -> None:
 
 async def test_a_failed_parse_cancels_the_recount(pipeline: Pipeline) -> None:
     cancelled = asyncio.Event()
+    recount_under_way = asyncio.Event()
 
     class Slow:
         async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            recount_under_way.set()
             try:
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
@@ -363,7 +365,7 @@ async def test_a_failed_parse_cancels_the_recount(pipeline: Pipeline) -> None:
 
     class Failing:
         async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
-            await asyncio.sleep(0.01)  # the recount is under way
+            await recount_under_way.wait()
             raise EngineError("down")
 
     with pytest.raises(EngineError, match="down"):
@@ -386,13 +388,29 @@ async def test_the_parse_decides_before_the_recount(pipeline: Pipeline) -> None:
     assert rej.report.cost_usd == pytest.approx(0.0004)
 
 
+class Settles(fake.FakeReader):
+    """A parser that says when it has answered."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.settled = asyncio.Event()
+
+    async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+        try:
+            return await super().read(text, retry)
+        finally:
+            self.settled.set()
+
+
 async def test_a_refusal_waits_for_the_recount(pipeline: Pipeline) -> None:
+    parser = Settles()
+
     class Late(fake.FakeReader):
         async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
-            await asyncio.sleep(0.02)
+            await parser.settled.wait()  # the parse has answered, and refused: the recount is not done yet
             return await super().read(text, retry)
 
-    rej = await rejection(engines(pipeline, recounter=Late(recount=True)), "1001 x Heat")
+    rej = await rejection(engines(pipeline, parser=parser, recounter=Late(recount=True)), "1001 x Heat")
     assert rej.code == Code.QUANTITY_TOO_LARGE
     assert stages(rej) == [Stage.PREPARE, Stage.GUARD, Stage.PARSE, Stage.RECOUNT], "what both took"
 
@@ -412,16 +430,18 @@ async def test_report(pipeline: Pipeline, counter: TokenCounter) -> None:
             ids, _ = await super().identify(titles)
             return ids, paid
 
+    parser = Settles()
+
     class Recounter(fake.FakeReader):
         async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
-            await asyncio.sleep(0.01)  # ends after the parse: the report keeps the pipeline's order
+            await parser.settled.wait()  # ends after the parse: the report keeps the pipeline's order
             mentions, _ = await super().read(text, retry)
             return mentions, Usage(
                 engine="deepseek/deepseek-v4.1-flash", model="deepseek/deepseek-v4.1-flash", calls=1, cost_usd=0.001
             )
 
     text = "Back to the Future 1\nHeat"
-    q = await quote(engines(pipeline, identifier=Identifier(), recounter=Recounter()), text)
+    q = await quote(engines(pipeline, parser=parser, identifier=Identifier(), recounter=Recounter()), text)
     assert [replace(u, ms=0) for u in q.report.stages] == [
         ran(Stage.PREPARE, tokens=counter.count(text)),
         ran(Stage.GUARD, "fake", calls=1),
@@ -431,7 +451,6 @@ async def test_report(pipeline: Pipeline, counter: TokenCounter) -> None:
         ran(Stage.JUDGE, "fake", calls=1),
         ran(Stage.PRICE),
     ]
-    assert q.report.stages[3].ms >= 10
     assert q.report.cost_usd == pytest.approx(0.003)
     assert q.report.ms >= q.report.stages[3].ms
     assert q.report.trace_id is None, "no trace id with tracing off"
@@ -960,13 +979,16 @@ async def test_a_film_out_of_the_enum_is_an_engine_failure(pipeline: Pipeline) -
 
 
 async def test_a_cancelled_request_is_no_error(traced: Pipeline, spans: Spans) -> None:
+    under_way = asyncio.Event()
+
     class Stuck:
         async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            under_way.set()
             await asyncio.sleep(60)
             raise AssertionError("not cancelled")
 
     task = asyncio.create_task(engines(traced, parser=Stuck()).quote(Request(cart="Heat")))
-    await asyncio.sleep(0.05)
+    await under_way.wait()
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
@@ -1157,16 +1179,37 @@ async def test_a_recount_that_fails_fast_is_asked_once_more(pipeline: Pipeline) 
 
 
 async def test_a_recount_that_fails_slowly_is_not_asked_again(pipeline: Pipeline) -> None:
+    """Slowly is more than half of its time: the clock the rule reads moves, nobody waits."""
+    now = [0.0]
+
     class Slow:
         reads = 0
 
         async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
             Slow.reads += 1
-            await asyncio.sleep(0.06)
+            now[0] += 0.06
             raise EngineError("answer off schema", usage=Usage(engine="slow", calls=1))
 
-    q = await quote(engines(replace(pipeline, recount_timeout=0.1), recounter=Slow()), "Heat")
+    p = replace(pipeline, recount_timeout=0.1, clock=lambda: now[0])
+    q = await quote(engines(p, recounter=Slow()), "Heat")
     assert (Slow.reads, recount_usage(q).calls, recount_usage(q).degraded) == (1, 1, True)
+
+
+async def test_a_recount_that_fails_quickly_is_asked_again(pipeline: Pipeline) -> None:
+    """Quickly is under half of its time, on the same clock."""
+    now = [0.0]
+
+    class Quick:
+        reads = 0
+
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            Quick.reads += 1
+            now[0] += 0.01
+            raise EngineError("answer off schema", usage=Usage(engine="quick", calls=1))
+
+    p = replace(pipeline, recount_timeout=0.1, clock=lambda: now[0])
+    q = await quote(engines(p, recounter=Quick()), "Heat")
+    assert (Quick.reads, recount_usage(q).calls, recount_usage(q).degraded) == (2, 2, True)
 
 
 async def test_a_recount_that_does_not_answer_is_cut_at_its_timeout(pipeline: Pipeline) -> None:
@@ -1325,20 +1368,40 @@ async def test_a_recount_that_expires_at_a_later_reading_leaves_the_kept_one_sta
     assert not recount_usage(rej).degraded
 
 
-async def test_a_recount_failing_beside_a_failing_parse_is_no_degradation(traced: Pipeline, spans: Spans) -> None:
+@pytest.mark.parametrize("parse_first", [True, False], ids=["the parse fails first", "the recount fails first"])
+async def test_a_recount_failing_beside_a_failing_parse_is_no_degradation(
+    traced: Pipeline, spans: Spans, *, parse_first: bool
+) -> None:
     """Both fail in the same tick: the recount is decided once the parse has
     settled, so it is a failure, not a degradation, whichever failed first."""
 
-    class FailsFirst:
+    recount_failed, parse_failed = asyncio.Event(), asyncio.Event()
+
+    class Recount:
+        def __init__(self, *, first: bool) -> None:
+            self.first = first
+
         async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            if not self.first:
+                await parse_failed.wait()
+            recount_failed.set()
             raise EngineError("recount down", usage=Usage(engine="test", calls=1))
 
-    class FailsLater:
+    class Parse:
+        def __init__(self, *, first: bool) -> None:
+            self.first = first
+
         async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
-            await asyncio.sleep(0.01)
+            if not self.first:
+                await recount_failed.wait()
+            parse_failed.set()
             raise EngineError("parse down", usage=Usage(engine="test", calls=1))
 
-    p = engines(replace(traced, recount_timeout=6.0), parser=FailsLater(), recounter=FailsFirst())
+    p = engines(
+        replace(traced, recount_timeout=6.0),
+        parser=Parse(first=parse_first),
+        recounter=Recount(first=not parse_first),
+    )
     with pytest.raises(EngineError, match="parse down"):
         await p.quote(Request(cart="Heat"))
     levels = {s.name: str(dict(s.attributes or {}).get("langfuse.observation.level")) for s in spans.ended()}
@@ -1358,8 +1421,9 @@ async def test_a_degraded_recount_reports_its_own_time(pipeline: Pipeline) -> No
     q = await quote(p, "Heat")
     usage = recount_usage(q)
     assert usage.degraded
-    assert usage.ms < 100, f"{usage.ms} ms: the recount's own time"
-    assert next(u.ms for u in q.report.stages if u.stage == Stage.PARSE) >= 200
+    parse_ms = next(u.ms for u in q.report.stages if u.stage == Stage.PARSE)
+    assert parse_ms >= 200
+    assert usage.ms < parse_ms / 2, f"{usage.ms} ms against the parse's {parse_ms}: the recount's own time"
 
 
 # A quote made without a recount: nothing counts its quantities, so a line of

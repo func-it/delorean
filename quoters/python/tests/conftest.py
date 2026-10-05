@@ -4,6 +4,7 @@ recorded answers, on mock transports."""
 
 import json
 import os
+import socket
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import replace
@@ -28,6 +29,33 @@ TINY_PROMPTS_DIR = Path(__file__).parent / "fixtures" / "prompts"
 """A prompt set of a few words: the tests of what the engines assemble use it,
 so that no test copies the production wording, which lives in prompts/ only."""
 CONTRACT = REPO_DIR / "api" / "openapi.yaml"
+
+
+_LOCAL: frozenset[str | None] = frozenset({None, "localhost", "127.0.0.1", "::1"})
+
+
+@pytest.fixture(autouse=True)
+def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The suite never reaches beyond the machine: a name that is not local is not looked up, and a
+    connection to another address is refused, so that a test that would go to the network fails loudly
+    (the tokenizer's vocabulary is fetched by `delorean tokenizer`, apart, not by a test)."""
+    connect = socket.socket.connect
+    lookup = socket.getaddrinfo
+
+    def guarded_connect(self: socket.socket, address: Any) -> None:
+        host = address[0] if isinstance(address, tuple) else None
+        if host not in _LOCAL:
+            raise OSError(f"a test went to the network: {address!r}")
+        connect(self, address)
+
+    def guarded_lookup(host: Any, *args: Any, **kwargs: Any) -> Any:
+        name = host.decode() if isinstance(host, bytes) else host
+        if name not in _LOCAL:
+            raise socket.gaierror(f"a test went to the network: {name!r}")
+        return lookup(host, *args, **kwargs)
+
+    monkeypatch.setattr(socket.socket, "connect", guarded_connect)
+    monkeypatch.setattr(socket, "getaddrinfo", guarded_lookup)
 
 
 @pytest.fixture(scope="session")

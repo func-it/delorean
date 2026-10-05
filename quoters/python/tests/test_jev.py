@@ -3,7 +3,7 @@ transport: the protocol, the checks, the errors, the retries, the trace."""
 
 import asyncio
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import httpx
@@ -246,6 +246,26 @@ async def test_retries_wait_out_transient_failures() -> None:
 
     d = await jev(handle, attempts=3, wait=0).decide(Ask(state={}, questions=[FILM, YES]))
     assert (d.id, len(seen)) == ("d1", 3)
+
+
+async def test_retries_wait_5_then_10_seconds_without_waiting_for_real() -> None:
+    waited: list[float] = []
+
+    async def record(seconds: float) -> None:
+        waited.append(seconds)
+
+    seen: list[httpx.Request] = []
+    recorded: Iterator[tuple[int, dict[str, Any]]] = iter(
+        [(429, {"error": {"message": "rate"}}), (529, {"error": {"message": "busy"}}), (200, ANSWER)]
+    )
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        status, body = next(recorded)
+        return answering(status, body, seen)(request)
+
+    d = await jev(handle, attempts=3, sleep=record).decide(Ask(state={}, questions=[FILM, YES]))
+    assert (d.id, len(seen)) == ("d1", 3)
+    assert waited == [5.0, 10.0], "5 s, then 10 s: what the real pauses would be"
 
 
 async def test_retries_stop_at_a_lasting_failure() -> None:

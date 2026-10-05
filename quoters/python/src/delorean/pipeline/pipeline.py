@@ -85,6 +85,9 @@ class Pipeline:
     service): past them the reading goes on without it (degraded). It is
     asked a second time when the first call failed in under half of them.
     None: the request's budget alone, and no retry."""
+    clock: Callable[[], float] | None = None
+    """The time the recount's retry rule reads, in seconds (the running loop's by default): a test
+    moves it instead of waiting. The recount's own deadline is the loop's."""
     tracer: Tracer = field(default_factory=NoTracer)
     prompts: Mapping[str, str] = field(default_factory=dict)
     """The version of each prompt file, for the trace."""
@@ -329,16 +332,17 @@ class Pipeline:
             except EngineError as err:
                 raise _RecountError(err, _usage_of(err)) from err
         loop = asyncio.get_running_loop()
-        started, budget = loop.time(), self.recount_timeout
+        now = self.clock or loop.time
+        deadline, started, budget = loop.time() + self.recount_timeout, now(), self.recount_timeout
         taken: Usage | None = None
         retrying = False
         try:
-            async with asyncio.timeout_at(started + budget):
+            async with asyncio.timeout_at(deadline):
                 try:
                     return await self._recount_once(text)
                 except EngineError as err:
                     taken = _usage_of(err)
-                    if beside.failed or loop.time() - started >= budget / 2:
+                    if beside.failed or now() - started >= budget / 2:
                         raise _RecountError(err, taken) from err
                 retrying = True
                 try:

@@ -14,6 +14,7 @@ import httpx
 import pytest
 
 from delorean.__main__ import main
+from delorean.prepare import TokenCounter
 
 
 def test_version(capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:
@@ -35,7 +36,9 @@ def test_an_extra_argument_is_a_usage_error(capsys: pytest.CaptureFixture[str]) 
     assert capsys.readouterr().err == 'delorean: unexpected argument "now"\n'
 
 
-def test_tokenizer_says_how_many_ranks(capsys: pytest.CaptureFixture[str]) -> None:
+def test_tokenizer_says_how_many_ranks(capsys: pytest.CaptureFixture[str], counter: TokenCounter) -> None:
+    """The vocabulary is there already (the `counter` fixture loads it, or fails, never fetches it): the
+    command finds it checked and does not go to the network, as no test does."""
     assert main(["tokenizer"]) == 0
     assert capsys.readouterr().out == "o200k_base: 199998 ranks\n"
 
