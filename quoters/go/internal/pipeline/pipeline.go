@@ -39,6 +39,9 @@ type Pipeline struct {
 	// second time when the first failed in under half of it. 0 gives it the
 	// request's whole budget and no retry.
 	RecountTimeout time.Duration
+	// Clock tells the time the recount's retry is decided on; nil is time.Now.
+	// Tests set it, so as not to wait for real.
+	Clock func() time.Time
 	// Prompts are the versions of the prompts the engines read, by file
 	// (guard, parse, identify, judge), for the trace.
 	Prompts map[string]string

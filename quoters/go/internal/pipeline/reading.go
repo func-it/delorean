@@ -264,9 +264,13 @@ func (p *Pipeline) recount(ctx context.Context, text string, settled <-chan stru
 		ctx, cancel = context.WithTimeout(ctx, p.RecountTimeout)
 		defer cancel()
 	}
-	start := time.Now()
+	now := time.Now
+	if p.Clock != nil {
+		now = p.Clock
+	}
+	start := now()
 	m, u, err := p.recountOnce(ctx, text)
-	if err == nil || p.RecountTimeout <= 0 || ctx.Err() != nil || time.Since(start) >= p.RecountTimeout/2 {
+	if err == nil || p.RecountTimeout <= 0 || ctx.Err() != nil || now().Sub(start) >= p.RecountTimeout/2 {
 		return m, u, timedOut(err)
 	}
 	select {

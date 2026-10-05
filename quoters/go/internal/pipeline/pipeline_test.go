@@ -1228,14 +1228,18 @@ func TestQuoteRetriesTheRecountOnce(t *testing.T) {
 // goes on in the time of the parse and that, not the request's.
 func TestQuoteRecountTimeBounded(t *testing.T) {
 	var calls atomic.Int32
+	// the failure takes 60 ms of a clock of the test's, not of the wall's: no wait
+	var elapsed atomic.Int64
+	epoch := time.Unix(0, 0)
 	slowFail := parserFunc(func(context.Context, string, *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
 		calls.Add(1)
-		time.Sleep(60 * time.Millisecond)
+		elapsed.Add(int64(60 * time.Millisecond))
 		return nil, pipeline.Usage{Engine: "slow", Calls: 1}, fmt.Errorf("recount: %w: answer off schema", pipeline.ErrEngine)
 	})
 	q, err := newPipeline(t, func(p *pipeline.Pipeline) {
 		p.Engines.Recounter = slowFail
 		p.RecountTimeout = 100 * time.Millisecond
+		p.Clock = func() time.Time { return epoch.Add(time.Duration(elapsed.Load())) }
 	}).Quote(t.Context(), pipeline.Request{Cart: "Heat"})
 	if err != nil {
 		t.Fatal(err)

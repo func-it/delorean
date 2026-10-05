@@ -37,6 +37,23 @@ type Retrying struct {
 	Decider
 	Attempts int
 	Wait     time.Duration
+	// sleep waits d, or until ctx ends; tests set it, so as not to wait for real
+	sleep func(ctx context.Context, d time.Duration) error
+}
+
+// pause waits d, or until ctx ends.
+func (r Retrying) pause(ctx context.Context, d time.Duration) error {
+	if r.sleep != nil {
+		return r.sleep(ctx, d)
+	}
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
 }
 
 // WithRetry wraps d, 5 s, 10 s, 20 s… apart; attempts below 2 means no retry.
@@ -52,10 +69,8 @@ func (r Retrying) Decide(ctx context.Context, req Request) (Decision, error) {
 	var err error
 	for attempt := range r.Attempts {
 		if attempt > 0 {
-			select {
-			case <-ctx.Done():
-				return d, ctx.Err()
-			case <-time.After(r.Wait << (attempt - 1)):
+			if err := r.pause(ctx, r.Wait<<(attempt-1)); err != nil {
+				return d, err
 			}
 		}
 		d, err = r.Decider.Decide(ctx, req)
