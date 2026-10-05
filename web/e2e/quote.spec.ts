@@ -67,9 +67,9 @@ test("keeps how the cart was read behind a single « détails »", async ({ page
   await expect(result(page)).toContainText(amount("15,00 €"));
 
   const details = page.getByText("détails", { exact: true });
-  await expect(page.getByText(/Réponse de l'implémentation/)).toBeHidden();
+  await expect(page.getByText(/lu comme Retour vers le futur II/)).toBeHidden();
   await details.click();
-  await expect(page.getByText(/Réponse de l'implémentation \w+ \(moteurs factices\)/)).toBeVisible();
+  await expect(page.getByText(/lu comme Retour vers le futur II/)).toBeVisible();
 });
 
 test("fills the cart from an example", async ({ page }) => {

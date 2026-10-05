@@ -3,7 +3,6 @@ import { formatCents, formatPercent } from "@/lib/format";
 import { CHECK_NAMES, filmLabel, LOW_CONFIDENCE } from "@/lib/labels";
 
 import styles from "./QuoteResult.module.css";
-import { UsageLine } from "./UsageLine";
 
 /** The price, the lines it is made of, the saga discount; how it was read stays behind « détails ». */
 export function QuoteResult({ quote }: { quote: Quote }) {
@@ -46,7 +45,6 @@ export function QuoteResult({ quote }: { quote: Quote }) {
             ))}
           </ul>
           <Judge judge={quote.judge} />
-          <UsageLine usage={quote.usage} />
         </div>
       </details>
     </section>

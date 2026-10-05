@@ -165,16 +165,14 @@ describe("Rejection", () => {
     expect(screen.queryByText("req-88mph")).not.toBeInTheDocument();
   });
 
-  it("tells what a refusal cost, in the details", () => {
+  it("has no « détails » when there is nothing to put in it, the usage of the answer included", () => {
     const priced = problem({
       code: "injection",
       status: 422,
-      usage: { implementation: "typescript", engines: "fake", duration_ms: 12, cost_usd: 0, stages: [] },
+      usage: { engines: "fake", duration_ms: 12, cost_usd: 0, stages: [] },
     });
     render(<Rejection problem={priced} />);
 
-    expect(text(screen.getByText(/Réponse de l'implémentation/))).toBe(
-      "Réponse de l'implémentation typescript (moteurs factices) en 12 ms, pour un coût de 0,00 $US.",
-    );
+    expect(screen.queryByText("détails")).not.toBeInTheDocument();
   });
 });

@@ -61,7 +61,6 @@ describe("QuoteResult", () => {
     expect(text(details)).toContain("« La chèvre » lu comme Autre film, confiance 62 %");
     expect(text(details)).toContain("91 %, pour un seuil de 50 %");
     expect(text(details)).toContain("Rien d'oublié : the whole reading");
-    expect(text(details)).toContain("Réponse de l'implémentation typescript (moteurs réels) en 1,8 s, pour un coût de 0,0021 $US.");
   });
 
   it("flags only the doubtful identifications, in the details", () => {

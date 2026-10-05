@@ -2,12 +2,11 @@ import { explainProblem } from "@/lib/rejections";
 import type { Problem } from "@/lib/contract";
 
 import styles from "./Rejection.module.css";
-import { UsageLine } from "./UsageLine";
 
 /** One sentence. The facts behind it, when there are any, stay behind « détails ». */
 export function Rejection({ problem }: { problem: Problem }) {
   const { message, facts, reference } = explainProblem(problem);
-  const hasDetails = facts.length > 0 || reference !== undefined || problem.usage !== undefined;
+  const hasDetails = facts.length > 0 || reference !== undefined;
 
   return (
     <section className={styles.rejection} aria-label="Refus">
@@ -28,7 +27,6 @@ export function Rejection({ problem }: { problem: Problem }) {
                 Référence de la demande : <code>{reference}</code>
               </p>
             )}
-            {problem.usage && <UsageLine usage={problem.usage} />}
           </div>
         </details>
       )}

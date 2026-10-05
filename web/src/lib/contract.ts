@@ -10,7 +10,6 @@ export type Film = Schemas["Film"];
 export type JudgeOutcome = Schemas["JudgeOutcome"];
 export type JudgeCheck = Schemas["JudgeCheck"];
 export type GuardOutcome = Schemas["GuardOutcome"];
-export type Usage = Schemas["Usage"];
 
 /**
  * Problem codes the browser can receive from the BFF: every code of the
