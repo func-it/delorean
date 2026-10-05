@@ -20,7 +20,10 @@ or, from the repository's root, `task ts:run:fake` and `task ts:run` (which
 reads `OPENROUTER_API_KEY` and `LANGFUSE_*` from the root `.env`).
 
 `node src/main.ts version` prints the version, `node src/main.ts tokenizer`
-the size of the bundled o200k_base vocabulary.
+the size of the bundled o200k_base vocabulary, and `node src/main.ts
+healthcheck` asks the running service for `/healthz` (it reads `PORT`, nothing
+else): exit 0 and no output when it is up, exit 1 and one line on stderr
+otherwise. It is what compose's healthcheck runs in the image.
 
 There is no build step: Node runs the TypeScript sources as they are (type
 stripping), and `tsc` only checks them.

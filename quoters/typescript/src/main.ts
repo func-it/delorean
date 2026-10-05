@@ -4,6 +4,7 @@
  * API of api/openapi.yaml, configured by the environment.
  *
  *     delorean [serve]     the API
+ *     delorean healthcheck asks the running service for /healthz: exit 0 when it is up
  *     delorean version     the version of this build
  *     delorean tokenizer   the o200k_base vocabulary, offline: how many ranks it has
  */
@@ -14,6 +15,7 @@ import { fakeEngines } from './engines/fake.ts';
 import { paced } from './engines/pace.ts';
 import { liveEngines } from './engines/live/index.ts';
 import { createApp } from './http/app.ts';
+import { healthcheck } from './healthcheck.ts';
 import { jsonLogger, type Logger } from './log.ts';
 import { Pipeline } from './pipeline/pipeline.ts';
 import type { Engines } from './pipeline/ports.ts';
@@ -32,11 +34,13 @@ class UsageError extends Error {
 
 async function main(args: string[]): Promise<void> {
   const [command = 'serve', extra] = args;
-  if (!['serve', 'version', 'tokenizer'].includes(command)) {
-    throw new UsageError(`unknown command ${JSON.stringify(command)}: want serve, version or tokenizer`);
+  if (!['serve', 'healthcheck', 'version', 'tokenizer'].includes(command)) {
+    throw new UsageError(`unknown command ${JSON.stringify(command)}: want serve, healthcheck, version or tokenizer`);
   }
   if (extra !== undefined) throw new UsageError(`unexpected argument ${JSON.stringify(extra)}`);
-  if (command === 'version') {
+  if (command === 'healthcheck') {
+    await healthcheck(process.env);
+  } else if (command === 'version') {
     console.log(VERSION);
   } else if (command === 'tokenizer') {
     // the vocabulary ships in the package: nothing to fetch, only to count
