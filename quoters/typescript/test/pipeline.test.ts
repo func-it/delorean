@@ -270,7 +270,8 @@ describe('Pipeline.quote, the two readings', () => {
     const rej = await rejection(quote(newPipeline({ recounter }), '#fake:nothing'));
     expect(rej.code).toBe('no_film');
     expect(rej.report.stages.map((s) => s.stage)).toEqual(['prepare', 'guard', 'parse', 'recount']);
-    expect(rej.report.stages.at(-1)).toMatchObject({ stage: 'recount', engine: 'qwen', calls: 1, degraded: true });
+    // no recount succeeded, so it is asked again at the second reading, which the first, empty, one calls for
+    expect(rej.report.stages.at(-1)).toMatchObject({ stage: 'recount', engine: 'qwen', calls: 2, degraded: true });
   });
 });
 
@@ -859,14 +860,16 @@ describe('Pipeline.quote, a recount that fails', () => {
 
   it('does not ask again a recount that failed slowly: a slow model does not get faster', async () => {
     let calls = 0;
+    // a clock of the test's own: the failure takes 60 of the recount's 100 ms, with no real pause
+    let clock = 0;
     const slow: Reader = {
-      read: async () => {
+      read: () => {
         calls++;
-        await new Promise((resolve) => setTimeout(resolve, 60));
-        throw offSchema();
+        clock += 60;
+        return Promise.reject(offSchema());
       },
     };
-    const q = await quote(newPipeline({ recounter: slow }, { recountTimeoutMs: 100 }), 'Heat');
+    const q = await quote(newPipeline({ recounter: slow }, { recountTimeoutMs: 100, now: () => clock }), 'Heat');
     expect(calls).toBe(1);
     expect(recountOf(q)).toMatchObject({ calls: 1, degraded: true });
   });
@@ -1059,5 +1062,94 @@ describe('Pipeline.quote, quantity_unverified: nothing counted the quantities', 
     const rej = await rejection(quote(newPipeline({ recounter: down }), `2 x Heat\n${DIRECTIVE.unfaithful}`));
     expect(rej.code).toBe('unfaithful_reading');
     expect(rej.facts.judgement?.attempts).toBe(3);
+  });
+});
+
+// A first reading with no film is read once more before the cart is refused no_film.
+describe('Pipeline.quote, a first reading with no film', () => {
+  /** A parser that answers these readings in turn (the last again when they run out), and the retries it was told. */
+  function scripted(...answers: { title: string; quantity: number }[][]) {
+    const told: (Retry | undefined)[] = [];
+    const parser: Reader = {
+      read: (_, __, retry) => {
+        told.push(retry);
+        const mentions = answers[Math.min(told.length, answers.length) - 1] ?? [];
+        return Promise.resolve({ mentions: structuredClone(mentions), usage: free });
+      },
+    };
+    return { parser, told };
+  }
+  const heat = [{ title: 'Heat', quantity: 1 }];
+  const callsOf = (stages: readonly { stage: string; calls: number }[], stage: string) =>
+    stages.find((s) => s.stage === stage)?.calls;
+
+  it('reads it again told that the whole reading is missing, and prices what the second one names', async () => {
+    const { parser, told } = scripted([], heat);
+
+    const q = await quote(newPipeline({ parser, recounter: reads(...heat) }), 'Heat');
+
+    expect(q.price.totalCents).toBe(2000);
+    expect(q.judgement.attempts).toBe(2);
+    expect(told).toHaveLength(2);
+    expect(told[1]?.failed).toEqual([{ check: 'missing', label: 'the whole reading', score: 0 }]);
+    expect(callsOf(q.report.stages, 'parse')).toBe(2);
+    // the first recount that succeeded is kept: asked once
+    expect(callsOf(q.report.stages, 'recount')).toBe(1);
+  });
+
+  it('refuses no_film, not unfaithful_reading, when the second reading has none either: two readings in the usage', async () => {
+    const { parser, told } = scripted([], []);
+
+    const rej = await rejection(quote(newPipeline({ parser }), 'Heat'));
+
+    expect(rej.code).toBe('no_film');
+    expect(told).toHaveLength(2);
+    expect(callsOf(rej.report.stages, 'parse')).toBe(2);
+    expect(callsOf(rej.report.stages, 'recount')).toBe(1);
+  });
+
+  it('refuses at once when there is no second reading to make', async () => {
+    const { parser, told } = scripted([], heat);
+
+    const rej = await rejection(quote(newPipeline({ parser }, { readAttempts: 1 }), 'Heat'));
+
+    expect(rej.code).toBe('no_film');
+    expect(told).toHaveLength(1);
+  });
+
+  it('keeps a later reading with no film a failed attempt, and the cart unfaithful', async () => {
+    const refusing: Judge = {
+      judge: (_, lines) =>
+        Promise.resolve({
+          findings: [
+            ...lines.flatMap((l) => [
+              { check: 'asked' as const, label: l.title, score: 1 },
+              { check: 'identity' as const, label: l.title, score: 1 },
+            ]),
+            { check: 'missing' as const, label: 'the whole reading', score: 0 },
+          ],
+          usage: free,
+        }),
+    };
+    // empty, then a reading the judge refuses, then empty again: a failed attempt, not no_film
+    const { parser, told } = scripted([], heat, []);
+
+    const rej = await rejection(quote(newPipeline({ parser, judge: refusing, recounter: reads(...heat) }), 'Heat'));
+
+    expect(rej.code).toBe('unfaithful_reading');
+    expect(told).toHaveLength(3);
+    expect(rej.facts.judgement?.attempts).toBe(3);
+  });
+
+  it('still refuses too many copies at once, at the first reading and at the second', async () => {
+    const first = scripted([{ title: 'Heat', quantity: 2000 }]);
+    const refusedFirst = await rejection(quote(newPipeline({ parser: first.parser }), 'Heat'));
+    expect(refusedFirst.code).toBe('quantity_too_large');
+    expect(first.told).toHaveLength(1);
+
+    const second = scripted([], [{ title: 'Heat', quantity: 2000 }]);
+    const refusedSecond = await rejection(quote(newPipeline({ parser: second.parser }), 'Heat'));
+    expect(refusedSecond.code).toBe('quantity_too_large');
+    expect(second.told).toHaveLength(2);
   });
 });

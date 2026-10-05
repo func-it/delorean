@@ -52,6 +52,8 @@ export interface PipelineConfig {
    * budget and no retry.
    */
   recountTimeoutMs?: number;
+  /** The clock the recount's "failed in under half of its time" is read on, in milliseconds; a test moves its own. */
+  now?: () => number;
 }
 
 /** A cart to quote, and who asks, for the trace. */
@@ -183,14 +185,20 @@ export class Pipeline {
     // The first recount that succeeded. It reads blind, its input never changes between readings:
     // later readings are counted against it and do not ask it again. One that failed is asked anew.
     let kept: Mention[] | undefined;
+    // the first reading named no film: it is read once more, told so
+    let emptyFirst = false;
 
     for (let attempt = 1; attempt <= readAttempts; attempt++) {
       const at = run.at(attempt);
-      const { decoded, read, recounted } = await this.#readTwice(at, text, retry, attempt === 1, kept);
+      // A first reading with no film is read once more before the cart is refused no_film (at once when there
+      // is no second reading to make); a second one with none is final.
+      const refuseNoFilm = (attempt === 1 && readAttempts === 1) || (attempt === 2 && emptyFirst);
+      const { decoded, read, recounted } = await this.#readTwice(at, text, retry, refuseNoFilm, kept);
+      if (attempt === 1 && read.length === 0) emptyFirst = true;
       kept ??= recounted;
       if (read.length === 0) {
-        // a later reading without film: the text has not changed since the
-        // first reading, the model has; a failed attempt, not put to Jev
+        // a reading without film, the first included: the text has not changed
+        // since, the model has; a failed attempt, not put to Jev
         judgement = {
           score: 0,
           findings: [{ check: 'missing', label: 'the whole reading', score: 0 }],
@@ -267,8 +275,9 @@ export class Pipeline {
    * Reads the text with the parser and the recounter side by side; the
    * report has both, the parse first. The parse decides first: its failure,
    * then its refusal, then the recount's failure. Too many copies of a title
-   * is refused on any reading, a safety limit; no film only on the first,
-   * the first is the one the customer's text answers for. A parse that fails
+   * is refused on any reading, a safety limit; no film only when `refuseNoFilm`
+   * says it is final (the second reading of a cart whose first had none, or the
+   * only one); any other reading with no film comes back empty, and fails. A parse that fails
    * stops the recount, whose reading no longer matters; one that refuses
    * waits for it, and the refusal reports what both took.
    *
@@ -285,7 +294,7 @@ export class Pipeline {
     run: Run,
     text: string,
     retry: Retry | undefined,
-    first: boolean,
+    refuseNoFilm: boolean,
     kept: Mention[] | undefined,
   ): Promise<Reading> {
     const { parser } = this.config.engines;
@@ -320,7 +329,7 @@ export class Pipeline {
     if (parsed.status === 'rejected') throw parsed.reason;
     const { decoded, read } = parsed.value;
     const refusal = refusalOf(read);
-    if (refusal && (first || refusal.code === 'quantity_too_large')) throw refusal;
+    if (refusal && (refuseNoFilm || refusal.code === 'quantity_too_large')) throw refusal;
     if (recount.status === 'rejected') throw recount.reason;
     return { decoded, read, recounted: recount.value };
   }
@@ -333,7 +342,7 @@ export class Pipeline {
    * what failed: it reads blind.
    */
   async #recount(text: string, { signal }: Call): Promise<Answered<{ mentions: Mention[] }>> {
-    const { engines, recountTimeoutMs = 0 } = this.config;
+    const { engines, recountTimeoutMs = 0, now = () => performance.now() } = this.config;
     const budget = recountTimeoutMs > 0 ? AbortSignal.any([signal, AbortSignal.timeout(recountTimeoutMs)]) : signal;
     const once = async (): Promise<Answered<{ mentions: Mention[] }>> => {
       const answer = await engines.recounter.read(text, { signal: budget });
@@ -350,7 +359,7 @@ export class Pipeline {
       error instanceof EngineError || signal.aborted || !budget.aborted
         ? error
         : new EngineError('no answer in time', { cause: error, usage: { ...UNKNOWN, calls: 1 } });
-    const started = performance.now();
+    const started = now();
     try {
       return await once();
     } catch (error) {
@@ -358,7 +367,7 @@ export class Pipeline {
         recountTimeoutMs <= 0 ||
         budget.aborted ||
         !(error instanceof EngineError) ||
-        performance.now() - started >= recountTimeoutMs / 2
+        now() - started >= recountTimeoutMs / 2
       ) {
         throw timedOut(error);
       }
