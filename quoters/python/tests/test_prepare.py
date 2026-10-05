@@ -74,9 +74,49 @@ from delorean.prepare import (
             id="Persian keeps its non-joiner",
         ),
         pytest.param(
-            "❤️ Back to the Future",
-            "❤️ Back to the Future",
-            id="variation selectors are not format characters",
+            "❤️ Back to the Future", "❤ Back to the Future", id="variation selectors are dropped, the heart stays"
+        ),
+        pytest.param("Back to the Fu\u034fture 2", "Back to the Future 2", id="a grapheme joiner between letters"),
+        pytest.param(
+            "Ba\u115fck to\u1160 the Fu\u3164ture\uffa0 2",
+            "Back to the Future 2",
+            id="Hangul fillers between letters",
+        ),
+        pytest.param(
+            "Back\u17b4 to the\u17b5 Future 1", "Back to the Future 1", id="Khmer inherent vowels between letters"
+        ),
+        pytest.param(
+            "Ba\u180bc\u180ck\u180d to\u180e the\u180f Future 1",
+            "Back to the Future 1",
+            id="Mongolian selectors and the vowel separator",
+        ),
+        pytest.param(
+            "Back to the Fu\u2800ture 3", "Back to the Future 3", id="the blank braille pattern between letters"
+        ),
+        pytest.param(
+            "Back\ufe00 to\ufe0f the Future\U000e0100 1\U000e01ef",
+            "Back to the Future 1",
+            id="variation selectors between letters",
+        ),
+        pytest.param(
+            "\u034e\u034f\u0350 \u115e\u1161 \u17b3\u17b6 \u180a\u1810 \u27ff\u2801 "
+            "\u3163\u3165 \ufe10 \uff9f\uffa1 \U000e00ff\U000e01f0",
+            "\u034e\u0350 \u115e\u1161 \u17b3\u17b6 \u180a\u1810 \u27ff\u2801 "
+            "\u3163\u3165 \ufe10 \uff9f\uffa1 \U000e00ff\U000e01f0",
+            id="a character just outside each span stays",
+        ),
+        pytest.param(
+            "a\u200cb\u200dc\u200bd\u2060e\ufeff",
+            "a\u200cb\u200dcde",
+            id="both joiners stay, the others in the same string go",
+        ),
+        pytest.param(
+            "che\u034f\u0300vre\ufe0f e\u0301te\u2800\u0301",
+            "ch\u00e8vre \u00e9t\u00e9",
+            id="accented letters and NFD after the removal",
+        ),
+        pytest.param(
+            "\U0001f3ac\ufe0f\u2764\ufe0f", "\U0001f3ac\u2764", id="an emoji base keeps its form, its selector goes"
         ),
     ],
 )

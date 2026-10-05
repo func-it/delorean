@@ -20,6 +20,28 @@ _KEPT: Final = frozenset(
 )
 
 
+_INVISIBLE: Final = (
+    (0x034F, 0x034F),  # combining grapheme joiner
+    (0x115F, 0x1160),  # Hangul choseong and jungseong fillers
+    (0x17B4, 0x17B5),  # Khmer inherent vowels
+    (0x180B, 0x180F),  # Mongolian free variation selectors, and the vowel separator
+    (0x2800, 0x2800),  # blank braille pattern
+    (0x3164, 0x3164),  # Hangul filler
+    (0xFE00, 0xFE0F),  # variation selectors
+    (0xFFA0, 0xFFA0),  # halfwidth Hangul filler
+    (0xE0100, 0xE01EF),  # variation selectors supplement
+)
+"""The characters that draw nothing and are not format characters, so that
+they can hide text from a reader as the zero-width ones do. An explicit table,
+the same in the three quoters: the runtimes' Unicode versions differ, and a
+property would too."""
+
+
+def _is_invisible(char: str) -> bool:
+    code = ord(char)
+    return any(low <= code <= high for low, high in _INVISIBLE)
+
+
 def normalize(text: str) -> str:
     """Puts text in one form: LF line ends, nothing invisible but \\n, \\t and
     the joiners, Unicode NFC, no blanks at either end. Two carts that look
@@ -30,10 +52,11 @@ def normalize(text: str) -> str:
     zero-width spaces, which split a word to slip it past a reader;
     bidirectional overrides, which show text in another order than it is
     read; tag characters, which spell ASCII no one sees. An instruction hidden
-    there would reach the models and no reviewer.
+    there would reach the models and no reviewer. And the characters of
+    `_INVISIBLE`.
     """
     text = text.replace("\r\n", "\n")
-    text = "".join(c for c in text if c in _KEPT or unicodedata.category(c) not in {"Cc", "Cf"})
+    text = "".join(c for c in text if c in _KEPT or not (unicodedata.category(c) in {"Cc", "Cf"} or _is_invisible(c)))
     # NFC once they are gone: one between a letter and its accent would
     # otherwise keep them apart
     return unicodedata.normalize("NFC", text).strip()
