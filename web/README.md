@@ -43,6 +43,12 @@ docker run -p 24790:24790 -e SESSION_SECRET=… -e QUOTER_URL=http://go:24791 de
 | `REFUSAL_MEMORY_S` | `21600` | how long a text refused as an injection is answered from memory, in seconds |
 | `DAILY_BUDGET_USD` | `0` (no cap) | daily spending cap in USD, UTC day, over the quoters' `usage.cost_usd` ([daily budget](#daily-budget)) |
 | `BUDGET_FILE` | `.data/budget.json` | where the day's total is kept; `/data/budget.json` in `docker compose`, on the `web-data` volume |
+| `UNANSWERED_QUOTE_COST_USD` | `0.002` | what a quote that got no usable answer counts for in the budgets (the quoter too slow, unreachable, or failing without a usage), since it may have spent; `0` counts nothing |
+| `IP_DAILY_BUDGET_USD` | a quarter of `DAILY_BUDGET_USD` | one client address's share of the day's budget; `0` for no share ([per-address share](#per-address-share)) |
+| `IP_RATE_LIMIT` | `20` | quotes one client address may send within `IP_RATE_WINDOW_S`; `0` for no limit ([rate](#rate-per-address)) |
+| `IP_RATE_WINDOW_S` | `60` | the window of that rate, in seconds |
+| `MAX_BODY_BYTES` | `65536` | the most bytes of a request body the BFF reads: over it, `413 payload_too_large` (the quoters hold the cart itself to their own, smaller, limit) |
+| `ENGINES` | — | `live` or `fake`, what the quoters run on (compose passes it along): with `live` and no `DAILY_BUDGET_USD` the app **refuses to start** ([daily budget](#daily-budget)); absent, nothing is checked |
 | `TRUST_PROXY_HOPS` | `0` | how many proxies of ours stand in front of the app, each appending to `X-Forwarded-For` ([client address](#client-address)) |
 
 The browser picks a quoter by its **name**, checked against this list, never
@@ -87,6 +93,13 @@ On top of the contract's codes, the BFF adds its own, in the same format
 - `daily_budget_exhausted` (503): the day's [budget](#daily-budget) is spent;
   `Retry-After` and `retry_after_s` say how many seconds remain until
   midnight UTC;
+- `ip_budget_exhausted` (429): the client address spent its [share](#per-address-share)
+  of the day's budget; `Retry-After` and `retry_after_s` until midnight UTC;
+- `rate_limited` (429): the client address sent more than `IP_RATE_LIMIT`
+  quotes within `IP_RATE_WINDOW_S` ([rate](#rate-per-address)); `Retry-After`
+  and `retry_after_s` say how many seconds to wait;
+- `payload_too_large` (413): the body is over `MAX_BODY_BYTES`; it is never
+  read past it, and `Content-Length` over it is refused before reading;
 - `quoter_unavailable` (502): the quoter is unreachable, too slow, or
   answers outside the contract.
 
@@ -102,11 +115,15 @@ costs model calls. So the BFF limits the tries (`src/lib/strikes.ts`):
   username, `IP_STRIKE_LIMIT` (10) on an address, block that key for
   `STRIKE_BLOCK_S`; while one of its keys is blocked, a request gets
   `429 too_many_refusals` at once, and the quoter is not called;
-- the refused text is remembered for `REFUSAL_MEMORY_S`, under the SHA-256 of
-  the text trimmed with CRLF as LF: sent again, by anyone, it gets the same
-  `422` at once, with `"remembered": true` and without the original call's
-  `usage`. It counts as a strike all the same. Resending a text cannot draw
-  the guard again;
+- the refused text is remembered for `REFUSAL_MEMORY_S`, per visitor (the
+  client address, or the session when there is none) and under the SHA-256 of
+  the text **as the quoter reads it** (`src/lib/normalize.ts`: the same rule as
+  the quoters' `prepare`: LF line ends, nothing invisible but `\n`, `\t` and the
+  joiners, NFC, trimmed): sent again by that visitor, whatever invisible
+  characters differ, it gets the same `422` at once, with `"remembered": true`
+  and without the original call's `usage`. It counts as a strike all the same.
+  Resending a text cannot draw the guard again. What one visitor had refused
+  is nothing to another: they are not served it, and ask the guard themselves;
 - no other code counts: `invalid_request`, `no_film` and the rest never block;
 - quotes in flight: one per session and per username, `IP_MAX_IN_FLIGHT` (4)
   per address; a request on a full key gets `429 quote_in_progress`
@@ -119,8 +136,7 @@ The UI says each in one French sentence: the wait in minutes, "Ce panier a déj�
 
 The session and its generated name cost nothing to renew (clear the cookie;
 identification, not authentication), so the address is the key a client
-cannot change. The memory, which ignores who sends the text, holds whatever the
-keys.
+cannot change, and the memory is keyed on it.
 
 An address gets looser limits than a visitor because a carrier's NAT puts many
 mobile customers behind one IPv4: ten refusals among them before a block, four
@@ -145,8 +161,13 @@ same interface, whose methods already return promises.
 Nothing else bounds what a public demo costs in model calls, so the BFF keeps
 a daily total (`src/lib/budget.ts`). Every Quote and every quoter Problem
 carries `usage.cost_usd`; the BFF adds it to the day's total after relaying
-the answer. A BFF problem, a remembered refusal and a quoter that was down
-carry none and cost nothing.
+the answer. A failure counts too: the quoters put the usage of the stages that
+ran on a `502` and a `500`, a call that went out being counted answered or not.
+What carries no usage costs nothing (a refusal of the BFF's own, a remembered
+refusal), but for a failure that says nothing of its cost: the quoter too slow
+(`QUOTER_TIMEOUT_MS`), unreachable, out of contract, or failing without a
+usage. That call may have spent all the same, so it counts for a flat estimate,
+`UNANSWERED_QUOTE_COST_USD` (0.002 by default, a few typical quotes).
 
 - `DAILY_BUDGET_USD` absent, empty, `0` or invalid: no cap, and nothing is
   counted or written. Otherwise, once the total of the UTC day reaches it, a
@@ -158,9 +179,14 @@ carry none and cost nothing.
   side (`too_many_refusals`, `quote_in_progress`). Here every visitor is
   refused alike because the service has stopped spending: it is temporarily
   unavailable, and a client that backs off for its own sake changes nothing.
-- The order of the checks: session, in-flight keys, strike block, body, the
-  remembered refusal (free, still served and still a strike), then the
-  budget, then the quoter.
+- **The app refuses to start live without a cap.** With `ENGINES=live` (which
+  compose passes along) and no `DAILY_BUDGET_USD` above 0, `src/instrumentation.ts`
+  prints one line naming both variables and exits with a non-zero code: live
+  engines cost money on every quote, and this is the only public entry. (A
+  throw alone would not stop the standalone server, so it exits.)
+- The order of the checks: the rate per address, session, in-flight keys,
+  strike block, body (`413`), the remembered refusal (free, still served and
+  still a strike), then the address's share, the day's budget, and the quoter.
 - The total is `{"day": "2026-10-04", "spent_usd": 1.25}` in `BUDGET_FILE`,
   rewritten for each answer by writing a sibling file, fsync, then `rename`
   over it: a restart, or a kill in the middle of a write, finds the previous
@@ -178,6 +204,31 @@ carry none and cost nothing.
 - One process, like the strike store: several web instances would each count
   their own spending and need a shared counter (Redis `INCRBYFLOAT` on a key
   per day) behind the same `BudgetStore` interface.
+
+### Per-address share
+
+One client address cannot spend the day's budget alone: `IP_DAILY_BUDGET_USD`,
+by default a quarter of `DAILY_BUDGET_USD` (none when there is no global cap;
+`0` turns it off; an explicit value works without a global cap too). What an
+address's quotes cost, counted as the global total is (failures and the flat
+estimate included), is kept per address for the UTC day, **in memory**: it
+starts again at a restart, the file being the global ledger only. When it is
+reached the address gets `429 ip_budget_exhausted`, until midnight UTC,
+before the quoter is called and before the day's check, which is the less
+specific message. The key is the address as the strike rule has it (IPv6 by its
+/64); requests with no known address share one.
+
+### Rate per address
+
+`IP_RATE_LIMIT` quotes (20) within any `IP_RATE_WINDOW_S` (60 s) from one
+client address, a sliding window of the times of its quotes
+(`src/lib/rate.ts`): the next one is `429 rate_limited` with the wait. It is the
+first check of the route, before the session, the strike leases and the body:
+a flood costs one lookup. What is turned away is not counted, so a flood does
+not push the wait further; `0` turns the limit off. In memory, bounded (the
+least recently seen addresses go first, expired ones are swept as it is used,
+no timer), like the strike store: several web instances would need a shared
+counter behind the same interface.
 
 ### Client address
 
