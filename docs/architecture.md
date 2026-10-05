@@ -234,19 +234,6 @@ output, validated against a schema:
 Jev does not count (its own documentation says it recognizes the shape
 instead of counting): counting is the LLM's job, and a second LLM checks it.
 
-**Option: the parse identifies (`PARSE_IDENTIFIES`, off by default).** The
-parse reads with `prompts/parse-films.json` instead: the same instruction,
-schema and fence, plus each line's `film` (`bttf_1`, `bttf_2`, `bttf_3`,
-`other`, each described as `identify.json` describes it, in a file that
-stands on its own). Its lines then skip `identify`: a title the parse gave
-a film keeps it, at confidence 1, and a recount's line of the same title
-(merge key) takes it too; only the titles no reading identified go to Jev.
-The judge's `identity` check still holds each film to the text. A reading
-read again (5′) sends its lines back with their film:
-`{"title":…,"quantity":…,"film":…}`. The recount reads `parse.json`, as
-always. The option trades identify's calls for a longer parse; the `parse`
-bench compares the two.
-
 Each reader is an OpenAI-compatible endpoint (`PARSE_BASE_URL`,
 `RECOUNT_BASE_URL`, OpenRouter by default): a local server such as Ollama
 can be benched. Its effort (`PARSE_EFFORT`, `RECOUNT_EFFORT`) is `none`,
@@ -483,7 +470,6 @@ Every word put to a model lives in `prompts/`, apart from the code:
 |---|---|---|
 | `guard.json` | guard | the `order` and `steer` questions |
 | `parse.json` | parse, recount | the instruction, the JSON schema, the fence around the customer's message, the turn that asks for a new reading |
-| `parse-films.json` | parse, with `PARSE_IDENTIFIES` | the same, each line with its film too |
 | `identify.json` | identify | the `film` question |
 | `judge.json` | judge | the `asked`, `identity` and `missing` questions, and each film's name |
 
@@ -603,34 +589,6 @@ production.
   fails with an engine error → `502 engine_unavailable`.
 - cost 0, engine `fake`, one call per stage.
 
-### Fake latency (`FAKE_LATENCY`, `FAKE_CPU_MS`)
-
-The fakes can take a model's time (the earlier load bench of the three
-runtimes used it, so that it measured the runtimes and not the models).
-
-- `FAKE_LATENCY=off` (the default: the suites stay instant) or `real`. With
-  `real`, each fake call waits without holding a thread (a timer, an
-  `await`), for its stage's time, give or take 20 %:
-
-  | Stage | guard | parse | recount | identify | judge |
-  |---|---|---|---|---|---|
-  | Base (ms) | 400 | 1200 | 2500 | 300 | 350 |
-
-- The jitter is deterministic: the call of stage `s` reading `input` takes
-  `base × 4/5 + ⌊base × 2n / (5 × 2³²)⌋` ms, integer arithmetic, where `n` is
-  the first 4 bytes, big-endian, of SHA-256(`s` + `"\n"` + `input`). The
-  input is the normalized cart for guard, parse, recount and judge, and the
-  titles asked, one per line, for identify. The same cart takes the same
-  time in every run. Vectors: guard `Heat` 385 ms; parse
-  `Back to the Future 1\nHeat` 1186 ms; recount the same 2770 ms; identify
-  `Heat` 316 ms; judge `` (empty) 377 ms.
-- A wait ends with the request: a cancelled call fails as an engine that did
-  not answer in time.
-- `FAKE_CPU_MS` (default 0): each fake call first keeps a processor busy that
-  long, synchronously, as heavy parsing would: what CPU-bound work does to
-  a single-threaded runtime.
-- The fake engines' startup warning says both: `latency`, `cpu_ms`.
-
 ## Shared cases (`cases/`)
 
 One case per JSON file. The file name is the `id`.
@@ -682,7 +640,6 @@ Langfuse 24794, documentation 24795, and the end-to-end run on fake engines
 | `PARSE_MODEL` | `openai/gpt-6-luna` | LLM for parse |
 | `PARSE_EFFORT` | `minimal` | reasoning effort for parse (`minimal` read as well as `low` on the bench, a little faster): `none` (no reasoning field), `minimal`, `low`, `medium`, `high` |
 | `PARSE_BASE_URL` | `https://openrouter.ai/api/v1` | OpenAI-compatible API of the parse (Ollama: `http://localhost:11434/v1`) |
-| `PARSE_IDENTIFIES` | `false` | the parse gives each line its film (`parse-films.json`), and identify skips those titles |
 | `RECOUNT_MODEL` | `openai/gpt-6-luna` | LLM for the recount |
 | `RECOUNT_EFFORT` | `none` | reasoning effort for the recount, as `PARSE_EFFORT`: none, for speed |
 | `RECOUNT_BASE_URL` | `https://openrouter.ai/api/v1` | OpenAI-compatible API of the recount |
@@ -696,8 +653,6 @@ Langfuse 24794, documentation 24795, and the end-to-end run on fake engines
 | `MODEL_TIMEOUT` | `6s` | longest one model call may take, Jev's and the LLMs'; past it the call fails as an engine does |
 | `RECOUNT_TIMEOUT` | `6s` | time the recount has, its retry included, before the quote goes on without it |
 | `REQUEST_TIMEOUT` | `15s` | time budget for one request, calls included |
-| `FAKE_LATENCY` | `off` | `real`: the fake engines take a model's time ([Fake latency](#fake-latency-fake_latency-fake_cpu_ms)) |
-| `FAKE_CPU_MS` | `0` | milliseconds of busy CPU per fake call |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` | — | traces, when set (local Langfuse: `task langfuse:up`, http://localhost:24794) |
 
 ## Conventions of the answers

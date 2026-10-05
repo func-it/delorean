@@ -162,7 +162,7 @@ customer gets: exact totals, refusal codes, quantities per film, error rate,
 latency p50 / p90 / max, cost per cart, and duration and cost per stage.
 
 ```sh
-task bench:system -- --base-url http://localhost:24793 --runs 3
+task bench -- --base-url http://localhost:24793 --runs 3
 ```
 
 Reports land in `reports/` as JSON and Markdown. With `LANGFUSE_*` set, each
@@ -252,8 +252,9 @@ cache would make identify free from the second run on.
 set of environment overrides on the service's configuration (no code fork),
 each a Langfuse experiment named after it, and compares them in one table:
 variant, model, effort, strategy, accuracy, cases failed, the parse's p50
-and p90, cost per cart and per 1,000 carts, errors. It writes
-`reports/<date>/<subject>-<variant>.json` and `<subject>-matrix.md`.
+and p90, cost per cart and per 1,000 carts, errors. It wrote one JSON report
+per variant and a Markdown table; the raw reports of the run below
+(`reports/2026-10-03`) went with the tool, the table below keeps its results.
 
 It was run from the Go tree, with a variants file (a set of environment
 overrides per variant), a dry run first, and `--max-usd` to cap the spend.
@@ -315,7 +316,7 @@ What it decided:
 It measures the runtimes, not the models: each quoter's image runs alone
 (`docker run --cpus N --memory 512m`), as shipped (one process, no extra
 worker), on fake engines that take a model's time
-([`FAKE_LATENCY=real`](architecture.md#fake-latency-fake_latency-fake_cpu_ms):
+(a setting of the fakes of the earlier tree, `FAKE_LATENCY=real`:
 guard 400 ms, parse 1.2 s, recount 2.5 s, identify 300 ms, judge 350 ms, ±20 %
 by a hash of the call, the same in the three). The load tool (`e2e/src/load/` of the earlier tree) sent the 33
 fake quote cases and a cart read twice, in turn, from 1, 10, 50, 100 and 200
