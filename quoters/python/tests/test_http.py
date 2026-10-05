@@ -524,6 +524,64 @@ async def test_a_request_cut_by_its_time_counts_the_calls_that_went_out(make: Ma
     assert (judge["engine"], judge["model"], judge["calls"]) == ("jev-1.13", "typesafe/jev-1.13", 3)
 
 
+async def test_the_model_calls_stop_when_the_client_disconnects(service: Service, pipeline: Pipeline) -> None:
+    """As in Go (the request's context) and TypeScript (its signal): a client that goes away takes the
+    reading with it, which says what it took."""
+    started, cut = asyncio.Event(), asyncio.Event()
+
+    class Slow:
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            started.set()
+            try:
+                await asyncio.sleep(60)
+            except asyncio.CancelledError as err:
+                cut.set()
+                note_cut(err, Usage(engine="openai/gpt-6-luna", model="openai/gpt-6-luna", calls=1))
+                raise
+            raise AssertionError("not cancelled")
+
+    app = create_app(replace(service, pipeline=replace(pipeline, engines=replace(pipeline.engines, parser=Slow()))))
+    body = json.dumps({"cart": "Heat"}).encode()
+    gone = asyncio.Event()
+    sent: list[dict[str, Any]] = []
+    requested = False
+
+    async def receive() -> dict[str, Any]:
+        nonlocal requested
+        if not requested:
+            requested = True
+            return {"type": "http.request", "body": body, "more_body": False}
+        await gone.wait()
+        return {"type": "http.disconnect"}
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/v1/quotes",
+        "raw_path": b"/v1/quotes",
+        "query_string": b"",
+        "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())],
+        "server": ("test", 80),
+        "client": ("test", 1),
+    }
+    handling = asyncio.create_task(app(scope, receive, send))  # type: ignore[arg-type]
+    await asyncio.wait_for(started.wait(), 2)
+    gone.set()
+    await asyncio.wait_for(handling, 2)
+    assert cut.is_set(), "the model call was cancelled"
+    start = next(m for m in sent if m["type"] == "http.response.start")
+    assert start["status"] == 502, "nobody is there to read it, and the log says how it ended"
+    answer = json.loads(b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body"))
+    parse = next(s for s in answer["usage"]["stages"] if s["stage"] == "parse")
+    assert (parse["engine"], parse["calls"]) == ("openai/gpt-6-luna", 1), "the call that went out counts"
+
+
 async def test_internal(make: Make, pipeline: Pipeline, logs: io.StringIO) -> None:
     class Buggy:
         async def check(self, text: str) -> tuple[GuardAnswers, Usage]:

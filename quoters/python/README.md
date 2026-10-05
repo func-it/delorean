@@ -154,7 +154,13 @@ scripts/e2e-fake.sh    the end-to-end suite against this quoter on fake engines
   `asyncio.timeout(MODEL_TIMEOUT)` (6 s), not only by the clients' timeouts
   of each phase, and a request by `REQUEST_TIMEOUT` (15 s); the three are
   checked at startup to be ordered `MODEL_TIMEOUT` ≤ `RECOUNT_TIMEOUT` ≤
-  `REQUEST_TIMEOUT`.
+  `REQUEST_TIMEOUT`. A client that closes the connection before it is
+  answered takes the reading with it: the model calls stop, as when the time
+  is out, and the reading says what it took (a 502 nobody reads, and the log).
+- **A failure costs what it cost.** A 502 or a 500 carries the usage of the
+  stages that ran, the failed one included, as a refusal does; a request counts
+  as a call as it leaves (a Jev set, a reader's call), answered, failed or cut
+  from outside, whose usage the cancellation then carries to the stage.
 - **Traces.** The Langfuse SDK (v4, OpenTelemetry) runs on a `TracerProvider`
   of its own (`service.name=delorean`), so the global OpenTelemetry state is
   untouched.

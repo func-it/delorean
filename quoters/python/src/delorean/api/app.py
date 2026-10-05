@@ -33,7 +33,8 @@ from delorean.api.problems import (
     problem_response,
 )
 from delorean.cart import MAX_QUANTITY
-from delorean.pipeline import Report
+from delorean.pipeline import Quote, Rejection, Report
+from delorean.pipeline import Request as QuoteRequest
 
 type Outcome = pipeline.Quote | pipeline.Rejection | BaseException
 """What a quote comes to: a quote, a refusal, or a failure."""
@@ -112,19 +113,19 @@ class Service:
         # what the reading takes, as it goes: a failure costs what it cost, and the 502 or the 500 says so
         report = Report()
         try:
-            async with asyncio.timeout(self.request_timeout):
-                outcome = await self.pipeline.quote(
-                    pipeline.Request(
-                        cart=cart,
-                        user_id=user_id,
-                        session_id=session_id,
-                        request_id=request_id,
-                        respond=lambda outcome: render.body(self.body(outcome, request_id, report)).decode(),
-                        report=report,
-                    )
-                )
-        # an engine that failed, or that did not answer within the budget
-        except (pipeline.EngineError, TimeoutError) as err:
+            outcome = await self._quote(
+                request,
+                pipeline.Request(
+                    cart=cart,
+                    user_id=user_id,
+                    session_id=session_id,
+                    request_id=request_id,
+                    respond=lambda outcome: render.body(self.body(outcome, request_id, report)).decode(),
+                    report=report,
+                ),
+            )
+        # an engine that failed, that did not answer within the budget, or a client that did not wait for it
+        except (pipeline.EngineError, TimeoutError, ClientGoneError) as err:
             return problem_response(request.scope, self._failure(err, request_id, report), cause=err)
         except Exception as err:  # noqa: BLE001 — a bug: the client gets a 500 problem, its cause logged
             return problem_response(request.scope, self._failure(err, request_id, report), cause=err)
@@ -134,6 +135,27 @@ class Service:
         if isinstance(answer, Problem):
             return problem_response(request.scope, answer)
         return _json(answer)
+
+    async def _quote(self, request: Request, quote: QuoteRequest) -> Quote | Rejection:
+        """The quote within the request's budget, and for as long as the client
+        waits: when it goes away the model calls stop, as they do when the time
+        is out, and the reading says what it took before it ends."""
+        reading = asyncio.ensure_future(self.pipeline.quote(quote))
+        gone = asyncio.ensure_future(_disconnected(request))
+        try:
+            async with asyncio.timeout(self.request_timeout):
+                await asyncio.wait({reading, gone}, return_when=asyncio.FIRST_COMPLETED)
+                if not reading.done():
+                    raise ClientGoneError("the client went away")
+                return reading.result()
+        finally:
+            gone.cancel()
+            if not reading.done():
+                reading.cancel()
+                # it ends by saying what it took, and by telling its trace how it ended
+                await asyncio.wait({reading})
+            if not reading.cancelled():
+                reading.exception()  # retrieved: asyncio does not report what is answered above
 
     def body(self, outcome: Outcome, request_id: str, report: Report) -> contract.Quote | Problem:
         """The body an outcome is answered with — the trace's output too, the
@@ -152,7 +174,7 @@ class Service:
         """The problem a failure is answered with: 502 for an engine that failed
         or did not answer in time, 500 for anything else; both with what the
         stages that ran took, the failed one included, when any ran."""
-        if isinstance(error, pipeline.EngineError | TimeoutError | asyncio.CancelledError):
+        if isinstance(error, pipeline.EngineError | TimeoutError | ClientGoneError | asyncio.CancelledError):
             answer = problem(
                 502, ProblemCode.engine_unavailable, "A model engine could not be reached, or answered out of contract."
             )
@@ -184,6 +206,17 @@ def create_app(service: Service, *, log: logging.Logger | None = None) -> FastAP
     app.add_exception_handler(RequestValidationError, _never_validated)
     app.add_middleware(Exchanges, log=log or logging.getLogger("delorean.http"))
     return app
+
+
+class ClientGoneError(Exception):
+    """The client closed the connection before it was answered."""
+
+
+async def _disconnected(request: Request) -> None:
+    """Returns when the client has closed the connection: the message ASGI
+    sends once the request has been read, and there is nothing else to wait on."""
+    while (await request.receive())["type"] != "http.disconnect":
+        pass
 
 
 def _json(body: BaseModel) -> Response:
