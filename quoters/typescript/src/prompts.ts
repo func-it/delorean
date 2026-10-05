@@ -6,9 +6,9 @@ import { FILMS, type Film } from './cart.ts';
 import type { Check } from './pipeline/ports.ts';
 
 /**
- * Every word put to a model lives in the repository's `prompts/`, shared by
- * the three implementations so that they are compared on their code, not on
- * their prompts. They are read once, at startup, and checked: a prompt file
+ * Every word put to a model lives in the repository's `prompts/`, versioned by
+ * the hash of each file, so that a measure says what it tested. They are read
+ * once, at startup, and checked: a prompt file
  * that lacks a question stops the service before it answers anyone.
  */
 

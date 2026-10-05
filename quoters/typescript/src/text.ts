@@ -1,8 +1,8 @@
 /**
- * Titles compared the way every implementation compares them: what Go's
- * strings.TrimSpace, strings.Fields and strings.ToLower do, which is not
- * quite what JavaScript's trim, \s and toLowerCase do (U+0085 is a space to
- * Go, U+FEFF is not; Go lowers Σ to σ wherever it stands, and İ to i).
+ * Titles compared by the blanks of Unicode's White_Space (the set of Go's
+ * unicode.IsSpace) and a simple, context-free lower-casing, which is not quite
+ * what JavaScript's trim, \s and toLowerCase do (U+0085 is a space here,
+ * U+FEFF is not; Σ lowers to σ wherever it stands, and İ to i).
  */
 
 const SPACE = '\\t\\n\\v\\f\\r \\u0085\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000';

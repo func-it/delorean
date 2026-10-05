@@ -262,7 +262,7 @@ describe('parseDuration', () => {
     ['1.1s', 1100],
     ['2.0004s', 2000],
     ['0.0036s', 4],
-  ])('reads %s as Go does', (raw, ms) => {
+  ])('reads %s as time.ParseDuration does', (raw, ms) => {
     expect(parseDuration(raw)).toBe(ms);
   });
 

@@ -1,6 +1,6 @@
 import type { LangfuseConfig } from '../bench/langfuse.ts';
 
-/** The quoters, as the `quoter:<name>` tag of their traces names them. */
+/** The quoter, as the `quoter:<name>` tag of its traces names it. */
 export const QUOTERS = ['typescript'] as const;
 export type Quoter = (typeof QUOTERS)[number];
 

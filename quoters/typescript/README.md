@@ -1,10 +1,9 @@
-# quoters/typescript: the TypeScript implementation
+# quoters/typescript: the quoter
 
-The delorean API ([`api/openapi.yaml`](../../api/openapi.yaml)) on Node 26,
-interchangeable with the Go implementation: the same contract, the same
-pipeline, the same prompts (read from [`prompts/`](../../prompts)), the same
-fake engines. The end-to-end suite ([`e2e/`](../../e2e)) proves it, and the
-system bench compares the two on accuracy, latency and cost.
+The delorean API ([`api/openapi.yaml`](../../api/openapi.yaml)) on Node 26: the
+pipeline, the prompts (read from [`prompts/`](../../prompts)) and the fake
+engines. The end-to-end suite ([`e2e/`](../../e2e)) holds it to the contract,
+and the system bench measures it on accuracy, latency and cost.
 [`docs/architecture.md`](../../docs/architecture.md) is the specification;
 this file says how this implementation runs and why it is built the way it is.
 
@@ -47,11 +46,10 @@ npm test                 # unit tests (Vitest); no model is ever called
 npm run lint             # ESLint, typescript-eslint strict type-checked
 npm run typecheck        # tsc, strict
 npm run format:check     # Prettier
-task e2e:typescript      # the end-to-end suite against this quoter on fake engines, :24798
+task e2e                 # the end-to-end suite against this quoter on fake engines, :24799
 ```
 
-The unit tests cover what decides: normalization and token counts (the Go
-cases, ported), pricing, the pipeline on the fake engines (refusal codes, the
+The unit tests cover what decides: normalization and token counts, pricing, the pipeline on the fake engines (refusal codes, the
 stages each refusal reports, the guard and judge thresholds, the parse beside
 the recount), the fake engines' rules, the HTTP surface, and the live engines
 against stand-ins of OpenRouter (Jev's wire format, retries, cost and tokens;
@@ -82,8 +80,8 @@ startup; every wrong one is reported at once, and the service does not start.
 | `READ_ATTEMPTS` | `3` | most readings of one cart, told what failed, before `unfaithful_reading` |
 | `MODEL_TIMEOUT` | `6s` | most one model call may take, Jev's and the LLMs' (502 past it, or the recount degraded); whole milliseconds, and `MODEL_TIMEOUT` ≤ `RECOUNT_TIMEOUT` ≤ `REQUEST_TIMEOUT`, or the service does not start |
 | `RECOUNT_TIMEOUT` | `6s` | the recount's time, a retry included, before the quote goes on without it |
-| `REQUEST_TIMEOUT` | `15s` | budget of one request, model calls included; Go's syntax (`1m30s`, `500ms`) |
-| `FAKE_LATENCY` | `off` | `real`: each fake call waits its stage's time, as docs/architecture.md computes it (load bench) |
+| `REQUEST_TIMEOUT` | `15s` | budget of one request, model calls included; Go's duration syntax (`1m30s`, `500ms`) |
+| `FAKE_LATENCY` | `off` | `real`: each fake call waits its stage's time, as docs/architecture.md computes it (a model's time, for load tests) |
 | `FAKE_CPU_MS` | `0` | milliseconds of busy CPU at the start of each fake call |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` (or `LANGFUSE_HOST`, a URL) | — | traces and scores, when all are set; a half setting is a configuration error |
 | `LANGFUSE_TRACING_ENVIRONMENT`, `LANGFUSE_RELEASE` | — | the traces' environment and release |
@@ -96,7 +94,7 @@ startup; every wrong one is reported at once, and the service does not start.
 src/
   main.ts                 entry: configuration, tracing, engines, server, graceful shutdown
   config.ts               the environment, checked
-  cart.ts  text.ts        the vocabulary (films, mentions, lines); titles compared as Go compares them
+  cart.ts  text.ts        the vocabulary (films, mentions, lines); titles compared by their lower-cased words
   prompts.ts              prompts/*.json read, checked and versioned (sha256, 8 hex digits, in /healthz)
   prepare/                normalize (NFC, invisible characters), TokenCounter (o200k_base)
   pricing.ts              integer cents, the catalog, the saga discount
@@ -107,7 +105,7 @@ src/
     rejection.ts          Rejection: a refusal, its code, its facts, its report
   engines/
     fake.ts               ENGINES=fake, the rules of docs/architecture.md
-    pace.ts               FAKE_LATENCY and FAKE_CPU_MS: the fakes given a model's time, for the load bench
+    pace.ts               FAKE_LATENCY and FAKE_CPU_MS: the fakes given a model's time
     live/                 Jev (jev.ts, questions.ts) and the LLM readers (reader.ts), on OpenRouter
   http/                   Hono app: routes, problems, the body read strictly (body.ts, json.ts), contract mapping
   telemetry/              Langfuse export (langfuse.ts) and spans (trace.ts)
@@ -165,7 +163,7 @@ scripts/e2e-fake.sh       the end-to-end suite against this quoter on fake engin
   format, answers checked against their questions, cost and tokens
   under either spelling, at most 16 requests in flight, the first failure
   stops the rest. It can wait out a 429/5xx (`attempts`), but the server does
-  not: a customer waits, and a failure is a 502 at once, as in Go.
+  not: a customer waits, and a failure is a 502 at once.
 - **The LLM readers through the official `openai` SDK**, pointed at
   OpenRouter: strict `json_schema` output, `usage: {include: true}` for the
   cost, no retry. The answer is checked against the schema (Ajv), never
@@ -196,15 +194,13 @@ scripts/e2e-fake.sh       the end-to-end suite against this quoter on fake engin
 
 ## Benches
 
-- **The system bench** (`e2e/`, `task bench:system -- --base-url
-  http://localhost:24793`) runs the shared `cases/quote` against this quoter
-  as against the others, and compares them on accuracy, latency and cost.
-- **The parity suite** (`task e2e:parity`) starts the three quoters on fake
-  engines and compares their bodies, logs and commands byte for byte.
-- **The component benches** (guard, identify, reading, judge) share one CLI
-  and `bench/variants.yaml`; they are planned here, not ported yet. Until
-  then the Go quoter's runs measure the shared prompts every quoter reads.
+- **The system bench** (`e2e/`, `task bench -- --base-url
+  http://localhost:24793`) runs the shared `cases/quote` against this quoter and
+  measures accuracy, latency and cost.
+- **The component benches** (guard, identify, reading, judge) were run with a
+  tool in another language that is no longer in this repository; their results
+  are in [`docs/testing.md`](../../docs/testing.md).
 
-One thing JavaScript cannot write as Go does: a quantity past 2^53 loses
-precision instead of saturating at 2^63 − 1. Such a cart is refused as
+One thing JavaScript cannot do: a quantity past 2^53 loses
+precision instead of saturating. Such a cart is refused as
 `quantity_too_large` all the same, with an approximate count.

@@ -11,8 +11,7 @@ import { SpanStatusCode, context, isSpanContextValid, trace } from '@opentelemet
  * traces"): the quote, an agent; a span per stage, typed for Langfuse's
  * graph; a generation per model call. They go through OpenTelemetry's global tracer,
  * a no-op until telemetry starts: code that traces never checks whether
- * tracing is on, and the span of the caller is found in the async context,
- * as Go finds it in a context.Context.
+ * tracing is on, and the span of the caller is found in the async context.
  */
 
 /** The kinds of observation delorean opens. */
@@ -33,7 +32,7 @@ export interface Observation {
   warn(error: unknown): void;
 }
 
-/** Metadata kept as typed attributes (an attempt is the number 2, as Go writes it, not the string "2"). */
+/** Metadata kept as typed attributes (an attempt is the number 2, not the string "2"). */
 type Metadata = Record<string, number | string>;
 
 const start = {

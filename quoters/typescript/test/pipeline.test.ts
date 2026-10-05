@@ -411,7 +411,7 @@ describe('merge', () => {
     ]);
   });
 
-  it('merges as Go does: Σ lowered to σ wherever it stands, NEL a space', () => {
+  it('merges titles: Σ lowered to σ wherever it stands, NEL a space', () => {
     expect(
       merge([
         { title: 'ΟΔΥΣΣΕΥΣ', quantity: 1 },

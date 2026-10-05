@@ -13,7 +13,7 @@
  * `HIDDEN`, which draws nothing either without being a format character.
  */
 export function normalize(text: string): string {
-  // a lone surrogate, which JSON lets through, reads as U+FFFD, as in Go
+  // a lone surrogate, which JSON lets through, reads as U+FFFD
   const visible = withoutHidden(text.toWellFormed().replaceAll('\r\n', '\n').replace(INVISIBLE, ''));
   // NFC once they are gone: one between a letter and its accent would otherwise keep them apart
   return visible.normalize('NFC').trim();
@@ -26,7 +26,7 @@ const INVISIBLE = /[^\P{Cc}\n\t]|[^\P{Cf}\u{200C}\u{200D}]/gu;
  * The characters that draw nothing and are not format characters, so that they can hide text from a
  * reader as the zero-width ones do: a grapheme joiner, the fillers of Hangul and Khmer, Mongolian variation
  * selectors, the blank braille pattern, the variation selectors (and their supplement). An explicit table,
- * the same in the three quoters: the runtimes' Unicode versions differ, and a property would too.
+ * not a Unicode property: runtimes' Unicode versions differ.
  */
 const HIDDEN: readonly (readonly [number, number])[] = [
   [0x034f, 0x034f], // combining grapheme joiner

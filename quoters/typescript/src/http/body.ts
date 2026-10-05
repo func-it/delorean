@@ -42,8 +42,7 @@ export async function readBody(request: Request, limit: number): Promise<Uint8Ar
 }
 
 /**
- * The cart of a QuoteRequest body, its faults checked in the order every
- * quoter checks them (docs/architecture.md, "Identical quoters"): empty, not
+ * The cart of a QuoteRequest body, its faults checked in this order (docs/architecture.md): empty, not
  * UTF-8 (JSON is UTF-8, RFC 8259: an invalid byte is refused, never
  * repaired), truncated, invalid, data after the object, not an object, an
  * unknown field, no cart, a cart that is not a string. A byte order mark is

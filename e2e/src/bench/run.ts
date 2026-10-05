@@ -5,7 +5,7 @@ import { failedGrade, grade, outcomeOf, type Grade, type Outcome } from '../outc
 import { mapConcurrent } from './pool.ts';
 import { summarize, summarizeCases, type Report } from './report.ts';
 
-/** Above the quoters' own budget (REQUEST_TIMEOUT, 30 s by default). */
+/** Above the quoter's own budget (REQUEST_TIMEOUT, 15 s by default). */
 const REQUEST_TIMEOUT_MS = 60_000;
 
 /** One case played once. */

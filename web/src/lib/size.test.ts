@@ -6,7 +6,7 @@ const limits = { maxBodyBytes: 8192, maxInputTokens: 256 };
 const approximateMax = limits.maxInputTokens * CHARACTERS_PER_TOKEN;
 
 describe("cartBytes", () => {
-  it("measures the body the quoters read: the JSON of the cart, escapes and UTF-8 included", () => {
+  it("measures the body the quoter reads: the JSON of the cart, escapes and UTF-8 included", () => {
     expect(cartBytes("")).toBe('{"cart":""}'.length);
     expect(cartBytes("é")).toBe('{"cart":"é"}'.length + 1);
     expect(cartBytes("a\nb")).toBe('{"cart":"a\\nb"}'.length);
@@ -34,7 +34,7 @@ describe("adviseSize", () => {
     expect(adviseSize("😀".repeat(approximateMax), limits)).toMatchObject({ state: "near", characters: approximateMax });
   });
 
-  it("refuses what the quoters would refuse for its bytes, exactly at their limit", () => {
+  it("refuses what the quoter would refuse for its bytes, exactly at its limit", () => {
     const fits = "a".repeat(8192 - cartBytes(""));
     expect(cartBytes(fits)).toBe(8192);
     expect(adviseSize(fits, limits).state).toBe("long");

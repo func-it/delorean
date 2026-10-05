@@ -1,5 +1,5 @@
 /**
- * One JSON object per line on stdout, as Go's slog JSONHandler writes them:
+ * One JSON object per line on stdout (`time`, `level`, `msg`, then the fields):
  * what a log collector reads without a parser of its own.
  */
 export type Level = 'INFO' | 'WARN' | 'ERROR';

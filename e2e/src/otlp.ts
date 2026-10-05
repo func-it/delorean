@@ -1,5 +1,5 @@
 /**
- * OTLP/HTTP trace requests, as the quoters' exporters send them to Langfuse:
+ * OTLP/HTTP trace requests, as the quoter's exporter sends them to Langfuse:
  * protobuf or JSON, read into one shape. Only the
  * fields Langfuse reads are kept; a small wire decoder stands in for the
  * protobuf runtime and its .proto files.

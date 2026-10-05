@@ -13,7 +13,7 @@ interface Props {
   onCartChange: (cart: string) => void;
   onSubmit: () => void;
   pending: boolean;
-  /** The quoters' limits: without them the form says nothing about the size. */
+  /** The quoter's limits: without them the form says nothing about the size. */
   limits?: Limits;
 }
 

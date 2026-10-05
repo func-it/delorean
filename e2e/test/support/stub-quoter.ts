@@ -347,7 +347,7 @@ async function readBody(req: IncomingMessage): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-/** Characters that draw nothing without being format characters: the quoters' own table. */
+/** Characters that draw nothing without being format characters: the quoter's own table. */
 const HIDDEN: readonly (readonly [number, number])[] = [
   [0x034f, 0x034f],
   [0x115f, 0x1160],

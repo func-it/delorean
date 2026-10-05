@@ -86,7 +86,7 @@ describe("QuoteWorkspace", () => {
     expect(bff).not.toHaveBeenCalled();
   });
 
-  it("sends a cart that is exactly the size the quoters read", async () => {
+  it("sends a cart that is exactly the size the quoter reads", async () => {
     const bff = stubBff(() => Response.json(quote));
     render(<QuoteWorkspace limits={{ maxBodyBytes: cartBytes("Back to the Future 1"), maxInputTokens: 256 }} />);
 

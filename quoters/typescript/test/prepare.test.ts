@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { normalize } from '../src/prepare/normalize.ts';
 import { TokenCounter } from '../src/prepare/tokens.ts';
 
-// The cases of the Go implementation (quoters/go/internal/prepare): two
-// implementations that normalize alike send the models the same text.
+// What normalization keeps and drops: two carts that differ only by what nobody sees
+// are the same text to the models.
 describe('normalize', () => {
   it.each([
     ['already normal', 'Back to the Future 1\nLa chèvre', 'Back to the Future 1\nLa chèvre'],

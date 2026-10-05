@@ -4,7 +4,7 @@
  *
  * Live engines cost money on every quote and the BFF is the only public
  * entry: without `DAILY_BUDGET_USD` nothing bounds the spending, so the app
- * does not start. `ENGINES` is what compose tells the web service the quoters
+ * does not start. `ENGINES` is what compose tells the web service the quoter
  * run on (`live` or `fake`); absent, nothing is known and nothing is checked.
  */
 export function startupProblems(env: Record<string, string | undefined>): string[] {

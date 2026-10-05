@@ -34,7 +34,7 @@ interface Ledger {
   spent_usd: number;
 }
 
-/** USD are summed in millionths: the quoters' costs are fractions of a cent, and floats would drift. */
+/** USD are summed in millionths: the quoter's costs are fractions of a cent, and floats would drift. */
 const MICRO = 1_000_000;
 
 export function utcDay(now: number): string {

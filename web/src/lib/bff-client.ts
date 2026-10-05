@@ -5,7 +5,7 @@ import { cartBytes } from "@/lib/size";
 export type BffResult<T> = { ok: true; data: T } | { ok: false; problem: Problem };
 
 /**
- * Asks for a quote. A cart over `maxBodyBytes` (the quoters' own figure, passed down by the page) is not
+ * Asks for a quote. A cart over `maxBodyBytes` (the quoter's own figure, passed down by the page) is not
  * sent: a proxy in front would cut it with a page of its own, and the visitor can be told at once.
  */
 export function requestQuote(cart: string, maxBodyBytes?: number): Promise<BffResult<Quote>> {

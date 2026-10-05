@@ -204,8 +204,8 @@ function isHttpUrl(raw: string): boolean {
 }
 
 /**
- * Whether the URL's host is the local machine, by exactly these names: as written, as Go reads it (a URL
- * parser here would lower-case the host and turn `127.1` into an address).
+ * Whether the URL's host is the local machine, by exactly these names, as written (a URL parser
+ * would lower-case the host and turn `127.1` into an address).
  */
 function isLocalhost(raw: string): boolean {
   const host = /^[^:/?#]+:\/\/(?:[^/?#@]*@)?(\[[^\]]*\]|[^:/?#]*)/.exec(raw)?.[1] ?? '';
@@ -213,7 +213,7 @@ function isLocalhost(raw: string): boolean {
   return name === 'localhost' || name === '127.0.0.1' || name === '::1';
 }
 
-/** A boolean as Go's strconv.ParseBool reads it. */
+/** A boolean: `1`, `t`, `T`, `TRUE`, `true`, `True` or `0`, `f`, `F`, `FALSE`, `false`, `False`. */
 function parseBool(raw: string): boolean | undefined {
   if (['1', 't', 'T', 'TRUE', 'true', 'True'].includes(raw)) return true;
   if (['0', 'f', 'F', 'FALSE', 'false', 'False'].includes(raw)) return false;
@@ -245,9 +245,8 @@ const UNITS_MS: Record<string, number> = {
 };
 
 /**
- * A duration as Go writes it, in whole milliseconds (a finer value is
- * rounded): "30s", "1m30s", "1.5s", "500ms". The variable is shared with the Go implementation, and so is its
- * syntax.
+ * A duration as Go writes it (`time.ParseDuration`'s syntax), in whole milliseconds
+ * (a finer value is rounded): "30s", "1m30s", "1.5s", "500ms".
  */
 export function parseDuration(raw: string): number | undefined {
   if (raw === '0') return 0;
@@ -257,7 +256,7 @@ export function parseDuration(raw: string): number | undefined {
   for (const [, value, unit] of match[2].matchAll(/(\d+\.?\d*|\.\d+)(ns|us|µs|μs|ms|s|m|h)/gu)) {
     ms += Number(value) * (UNITS_MS[unit ?? ''] ?? Number.NaN);
   }
-  // whole milliseconds, as the Go implementation reads them: "1.1s" is 1100, not 1100.0000000000002,
+  // whole milliseconds: "1.1s" is 1100, not 1100.0000000000002,
   // which AbortSignal.timeout refuses
   ms = Math.round(ms);
   return Number.isFinite(ms) ? (match[1] === '-' ? -ms : ms) : undefined;

@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 /**
  * The web app end to end, in a real browser, against a running stack: the
- * page, the BFF, the session cookie and the quoters on their fake engines
+ * page, the BFF, the session cookie and the quoter on its fake engines
  * (scripts/web-e2e.sh starts one apart from any other). BASE_URL says where.
  */
 export default defineConfig({

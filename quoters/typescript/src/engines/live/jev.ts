@@ -299,9 +299,9 @@ function answersOf(wire: Wire['answers'], request: Request, engine: string): Rec
 }
 
 /**
- * `value` with the keys of every object in order: the bytes Go's
- * encoding/json writes of a map, so that both implementations put Jev the
- * same request, criteria in the same order.
+ * `value` with the keys of every object in order (as encoding/json writes a
+ * map), so that Jev is put the same request, criteria in the same order, every
+ * time.
  */
 export function sortedKeys(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortedKeys);

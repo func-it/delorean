@@ -1,12 +1,12 @@
 /**
- * How big a cart is, for the page to say so before it is sent. The quoters hold a cart to a number of
+ * How big a cart is, for the page to say so before it is sent. The quoter holds a cart to a number of
  * bytes (the body `{"cart": …}`) and to a number of tokens; a browser cannot count tokens as they do, so
  * it counts characters, at about three to a token: enough to warn, never to refuse.
  */
 export interface Limits {
-  /** The most bytes of `{"cart": …}` the quoters read (their `MAX_BODY_BYTES`). */
+  /** The most bytes of `{"cart": …}` the quoter reads (its `MAX_BODY_BYTES`). */
   maxBodyBytes: number;
-  /** The most tokens of a cart the quoters read (their `MAX_INPUT_TOKENS`). */
+  /** The most tokens of a cart the quoter reads (its `MAX_INPUT_TOKENS`). */
   maxInputTokens: number;
 }
 

@@ -7,9 +7,8 @@ import type { Logger } from '../log.ts';
 /**
  * Exports the traces and the scores to Langfuse, when the configuration names
  * a project, and does nothing otherwise: the spans of telemetry/trace.ts are
- * then no-ops. What goes wrong is said by our logger, in the words every
- * quoter uses (docs/architecture.md, "Identical quoters"); the SDK's own
- * logger is silenced.
+ * then no-ops. What goes wrong is said by our logger (docs/architecture.md); the
+ * SDK's own logger is silenced.
  */
 
 /** The Langfuse project the traces go to. */

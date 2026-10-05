@@ -1,5 +1,5 @@
 /**
- * A cart's text in the one form the quoters read it in: the same as
+ * A cart's text in the one form the quoter reads it in: the same as
  * `prepare.Normalize` of the Go quoter (and of the other two), so that two
  * texts the quoter reads alike are the same text here: LF line ends, nothing
  * invisible but `\n`, `\t` and the joiners, Unicode NFC, no blanks at either
@@ -25,7 +25,7 @@ const KEPT = new Set(["\n", "\t", "‌", "‍"]);
 
 /**
  * Characters that draw nothing and can hide text from a reader, though they are not format characters:
- * the same table as the quoters' (not a Unicode property: runtimes disagree on its version).
+ * the same table as the quoter's (not a Unicode property: runtimes disagree on its version).
  */
 const HIDDEN: readonly (readonly [number, number])[] = [
   [0x034f, 0x034f],

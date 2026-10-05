@@ -744,7 +744,7 @@ describe("POST /api/quotes: the size of the body", () => {
     expect((await post("{not json")).status).toBe(400);
   });
 
-  it.each([undefined, "", "0", "-5", "many", "1.5"])("takes MAX_BODY_BYTES=%s as the default, the quoters' 8192", async (value) => {
+  it.each([undefined, "", "0", "-5", "many", "1.5"])("takes MAX_BODY_BYTES=%s as the default, the quoter's 8192", async (value) => {
     vi.stubEnv("MAX_BODY_BYTES", value as string);
     stubQuoter(async () => Response.json(quote));
 

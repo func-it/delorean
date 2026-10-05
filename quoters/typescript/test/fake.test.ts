@@ -4,7 +4,7 @@ import { EngineError } from '../src/pipeline/ports.ts';
 import { verdictOf } from '../src/pipeline/reading.ts';
 
 // The fake engines are part of the test contract (docs/architecture.md,
-// "Fake engines"): these are the cases of the Go implementation's tests.
+// "Fake engines"): what each fake answers, case by case.
 const { guard, parser, recounter, identifier, judge } = fakeEngines();
 const call = { signal: new AbortController().signal };
 const oneFreeCall = { engine: 'fake', calls: 1, costUsd: 0 };

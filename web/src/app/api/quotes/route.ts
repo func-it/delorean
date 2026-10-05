@@ -171,7 +171,7 @@ async function quote(
 
 /**
  * What a relayed answer cost: its `usage.cost_usd`, on a Quote, a refusal or
- * a failure alike (the quoters put the usage of the stages that ran on a 502
+ * a failure alike (the quoter puts the usage of the stages that ran on a 502
  * and a 500 too). An answer that says nothing of it and is a failure (the
  * quoter did not answer, or failed without a usage) counts for the flat
  * estimate of `unansweredQuoteCostUsd`: it may have spent. Anything else

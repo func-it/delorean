@@ -3,8 +3,7 @@ import { Malformed, decodeQuoteRequest } from '../src/http/body.ts';
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 
-// What the three quoters read of a request body, key by key: the same rules
-// (docs/architecture.md, "Identical quoters"), the same cases in each test suite.
+// What the quoter reads of a request body, key by key (docs/architecture.md).
 describe('decodeQuoteRequest', () => {
   it('takes the last of a duplicated cart', () => {
     expect(decodeQuoteRequest(bytes('{"cart":"first","cart":"Heat"}'))).toBe('Heat');

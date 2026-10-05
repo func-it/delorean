@@ -1,10 +1,9 @@
 /**
  * Where the first JSON value of a text ends, or why it does not: the text
  * stops inside it (`truncated`), or a character breaks its grammar
- * (`invalid`). JSON.parse says neither in words of its own that another
- * runtime shares, and lumps a second value in with the first's errors; the
- * quoters answer each case in the same words (docs/architecture.md,
- * "Identical quoters").
+ * (`invalid`). JSON.parse says neither in words of its own, and lumps a
+ * second value in with the first's errors; the quoter answers each case in
+ * the words the docs give (docs/architecture.md).
  */
 export type Scan = { end: number } | { error: 'truncated' | 'invalid' };
 

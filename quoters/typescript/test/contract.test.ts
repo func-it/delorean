@@ -7,8 +7,7 @@ import { silentLogger } from '../src/log.ts';
 import { newPipeline } from './support.ts';
 
 // A body is the JSON of its schema, keys in the contract's declaration order
-// (docs/architecture.md, "Identical quoters"): the parity suite compares the
-// quoters byte for byte.
+// (docs/architecture.md): the e2e suite checks every answer against the schema.
 
 interface Schema {
   $ref?: string;
