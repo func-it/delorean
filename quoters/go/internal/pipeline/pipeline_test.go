@@ -440,11 +440,15 @@ func TestQuoteParseDecidesBeforeTheRecount(t *testing.T) {
 		t.Errorf("err = %v, want the parse's failure, the recount cancelled", err)
 	}
 
-	for name, cart := range map[string]string{"no film": fake.Unfaithful, "too many copies": "1001 x Heat"} {
+	// readings made: no film is read once more (and a recount that failed is asked again), too many copies is final
+	for name, tt := range map[string]struct {
+		cart  string
+		calls int
+	}{"no film": {fake.Unfaithful, 2}, "too many copies": {"1001 x Heat", 1}} {
 		_, err = newPipeline(t, func(p *pipeline.Pipeline) { p.Engines.Recounter = parserFails(errDown) }).
-			Quote(t.Context(), pipeline.Request{Cart: cart})
+			Quote(t.Context(), pipeline.Request{Cart: tt.cart})
 		rej := rejection(t, err)
-		if n := len(rej.Report.Stages); n != 4 || rej.Report.Stages[3] != (pipeline.Usage{Stage: pipeline.StageRecount, Engine: "down", Calls: 1, Ms: rej.Report.Stages[3].Ms, Degraded: true}) {
+		if n := len(rej.Report.Stages); n != 4 || rej.Report.Stages[3] != (pipeline.Usage{Stage: pipeline.StageRecount, Engine: "down", Calls: tt.calls, Ms: rej.Report.Stages[3].Ms, Degraded: true}) {
 			t.Errorf("%s: stages %+v, want the recount's usage last", name, rej.Report.Stages)
 		}
 	}
@@ -1625,5 +1629,106 @@ func TestLimitDetailQuotesTheTitleAsJSON(t *testing.T) {
 	want := "\"Bac\u2028k \\\"to\\\" é\\tFuture\" is asked in 1001 copies; a cart holds at most 1000 of a title."
 	if rej.Detail != want {
 		t.Errorf("detail = %q, want %q", rej.Detail, want)
+	}
+}
+
+// parserEmptyThen reads no film `empty` times, then films; told, when set, keeps what each call was
+// told (nil for a first reading); the counter says how many readings were asked.
+func parserEmptyThen(empty int, films []cart.Mention, told *[]*pipeline.Retry) (pipeline.Parser, *atomic.Int32) {
+	var calls atomic.Int32
+	return parserFunc(func(_ context.Context, _ string, again *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
+		n := int(calls.Add(1))
+		if told != nil {
+			*told = append(*told, again)
+		}
+		if n <= empty {
+			return nil, pipeline.Usage{Engine: "fake", Calls: 1}, nil
+		}
+		return films, pipeline.Usage{Engine: "fake", Calls: 1}, nil
+	}), &calls
+}
+
+func parseStageCalls(r pipeline.Report) int {
+	for _, s := range r.Stages {
+		if s.Stage == pipeline.StageParse {
+			return s.Calls
+		}
+	}
+	return 0
+}
+
+// A first reading with no film is read once more, told what failed as a later
+// one is: a single `missing` finding about the whole reading. Films the
+// second time and the cart goes on as any other.
+func TestQuoteReadsOnceMoreWhenTheFirstReadingNamesNoFilm(t *testing.T) {
+	var told []*pipeline.Retry
+	parser, calls := parserEmptyThen(1, []cart.Mention{{Title: "Heat", Quantity: 1}}, &told)
+	q, err := newPipeline(t, func(p *pipeline.Pipeline) { p.Engines.Parser = parser }).Quote(t.Context(), pipeline.Request{Cart: "Heat"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if q.Price.TotalCents != 2000 || q.Judgement.Attempts != 2 || calls.Load() != 2 || parseStageCalls(q.Report) != 2 {
+		t.Errorf("total %d, attempts %d, parse calls %d (usage %d), want 2000, 2, 2, 2", q.Price.TotalCents, q.Judgement.Attempts, calls.Load(), parseStageCalls(q.Report))
+	}
+	if len(told) != 2 || told[0] != nil || told[1] == nil || len(told[1].Reading) != 0 ||
+		!reflect.DeepEqual(told[1].Findings, []pipeline.Finding{{Check: pipeline.CheckMissing, Label: pipeline.WholeReading, Score: 0}}) {
+		t.Errorf("the parse was told %+v", told)
+	}
+}
+
+// Nothing the second time either: no_film, final, and not unfaithful_reading;
+// both readings are in the usage.
+func TestQuoteRefusesNoFilmAfterTheSecondEmptyReading(t *testing.T) {
+	parser, calls := parserEmptyThen(10, nil, nil)
+	_, err := newPipeline(t, func(p *pipeline.Pipeline) { p.Engines.Parser = parser }).Quote(t.Context(), pipeline.Request{Cart: "Heat"})
+	rej := rejection(t, err)
+	if rej.Code != pipeline.CodeNoFilm || calls.Load() != 2 || parseStageCalls(rej.Report) != 2 {
+		t.Errorf("code %s, parse calls %d (usage %d), want no_film after 2", rej.Code, calls.Load(), parseStageCalls(rej.Report))
+	}
+}
+
+// With one reading to make, a first one with no film is refused at once.
+func TestQuoteRefusesNoFilmAtOnceWithOneReading(t *testing.T) {
+	parser, calls := parserEmptyThen(10, nil, nil)
+	_, err := newPipeline(t, func(p *pipeline.Pipeline) { p.Engines.Parser = parser; p.ReadAttempts = 1 }).
+		Quote(t.Context(), pipeline.Request{Cart: "Heat"})
+	if rej := rejection(t, err); rej.Code != pipeline.CodeNoFilm || calls.Load() != 1 {
+		t.Errorf("code %s after %d readings, want no_film after 1", rej.Code, calls.Load())
+	}
+}
+
+// Too many copies stays final at any reading, an empty first one before it included.
+func TestQuoteRefusesTooManyCopiesAtOnceAndAfterAnEmptyReading(t *testing.T) {
+	over := []cart.Mention{{Title: "Heat", Quantity: 1001}}
+	parser, calls := parserEmptyThen(0, over, nil)
+	_, err := newPipeline(t, func(p *pipeline.Pipeline) { p.Engines.Parser = parser }).Quote(t.Context(), pipeline.Request{Cart: "Heat"})
+	if rej := rejection(t, err); rej.Code != pipeline.CodeQuantityTooLarge || calls.Load() != 1 {
+		t.Errorf("code %s after %d readings, want quantity_too_large after 1", rej.Code, calls.Load())
+	}
+	parser, calls = parserEmptyThen(1, over, nil)
+	_, err = newPipeline(t, func(p *pipeline.Pipeline) { p.Engines.Parser = parser }).Quote(t.Context(), pipeline.Request{Cart: "Heat"})
+	if rej := rejection(t, err); rej.Code != pipeline.CodeQuantityTooLarge || calls.Load() != 2 {
+		t.Errorf("code %s after %d readings, want quantity_too_large after 2", rej.Code, calls.Load())
+	}
+}
+
+// An empty first reading, films the second time that the judge refuses, an
+// empty third one: that last one is a failed attempt as ever, and the cart is
+// refused as unfaithful after the last reading.
+func TestQuoteALaterEmptyReadingStaysAFailedAttempt(t *testing.T) {
+	var calls atomic.Int32
+	parser := parserFunc(func(_ context.Context, _ string, _ *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
+		if calls.Add(1) == 2 {
+			return []cart.Mention{{Title: "Heat", Quantity: 1}}, pipeline.Usage{Engine: "fake", Calls: 1}, nil
+		}
+		return nil, pipeline.Usage{Engine: "fake", Calls: 1}, nil
+	})
+	_, err := newPipeline(t, func(p *pipeline.Pipeline) {
+		p.Engines.Parser = parser
+		p.Engines.Judge = judgeScores(0)
+	}).Quote(t.Context(), pipeline.Request{Cart: "Heat"})
+	rej := rejection(t, err)
+	if rej.Code != pipeline.CodeUnfaithfulReading || calls.Load() != 3 {
+		t.Errorf("code %s after %d readings, want unfaithful_reading after 3", rej.Code, calls.Load())
 	}
 }

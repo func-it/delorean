@@ -55,18 +55,27 @@ func (p *Pipeline) readAgain(ctx context.Context, r *run, text string) (Reading,
 		// the first recount that succeeded, for every reading after it
 		kept   []cart.Mention
 		isKept bool
+		// the first reading named no film: it is read once more, told so
+		emptyFirst bool
 	)
 	attempts := max(p.ReadAttempts, 1)
 	for n := 1; n <= attempts; n++ {
 		r.attempts = n
-		raw, reading, recount, counted, err := p.readTwice(ctx, r, text, n, again, kept, isKept)
+		// A first reading with no film is read once more before the cart is
+		// refused no_film (at once when there is no second reading to make); a
+		// second one with none is final.
+		refuseNoFilm := (n == 1 && attempts == 1) || (n == 2 && emptyFirst)
+		raw, reading, recount, counted, err := p.readTwice(ctx, r, text, n, again, kept, isKept, refuseNoFilm)
 		if err != nil {
 			return Reading{}, err
+		}
+		if n == 1 && len(reading) == 0 {
+			emptyFirst = true
 		}
 		if counted && !isKept {
 			kept, isKept = recount, true
 		}
-		// a later reading with no film fails: it is not put to Jev
+		// a reading with no film fails, the first one included: it is not put to Jev
 		j := Judgement{Findings: []Finding{{Check: CheckMissing, Label: WholeReading}}}
 		var lines, recounted []cart.Line
 		if len(reading) > 0 {
@@ -146,8 +155,9 @@ func (p *Pipeline) judge(ctx context.Context, r *run, n int, text string, judged
 // returns the parse's reading as read and merged, and the recount merged;
 // counted is false when there is no recount. On every attempt a parse
 // that fails decides first, and cancels the recount; then a reading refused —
-// too many copies, or no film on the first attempt. A later reading with no
-// film is no refusal: it comes back empty.
+// too many copies, or no film when refuseNoFilm says it is final (the second
+// reading of a cart whose first had none, or the only one). Any other reading
+// with no film is no refusal: it comes back empty, and fails.
 //
 // The recount is a second opinion: one that fails, answers off its schema or
 // is too slow (recount) does not fail the quote. The reading goes on without
@@ -155,7 +165,7 @@ func (p *Pipeline) judge(ctx context.Context, r *run, n int, text string, judged
 // stays the guard. Only a request that is over fails on the recount — and a
 // failure that is no engine's (a bug) is not swallowed: it fails the quote as
 // it would from any stage.
-func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt int, again *Retry, kept []cart.Mention, isKept bool) (raw, reading, recount []cart.Mention, counted bool, err error) {
+func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt int, again *Retry, kept []cart.Mention, isKept, refuseNoFilm bool) (raw, reading, recount []cart.Mention, counted bool, err error) {
 	type read struct {
 		raw, mentions []cart.Mention
 		usage         Usage
@@ -222,7 +232,7 @@ func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt i
 		return nil, nil, nil, false, failed(ctx, StageParse, parsed.err)
 	case rej != nil:
 		return nil, nil, nil, false, rej
-	case len(parsed.mentions) == 0 && attempt == 1:
+	case len(parsed.mentions) == 0 && refuseNoFilm:
 		return nil, nil, nil, false, &Rejection{Code: CodeNoFilm, Detail: "The text names no film to buy."}
 	case isKept:
 		return parsed.raw, parsed.mentions, kept, true, nil
