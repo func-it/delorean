@@ -21,7 +21,7 @@ import type { Decision, Jev, Request, Tally } from './jev.ts';
  */
 
 /** The state key of the customer's text, wherever Jev reads it. */
-const CUSTOMER_MESSAGE = 'customer_message';
+export const CUSTOMER_MESSAGE = 'customer_message';
 
 /** Two questions, each in a request of its own: does the message order films? does some of it speak to the system? */
 export function jevGuard(jev: Jev, prompts: Prompts['guard']): Guard {

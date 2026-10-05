@@ -7,6 +7,7 @@ import { EngineError, engineFailure, isCancelled, type Finding, type Reader } fr
 import type { ReadingPrompt } from '../../prompts.ts';
 import { observe } from '../../telemetry/trace.ts';
 import { trimSpace } from '../../text.ts';
+import { CUSTOMER_MESSAGE } from './questions.ts';
 
 /**
  * Reads the films a customer buys, and how many copies of each, with an LLM
@@ -59,7 +60,7 @@ export function llmReader(prompts: ReadingPrompt, options: ReaderOptions): Reade
         model,
         messages: [
           { role: 'system', content: prompts.instruction },
-          { role: 'user', content: prompts.message.before + text + prompts.message.after },
+          { role: 'user', content: prompts.message.before + escapeFence(text) + prompts.message.after },
           // read again: the conversation goes on from the reading the judge refused
           ...(retry
             ? [
@@ -123,11 +124,41 @@ export function readingJSON(mentions: readonly Mention[]): string {
   });
 }
 
-/** The turn that asks for a new reading: one finding line per failing check, in the judgement's order. */
+/** The closing tag of the fence the customer's text is put in, in any case mix. */
+const CLOSING_TAG = new RegExp(`</(${CUSTOMER_MESSAGE})`, 'gi');
+
+/**
+ * Writes every closing tag of the fence in `text` as `<\/` and the name as written, so that a text put
+ * between the tags cannot close them.
+ */
+export function escapeFence(text: string): string {
+  return text.replace(CLOSING_TAG, '<\\/$1');
+}
+
+/** The blanks a label's runs are collapsed on: space, \t \n \v \f \r, U+0085, U+2028 and U+2029. */
+const LABEL_BLANKS = /[ \t\n\v\f\r\u0085\u2028\u2029]+/;
+
+/**
+ * A finding's label as the retry turn lists it: every run of blanks one space, none at either end, and the
+ * fence's closing tag escaped, so that a label can neither add a line nor close the fence.
+ */
+export function tidyLabel(label: string): string {
+  return escapeFence(
+    label
+      .split(LABEL_BLANKS)
+      .filter((word) => word !== '')
+      .join(' '),
+  );
+}
+
+/**
+ * The turn that asks for a new reading: one finding line per failing check, in the judgement's order. The
+ * label is tidied (tidyLabel); the check and the meaning are ours.
+ */
 export function retryTurn(retry: ReadingPrompt['retry'], failed: readonly Finding[]): string {
   const lines = failed.map((f) =>
     retry.finding.replace(/\{(check|label|meaning)\}/g, (_, field: string) =>
-      field === 'check' ? f.check : field === 'label' ? f.label : retry.meanings[f.check],
+      field === 'check' ? f.check : field === 'label' ? tidyLabel(f.label) : retry.meanings[f.check],
     ),
   );
   // a function, so that a `$` in a title is written as it is
