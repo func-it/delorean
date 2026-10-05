@@ -1,4 +1,4 @@
-import { scanValue, skipSpace } from './json.ts';
+import { objectKeys, scanValue, skipSpace } from './json.ts';
 
 /**
  * Reads a QuoteRequest off a request body, strictly: at most the byte limit,
@@ -68,7 +68,8 @@ export function decodeQuoteRequest(body: Uint8Array): string {
   if (typeof request !== 'object' || request === null || Array.isArray(request)) {
     throw new Malformed(`body: a QuoteRequest object is expected, not a JSON ${jsonType(request)}`);
   }
-  const unknown = Object.keys(request).find((key) => key !== 'cart');
+  // the first field that is not exactly `cart`, in the order of the document
+  const unknown = objectKeys(text, start).find((key) => key !== 'cart');
   if (unknown !== undefined) throw new Malformed(`body: unknown field ${JSON.stringify(unknown)}`);
   if (!('cart' in request)) throw new Malformed('body: field "cart" is required');
   if (typeof request.cart !== 'string') {

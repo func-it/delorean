@@ -22,6 +22,27 @@ export function skipSpace(text: string, i: number): number {
   return i;
 }
 
+/**
+ * The keys of the object that starts at `start`, in the order of the
+ * document, a text `scanValue` has found to be one valid JSON object: a
+ * parsed object lists the keys that look like an integer first, whatever
+ * their place, and the quoters name the first unknown field of the document.
+ */
+export function objectKeys(text: string, start: number): string[] {
+  const end = (at: number) => (scanValue(text, at) as { end: number }).end;
+  const keys: string[] = [];
+  let i = skipSpace(text, start) + 1;
+  for (;;) {
+    i = skipSpace(text, i);
+    if (text[i] === '}') return keys;
+    const keyEnd = end(i);
+    keys.push(JSON.parse(text.slice(i, keyEnd)) as string);
+    i = end(skipSpace(text, keyEnd) + 1);
+    i = skipSpace(text, i);
+    if (text[i] === ',') i++;
+  }
+}
+
 export function scanValue(text: string, start: number): Scan {
   try {
     return { end: value(text, skipSpace(text, start)) };
