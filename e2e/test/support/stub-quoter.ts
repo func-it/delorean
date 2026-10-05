@@ -163,7 +163,12 @@ export async function startStubQuoter(options: StubOptions = {}): Promise<Stub> 
       return reject(code, { guard });
     }
 
-    if (lines.includes('#fake:engine_down')) return problem(502, 'engine_unavailable');
+    if (lines.includes('#fake:engine_down')) {
+      // the parse failed, and the recount beside it: what they took is in the usage
+      ran('parse');
+      ran('recount');
+      return problem(502, 'engine_unavailable', { usage: usage() });
+    }
     const all = lines.filter((l) => l.trim() !== '' && !l.trim().startsWith('#fake:')).map((l) => mention(l.trim()));
     // The recount reads everything; #fake:miscount gives it one more copy of the first mention.
     const miscount = lines.includes('#fake:miscount');

@@ -7,7 +7,10 @@ import { catalog, client, expectProblem, expectQuote, health } from './support.t
 describe.runIf(health.engines === 'fake')('fake engines', () => {
   it('answers 502 engine_unavailable when an engine fails', async () => {
     const cart = 'Back to the Future 1\n#fake:engine_down';
-    expectProblem(await postQuote(client, cart), 502, 'engine_unavailable');
+    const problem = expectProblem(await postQuote(client, cart), 502, 'engine_unavailable');
+    // what the stages that ran took is spent all the same: the failing one is in the usage, its call counted
+    expect(problem.usage?.stages.map((s) => s.stage)).toEqual(['prepare', 'guard', 'parse', 'recount']);
+    expect(problem.usage?.stages.find((s) => s.stage === 'parse')?.calls).toBeGreaterThanOrEqual(1);
   });
 
   it('refuses an unfaithful reading, with the checks of the judge', async () => {

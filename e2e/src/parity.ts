@@ -115,6 +115,16 @@ export function probes(): Probe[] {
     quote('unfaithful', cart('Back to the Future 1 #fake:unfaithful')),
     quote('miscount', cart('Back to the Future 1 #fake:miscount')),
     quote('read again', cart('Back to the Future 2 #fake:reread')),
+    // request keys are read as the contract spells them, in document order
+    quote('a key in another case', '{"Cart":"Heat"}'),
+    quote('an unknown key first of the document', '{"b":1,"1":2,"cart":"Heat"}'),
+    quote('an empty key', '{"":1,"cart":"Heat"}'),
+    quote('a cart twice', '{"cart":"Heat","cart":"Back to the Future 1"}'),
+    // titles are kept apart by their lower-cased words, a code point at a time
+    quote('titles of another case', cart('İstanbul\nistanbul\nΟΔΟΣ\nοδοσ\nΑΣ Σ\nασ σ\nẞ\nß')),
+    quote('words split by the same blanks', cart('Heat\u0085Heat\nHeat\u00a0Heat\nHeat\ufeffHeat\nHeat\u001fHeat')),
+    // a detail quotes the title the way JSON does
+    quote('a detail that quotes a title', cart('1001 x Heat\u2028"é"\t!')),
   ];
   const cases = loadQuoteCases().map((c) => quote(`case ${c.id}`, JSON.stringify(c.input)));
   // The others carry a request id of their own, which names them in the logs.

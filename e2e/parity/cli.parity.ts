@@ -86,6 +86,20 @@ function expectSame(runs: PerQuoter<Run>): void {
 
 const FAKE = { ENGINES: 'fake' };
 
+describe('the healthcheck command', () => {
+  it.each([
+    ['nothing listening', { PORT: port }],
+    ['a port that is not one', { PORT: 'abc' }],
+  ])('exits 1 with %s, and says why in one line on stderr', async (_, env) => {
+    for (const q of QUOTERS) {
+      const r = await run(q, ['healthcheck'], env, { ms: 6_000 });
+      expect(r.code, q).toBe(1);
+      expect(r.stdout, q).toBe('');
+      expect(r.stderr.trim().split('\n'), q).toHaveLength(1);
+    }
+  });
+});
+
 describe('the same commands', () => {
   it.each([
     ['version', ['version']],
