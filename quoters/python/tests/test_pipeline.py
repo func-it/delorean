@@ -1221,6 +1221,62 @@ async def test_a_degraded_recount_is_a_warning(traced: Pipeline, spans: Spans) -
     assert quote_span["langfuse.trace.metadata.outcome"] == "priced"
 
 
+async def test_a_degraded_mark_does_not_stick_to_the_reading_whose_recount_succeeded(
+    traced: Pipeline, spans: Spans
+) -> None:
+    class FailsOnce:
+        reads = 0
+
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            FailsOnce.reads += 1
+            billed = Usage(engine="test", calls=1)
+            if FailsOnce.reads == 1:
+                raise EngineError("answer off schema", usage=billed)
+            return [Mention("Heat", 2)], billed
+
+    rej = await rejection(engines(traced, recounter=FailsOnce()), f"2 x Heat\n{fake.UNFAITHFUL}")
+    assert rej.judgement is not None
+    assert rej.judgement.attempts == 3
+    assert Finding(Check.COUNT, "other: 2 read, 2 recounted", 1.0) in rej.judgement.findings, "counted at the end"
+    assert FailsOnce.reads == 2, "left out at the first reading, asked again at the second, kept for the third"
+    usage = recount_usage(rej)
+    assert (usage.calls, usage.degraded) == (2, True), "calls added up; left out at least once"
+    levels = {
+        dict(s.attributes or {}).get("langfuse.observation.metadata.attempt"): dict(s.attributes or {}).get(
+            "langfuse.observation.level"
+        )
+        for s in spans.ended()
+        if s.name == "recount"
+    }
+    assert levels == {1: "WARNING", 2: None}, "a warning at the reading it failed, none after, no span at the third"
+
+
+async def test_a_recount_that_expires_at_a_later_reading_leaves_the_kept_one_standing(pipeline: Pipeline) -> None:
+    heat, ronin = Mention("Heat", 1), Mention("Ronin", 2)
+
+    class HangsAfterTheFirst:
+        reads = 0
+
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            HangsAfterTheFirst.reads += 1
+            if HangsAfterTheFirst.reads > 1:
+                await asyncio.sleep(60)
+            return [heat], fake.USAGE
+
+    recounter = HangsAfterTheFirst()
+    p = engines(
+        replace(pipeline, recount_timeout=0.1),
+        parser=Script([heat, ronin], [heat, ronin], [heat, ronin]),
+        recounter=recounter,
+    )
+    rej = await rejection(p, "Heat\n2 x Ronin")
+    assert rej.judgement is not None
+    assert rej.judgement.attempts == 3
+    assert recounter.reads == 1, "asked once: the first one that succeeded stands for every reading"
+    assert Finding(Check.COUNT, "other: 3 read, 1 recounted", 0.0) in rej.judgement.findings, "still counted against"
+    assert not recount_usage(rej).degraded
+
+
 async def test_a_recount_failing_beside_a_failing_parse_is_no_degradation(traced: Pipeline, spans: Spans) -> None:
     """Both fail in the same tick: the recount is decided once the parse has
     settled, so it is a failure, not a degradation, whichever failed first."""

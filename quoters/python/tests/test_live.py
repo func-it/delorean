@@ -5,6 +5,7 @@ import asyncio
 import json
 import time
 from collections.abc import AsyncIterator, Callable, Coroutine
+from dataclasses import replace
 from typing import Any
 
 import httpx
@@ -19,7 +20,19 @@ from delorean.engines.live.jev import Ask, Jev
 from delorean.engines.live.questions import CacheKey, JevGuard, JevIdentifier, JevJudge
 from delorean.engines.live.reader import MAX_TOKENS, LlmReader
 from delorean.lru import Lru
-from delorean.pipeline import Check, EngineError, Finding, GuardAnswers, Identification, Retry, Usage
+from delorean.pipeline import (
+    Check,
+    EngineError,
+    Finding,
+    GuardAnswers,
+    Identification,
+    Pipeline,
+    Quote,
+    Request,
+    Retry,
+    Stage,
+    Usage,
+)
 from delorean.prompts import Prompts, load_prompts
 from delorean.telemetry import NoTracer
 from tests.conftest import TINY_PROMPTS_DIR, Spans
@@ -432,6 +445,24 @@ async def test_the_reader_bounds_the_whole_call_not_each_phase(prompts: Prompts)
     assert usage is not None
     model = "openai/gpt-6-luna"
     assert (usage.engine, usage.model, usage.calls) == (model, model, 1), "the call went out"
+
+
+async def test_a_recount_reaching_model_timeout_is_left_out_and_the_quote_goes_on(
+    prompts: Prompts, pipeline: Pipeline
+) -> None:
+    async def slow(request: httpx2.Request) -> httpx2.Response:
+        await asyncio.sleep(30)
+        raise AssertionError("not cancelled")
+
+    recounter = Llm({}, handler=slow).reader(prompts, timeout=0.05)
+    p = replace(pipeline, engines=replace(pipeline.engines, recounter=recounter), recount_timeout=2.0)
+    started = time.perf_counter()
+    outcome = await p.quote(Request(cart="2 x Heat"))
+    assert isinstance(outcome, Quote), outcome
+    assert time.perf_counter() - started < 1.5, "bounded by MODEL_TIMEOUT twice, not by the request's budget"
+    (usage,) = [u for u in outcome.report.stages if u.stage == Stage.RECOUNT]
+    assert (usage.engine, usage.calls, usage.degraded) == ("openai/gpt-6-luna", 2, True), "tried, then once more"
+    assert outcome.price.total_cents == 4000, "priced on the parse"
 
 
 async def test_the_live_engines_hand_model_timeout_to_each_call(prompts: Prompts) -> None:
