@@ -101,8 +101,10 @@ export function quoteViolations(quote: Quote, catalog: Catalog): string[] {
  */
 export function usageViolations(usage: Usage, health: Health, last: Stage, attempts = 1): string[] {
   const found: string[] = [];
-  if (usage.implementation !== health.implementation) {
-    found.push(`usage.implementation ${usage.implementation}, /healthz says ${health.implementation}`);
+  // the contract names one implementation: read as strings, an answer that says otherwise is still caught
+  const [reported, identity]: string[] = [usage.implementation, health.implementation];
+  if (reported !== identity) {
+    found.push(`usage.implementation ${reported}, /healthz says ${identity}`);
   }
   if (usage.engines !== health.engines) {
     found.push(`usage.engines ${usage.engines}, /healthz says ${health.engines}`);

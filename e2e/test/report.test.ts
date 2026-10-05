@@ -10,7 +10,7 @@ function attempt(fields: Partial<Attempt> & Pick<Attempt, 'grade'>): Attempt {
 
 function usage(cost: number, guardMs: number): Usage {
   return {
-    implementation: 'go',
+    implementation: 'typescript',
     engines: 'live',
     duration_ms: guardMs,
     cost_usd: cost,
@@ -130,12 +130,12 @@ describe('reports', () => {
   };
 
   it('names a report after its implementation, engines and start', () => {
-    expect(reportName(report('go', true))).toBe('go-fake-20261002T132501Z');
+    expect(reportName(report('typescript', true))).toBe('typescript-fake-20261002T132501Z');
   });
 
   it('renders a report with its failing cases', () => {
-    const markdown = renderReport(report('python', false));
-    expect(markdown).toContain('# System bench: python · fake');
+    const markdown = renderReport(report('typescript', false));
+    expect(markdown).toContain('# System bench: typescript · fake');
     expect(markdown).toContain('| Price accuracy | 0.0 % (0/1) |');
     expect(markdown).toContain('| enonce-1 | 0/1 | total_cents: expected 3600, got 4500 |');
   });

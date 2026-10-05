@@ -38,7 +38,7 @@ export const quote: Quote = {
       { check: "count", label: "other: 1 read, 1 recounted", score: 1 },
     ],
   },
-  usage: { implementation: "go", engines: "live", duration_ms: 1840, cost_usd: 0.00213, stages: [] },
+  usage: { implementation: "typescript", engines: "live", duration_ms: 1840, cost_usd: 0.00213, stages: [] },
   created_at: "2026-10-02T12:00:00Z",
 };
 

@@ -169,12 +169,12 @@ describe("Rejection", () => {
     const priced = problem({
       code: "injection",
       status: 422,
-      usage: { implementation: "python", engines: "fake", duration_ms: 12, cost_usd: 0, stages: [] },
+      usage: { implementation: "typescript", engines: "fake", duration_ms: 12, cost_usd: 0, stages: [] },
     });
     render(<Rejection problem={priced} />);
 
     expect(text(screen.getByText(/Réponse de l'implémentation/))).toBe(
-      "Réponse de l'implémentation python (moteurs factices) en 12 ms, pour un coût de 0,00 $US.",
+      "Réponse de l'implémentation typescript (moteurs factices) en 12 ms, pour un coût de 0,00 $US.",
     );
   });
 });

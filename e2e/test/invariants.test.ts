@@ -130,8 +130,9 @@ describe('usageViolations', () => {
   });
 
   it('flags a usage that contradicts /healthz', () => {
-    expect(usageViolations(usage(), { ...FAKE_HEALTH, implementation: 'python' }, 'price')).toEqual([
-      'usage.implementation go, /healthz says python',
+    // the contract names one implementation: a /healthz that says another is out of contract, and flagged
+    expect(usageViolations(usage(), { ...FAKE_HEALTH, implementation: 'other' as 'typescript' }, 'price')).toEqual([
+      'usage.implementation typescript, /healthz says other',
     ]);
   });
 

@@ -169,7 +169,7 @@ export interface components {
         };
         Usage: {
             /** @enum {string} */
-            implementation: "go" | "python" | "typescript";
+            implementation: "typescript";
             /**
              * @description `fake` engines are deterministic stand-ins for tests; never in production.
              * @enum {string}
@@ -257,7 +257,7 @@ export interface components {
             /** @constant */
             status: "ok";
             /** @enum {string} */
-            implementation: "go" | "python" | "typescript";
+            implementation: "typescript";
             version: string;
             /** @enum {string} */
             engines: "live" | "fake";

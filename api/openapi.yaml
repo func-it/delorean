@@ -449,7 +449,7 @@ components:
       properties:
         implementation:
           type: string
-          enum: [go, python, typescript]
+          enum: [typescript]
         engines:
           type: string
           enum: [live, fake]
@@ -601,7 +601,7 @@ components:
           const: ok
         implementation:
           type: string
-          enum: [go, python, typescript]
+          enum: [typescript]
         version:
           type: string
         engines:
