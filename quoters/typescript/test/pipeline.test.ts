@@ -907,3 +907,97 @@ describe('Pipeline.quote, a recount that fails', () => {
     expect(q.judgement.findings.filter((f) => f.check === 'count')).toEqual([]);
   });
 });
+
+describe('Pipeline.quote, the recount: what degrades it, and what a kept one does', () => {
+  const stage = (q: { report: { stages: readonly { stage: string; calls: number }[] } }, name: string) =>
+    q.report.stages.find((s) => s.stage === name);
+  const hangs: Reader = {
+    read: (_, { signal }) =>
+      new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => {
+          reject(signal.reason as Error);
+        });
+      }),
+  };
+
+  it('does not swallow a failure that is no engine failure: it fails the quote as any stage would', async () => {
+    const recounter: Reader = { read: () => Promise.reject(new TypeError('a bug')) };
+    const error = await quote(newPipeline({ recounter }), 'Heat').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(TypeError);
+    expect(error).not.toBeInstanceOf(EngineError);
+  });
+
+  it('degrades a recount whose own time ran out, whatever the error its call raised', async () => {
+    const q = await quote(newPipeline({ recounter: hangs }, { recountTimeoutMs: 80 }), 'Heat');
+    expect(stage(q, 'recount')).toMatchObject({ degraded: true });
+    // the call that went out counts, its engine unknown to the pipeline, its cost 0
+    expect(stage(q, 'recount')?.calls).toBeGreaterThanOrEqual(1);
+  });
+
+  it('keeps the first recount that succeeded: asked once, however many readings, and counted against each', async () => {
+    let asked = 0;
+    const recounter: Reader = {
+      read: () => {
+        asked++;
+        return Promise.resolve({ mentions: [{ title: 'Heat', quantity: 3 }], usage: free });
+      },
+    };
+    const parser = reads({ title: 'Heat', quantity: 2 });
+    const rej = await rejection(quote(newPipeline({ parser, recounter }), '2 x Heat'));
+    expect(rej.facts.judgement?.attempts).toBe(3);
+    expect(asked).toBe(1);
+    expect(stage(rej, 'recount')).toMatchObject({ calls: 1 });
+    expect(rej.facts.judgement?.findings.filter((f) => f.check === 'count')).toEqual([
+      { check: 'count', label: 'other: 2 read, 3 recounted', score: 0 },
+    ]);
+  });
+
+  it('refuses at the second reading when its recount would have run out: the kept one still holds it', async () => {
+    let asked = 0;
+    const recounter: Reader = {
+      read: (text, call) => {
+        asked++;
+        return asked === 1
+          ? Promise.resolve({ mentions: [{ title: 'Heat', quantity: 3 }], usage: free })
+          : hangs.read(text, call);
+      },
+    };
+    const parser = reads({ title: 'Heat', quantity: 2 });
+    const started = performance.now();
+    const rej = await rejection(
+      quote(newPipeline({ parser, recounter }, { recountTimeoutMs: 150, readAttempts: 2 }), '2 x Heat'),
+    );
+    expect(rej.code).toBe('unfaithful_reading');
+    expect(asked).toBe(1);
+    expect(performance.now() - started).toBeLessThan(2_000);
+  });
+
+  it('does not let a degraded mark stick to a reading whose recount succeeded', async () => {
+    let asked = 0;
+    const recounter: Reader = {
+      read: () =>
+        ++asked === 1
+          ? Promise.reject(new EngineError('recount down', { usage: free }))
+          : Promise.resolve({ mentions: [{ title: 'Heat', quantity: 2 }], usage: free }),
+    };
+    // the judge refuses the first reading, which had no recount to count against; the second has one
+    let judged = 0;
+    const judge: Judge = {
+      judge: (_, lines) =>
+        Promise.resolve({
+          findings: lines.map((l) => ({ check: 'asked' as const, label: l.title, score: ++judged === 1 ? 0 : 1 })),
+          usage: free,
+        }),
+    };
+    const parser: Reader = {
+      read: () => Promise.resolve({ mentions: [{ title: 'Heat', quantity: judged === 0 ? 1 : 2 }], usage: free }),
+    };
+    const q = await quote(newPipeline({ parser, recounter, judge }), 'Heat');
+    expect(q.judgement.attempts).toBe(2);
+    expect(q.judgement.findings.filter((f) => f.check === 'count')).toEqual([
+      { check: 'count', label: 'other: 2 read, 2 recounted', score: 1 },
+    ]);
+    // left out once, over the readings: the usage says so; the calls of both are added up
+    expect(stage(q, 'recount')).toMatchObject({ calls: 2, degraded: true });
+  });
+});

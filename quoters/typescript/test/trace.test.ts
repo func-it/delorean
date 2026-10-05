@@ -262,6 +262,40 @@ describe('the trace of a quote', () => {
     expect(attribute(named('quote'), 'langfuse.trace.metadata.outcome')).toBe('priced');
   });
 
+  it('marks a warning only the reading whose recount was left out, not the one whose recount succeeded', async () => {
+    let asked = 0;
+    const free = { engine: 'r', calls: 1, costUsd: 0 };
+    const recounter: Reader = {
+      read: () =>
+        ++asked === 1
+          ? Promise.reject(new EngineError('answer off schema', { usage: free }))
+          : Promise.resolve({ mentions: [{ title: 'Heat', quantity: 2 }], usage: free }),
+    };
+    let readings = 0;
+    const parser: Reader = {
+      read: () => Promise.resolve({ mentions: [{ title: 'Heat', quantity: ++readings === 1 ? 1 : 2 }], usage: free }),
+    };
+    // the first reading, with no recount to count against, is refused by the judge; the second is held
+    let judged = 0;
+    const judge = {
+      judge: (_: string, lines: readonly { title: string }[]) =>
+        Promise.resolve({
+          findings: lines.map((l) => ({ check: 'asked' as const, label: l.title, score: ++judged === 1 ? 0 : 1 })),
+          usage: free,
+        }),
+    };
+    const { response } = await post('Heat', { parser, recounter, judge });
+    expect(response.status).toBe(200);
+    const levels = spans
+      .getFinishedSpans()
+      .filter((s) => s.name === 'recount')
+      .map((s) => [attribute(s, 'langfuse.observation.metadata.attempt'), attribute(s, 'langfuse.observation.level')]);
+    expect(levels).toEqual([
+      [1, 'WARNING'],
+      [2, undefined],
+    ]);
+  });
+
   it('says nothing degraded of a quote whose recount did its work', async () => {
     await post('Heat');
     expect(attribute(named('quote'), 'langfuse.trace.metadata.degraded')).toBeUndefined();
