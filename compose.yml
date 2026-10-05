@@ -180,3 +180,13 @@ services:
 
 volumes:
   web-data:
+
+networks:
+  default:
+    driver_opts:
+      # The network's MTU follows the host's uplink. On a host whose uplink has an
+      # MTU of 1450 (a cloud private network), a Docker bridge left at 1500 sends
+      # packets the path drops without a word: the answer to a TLS handshake
+      # stalls for 3.6 s on about one connection in two, and the first call of
+      # every cold connection to the models can outlast its MODEL_TIMEOUT.
+      com.docker.network.driver.mtu: "${DOCKER_NETWORK_MTU:-1450}"
