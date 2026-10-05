@@ -70,7 +70,7 @@ startup; every wrong one is reported at once, and the service does not start.
 | `ENGINES` | `live` | `live` or `fake` |
 | `OPENROUTER_API_KEY` | — | required with `live` |
 | `PARSE_MODEL`, `PARSE_EFFORT` | `openai/gpt-6-luna`, `minimal` | the parsing LLM; effort `none` (no reasoning field), `minimal`, `low`, `medium`, `high` |
-| `PARSE_BASE_URL`, `RECOUNT_BASE_URL` | `https://openrouter.ai/api/v1` | each reader's OpenAI-compatible API (Ollama: `http://localhost:11434/v1`) |
+| `PARSE_BASE_URL`, `RECOUNT_BASE_URL` | `https://openrouter.ai/api/v1` | each reader's OpenAI-compatible API (Ollama: `http://localhost:11434/v1`); with `ENGINES=live`, where a key goes along with every call, http is refused but for localhost, 127.0.0.1 and ::1 |
 | `PARSE_IDENTIFIES` | `false` | the parse gives each line its film (`parse-films.json`), and identify skips those titles |
 | `RECOUNT_MODEL`, `RECOUNT_EFFORT` | `openai/gpt-6-luna`, `none` | the recounting LLM: the parser's model without reasoning, for speed; another family can be set |
 | `JEV_MODEL` | `typesafe/jev-1.13` | Jev, pinned |

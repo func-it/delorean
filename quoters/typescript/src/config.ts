@@ -123,18 +123,23 @@ export function loadConfig(env: Env): Config {
   ] as const) {
     check(EFFORTS.includes(effort), name, `is ${JSON.stringify(effort)}, want one of ${EFFORTS.join(', ')}`);
   }
+  // a variable that failed its own check is not compared or told twice
+  const bad = (name: string) => problems.some((p) => p.name === name);
   for (const [name, base] of [
     ['PARSE_BASE_URL', config.live.parseBaseUrl],
     ['RECOUNT_BASE_URL', config.live.recountBaseUrl],
   ] as const) {
     check(isHttpUrl(base), name, `is ${JSON.stringify(base)}, not an http(s) URL`);
+    // with live engines the key goes along with every call: over http it would cross the network in the
+    // clear, so http is for the local machine only
+    if (!bad(name) && engines === 'live' && new URL(base).protocol === 'http:' && !isLocalhost(base)) {
+      check(false, name, `is ${JSON.stringify(base)}, not https: a key is sent with it (http is for localhost only)`);
+    }
   }
   check(config.live.modelTimeoutMs > 0, 'MODEL_TIMEOUT', 'must be positive');
   check(config.recountTimeoutMs > 0, 'RECOUNT_TIMEOUT', 'must be positive');
   check(config.requestTimeoutMs > 0, 'REQUEST_TIMEOUT', 'must be positive');
-  // a call is bounded by the recount's time, which the request's time bounds in turn;
-  // a variable that failed its own check is not compared
-  const bad = (name: string) => problems.some((p) => p.name === name);
+  // a call is bounded by the recount's time, which the request's time bounds in turn
   if (!bad('MODEL_TIMEOUT') && !bad('RECOUNT_TIMEOUT')) {
     check(config.recountTimeoutMs >= config.live.modelTimeoutMs, 'RECOUNT_TIMEOUT', 'must be at least MODEL_TIMEOUT');
   }
@@ -196,6 +201,16 @@ function isHttpUrl(raw: string): boolean {
   if (!URL.canParse(raw)) return false;
   const url = new URL(raw);
   return (url.protocol === 'http:' || url.protocol === 'https:') && url.host !== '';
+}
+
+/**
+ * Whether the URL's host is the local machine, by exactly these names: as written, as Go reads it (a URL
+ * parser here would lower-case the host and turn `127.1` into an address).
+ */
+function isLocalhost(raw: string): boolean {
+  const host = /^[^:/?#]+:\/\/(?:[^/?#@]*@)?(\[[^\]]*\]|[^:/?#]*)/.exec(raw)?.[1] ?? '';
+  const name = host.startsWith('[') ? host.slice(1, -1) : host;
+  return name === 'localhost' || name === '127.0.0.1' || name === '::1';
 }
 
 /** A boolean as Go's strconv.ParseBool reads it. */

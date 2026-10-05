@@ -130,6 +130,63 @@ describe('loadConfig', () => {
     );
   });
 
+  // With live engines a key goes along with every call to a reader's URL: over http it would cross the network
+  // in the clear, so http is for the local machine (exactly localhost, 127.0.0.1 and ::1). With fake engines
+  // nothing is sent, and nothing is checked.
+  describe('a base URL in http when a key goes with it', () => {
+    const live = (vars: Record<string, string>) => loadConfig({ ENGINES: 'live', OPENROUTER_API_KEY: 'k', ...vars });
+
+    it('is refused, on the line of its variable, one line each', () => {
+      expect(() => live({ PARSE_BASE_URL: 'http://x/v1', RECOUNT_BASE_URL: 'http://example.com:8080/v1' })).toThrow(
+        [
+          'configuration:',
+          'PARSE_BASE_URL is "http://x/v1", not https: a key is sent with it (http is for localhost only)',
+          'RECOUNT_BASE_URL is "http://example.com:8080/v1", not https: a key is sent with it (http is for localhost only)',
+        ].join('\n'),
+      );
+    });
+
+    it.each([
+      'http://localhost:11434/v1',
+      'http://127.0.0.1:11434/v1',
+      'http://[::1]:11434/v1',
+      'https://example.com/v1',
+      'https://localhost/v1',
+    ])('passes %s', (base) => {
+      expect(() => live({ PARSE_BASE_URL: base, RECOUNT_BASE_URL: base })).not.toThrow();
+    });
+
+    it.each([
+      'http://localhost.example.com/v1',
+      'http://127.0.0.1.nip.io/v1',
+      'http://127.0.0.2/v1',
+      'http://[::2]/v1',
+      'http://LOCALHOST.evil/v1',
+      'http://LOCALHOST/v1',
+      'http://127.1/v1',
+      'HTTP://example.com/v1',
+    ])('refuses %s', (base) => {
+      expect(() => live({ PARSE_BASE_URL: base })).toThrow(/^configuration:\nPARSE_BASE_URL is /);
+    });
+
+    it('is not checked with fake engines, where nothing is sent', () => {
+      expect(() =>
+        loadConfig({ ENGINES: 'fake', PARSE_BASE_URL: 'http://example.com/v1', RECOUNT_BASE_URL: 'http://x/v1' }),
+      ).not.toThrow();
+    });
+
+    it('is not told twice when it is no http(s) URL at all', () => {
+      let message = '';
+      try {
+        live({ PARSE_BASE_URL: 'ftp://x' });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message.match(/PARSE_BASE_URL/g)).toHaveLength(1);
+      expect(message).toContain('not an http(s) URL');
+    });
+  });
+
   it('reads the fake pace, and says what is wrong with it after REQUEST_TIMEOUT, before Langfuse', () => {
     expect(loadConfig({ ENGINES: 'fake', FAKE_LATENCY: 'real', FAKE_CPU_MS: '5' }).fake).toEqual({
       latency: 'real',
