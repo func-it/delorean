@@ -105,7 +105,6 @@ function judgeOutcome(j: Judgement, { judgeThreshold }: Context): Schemas['Judge
 
 function usage(r: Report, { engines, traceId }: Context): Usage {
   return {
-    implementation: 'typescript',
     engines,
     duration_ms: r.ms,
     cost_usd: r.costUsd,

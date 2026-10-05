@@ -110,7 +110,6 @@ export function createApp(config: AppConfig): Hono<Env> {
   app.get('/healthz', (c) =>
     c.json<contract.Health>({
       status: 'ok',
-      implementation: 'typescript',
       version: config.version,
       engines: context.engines,
       tracing: config.tracing.enabled,

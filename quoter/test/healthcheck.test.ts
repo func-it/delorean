@@ -36,7 +36,7 @@ async function silentPort(): Promise<number> {
 
 describe('healthcheck', () => {
   it('says nothing and resolves when the service is up', async () => {
-    const port = await service(200, '{"status":"ok","implementation":"typescript"}');
+    const port = await service(200, '{"status":"ok"}');
     await expect(healthcheck({ PORT: String(port) })).resolves.toBeUndefined();
   });
 

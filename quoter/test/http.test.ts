@@ -45,12 +45,11 @@ async function problemOf(response: Response, status: number, code: string): Prom
 }
 
 describe('GET /healthz', () => {
-  it('says which implementation, version and engines answer', async () => {
+  it('says the version and engines that answer', async () => {
     const response = await newApp().request('/healthz');
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       status: 'ok',
-      implementation: 'typescript',
       version: 'test',
       engines: 'fake',
       prompts: { guard: '0a1b2c3d', parse: '4e5f6a7b', identify: '8c9d0e1f', judge: '2a3b4c5d' },
@@ -92,7 +91,7 @@ describe('POST /v1/quotes', () => {
       discount: { distinct_volumes: 3, percent: 20, base_cents: 4500, amount_cents: 900 },
       total_cents: 5600,
       judge: { score: 1, threshold: 0.5 },
-      usage: { implementation: 'typescript', engines: 'fake', cost_usd: 0 },
+      usage: { engines: 'fake', cost_usd: 0 },
     });
     expect(quote.lines[3]).toEqual({
       title: 'La chèvre',
