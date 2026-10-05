@@ -232,6 +232,38 @@ async def test_a_degraded_recount_says_so(api: httpx.AsyncClient) -> None:
     assert [c["check"] for c in q["judge"]["checks"]] == ["asked", "identity", "missing"], "no count check"
 
 
+async def test_the_log_line_says_a_recount_was_left_out(api: httpx.AsyncClient, logs: io.StringIO) -> None:
+    response = await post_cart(api, f"Back to the Future 1\n{fake.RECOUNT_OFFSCHEMA}")
+    assert response.status_code == 200
+    line = json.loads(logs.getvalue())
+    assert line["degraded"] == "recount"
+    assert list(line).index("degraded") > list(line).index("bytes"), "after the usual fields"
+
+
+async def test_the_log_line_says_it_of_a_refusal_too(make: Make, pipeline: Pipeline, logs: io.StringIO) -> None:
+    api = make(pipeline=replace(pipeline, read_attempts=1))
+    response = await post_cart(api, f"Back to the Future 1\n{fake.UNFAITHFUL}\n{fake.RECOUNT_OFFSCHEMA}")
+    problem_of(response, 422, "unfaithful_reading")
+    assert json.loads(logs.getvalue())["degraded"] == "recount"
+
+
+async def test_the_log_line_has_no_degraded_otherwise(api: httpx.AsyncClient, logs: io.StringIO) -> None:
+    await post_cart(api, "Back to the Future 1")
+    assert "degraded" not in json.loads(logs.getvalue())
+
+
+async def test_a_recount_bug_is_no_degradation(make: Make, pipeline: Pipeline, logs: io.StringIO) -> None:
+    class Buggy:
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            raise TypeError("a bug, not an engine")
+
+    api = make(pipeline=replace(pipeline, engines=replace(pipeline.engines, recounter=Buggy())))
+    problem_of(await post_cart(api, "Heat"), 500, "internal")
+    line = json.loads(logs.getvalue())
+    assert (line["status"], line["code"]) == (500, "internal")
+    assert "degraded" not in line
+
+
 @pytest.mark.parametrize(
     ("body", "headers", "detail"),
     [

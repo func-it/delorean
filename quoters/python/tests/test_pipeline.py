@@ -1038,6 +1038,17 @@ async def test_the_fake_recount_off_schema(pipeline: Pipeline) -> None:
     assert [f.check for f in q.judgement.findings] == [Check.ASKED, Check.IDENTITY, Check.MISSING]
 
 
+async def test_only_an_engine_failure_degrades_the_recount(pipeline: Pipeline) -> None:
+    class Buggy:
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            raise TypeError("a bug, not an engine")
+
+    with pytest.raises(TypeError, match="a bug"):
+        await engines(replace(pipeline, recount_timeout=6.0), recounter=Buggy()).quote(Request(cart="Heat"))
+    with pytest.raises(TypeError, match="a bug"):
+        await engines(pipeline, recounter=Buggy()).quote(Request(cart="Heat"))
+
+
 async def test_a_degraded_reading_is_still_judged(pipeline: Pipeline) -> None:
     p = engines(pipeline, recounter=Says(EngineError("down")))
     rej = await rejection(p, f"Heat\n{fake.UNFAITHFUL}")

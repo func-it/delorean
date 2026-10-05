@@ -45,6 +45,9 @@ class Exchange:
     """The problem answered, if any."""
     cause: BaseException | None = None
     """What went wrong behind a 5xx: logged, never shown."""
+    degraded: bool = False
+    """A stage failed and the answer, a quote or a refusal, was made without it
+    (the recount): said in the log line."""
 
 
 def exchange_of(scope: Scope) -> Exchange:

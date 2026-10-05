@@ -123,6 +123,7 @@ class Service:
         except (pipeline.EngineError, TimeoutError) as err:
             return problem_response(request.scope, _failure(err, request_id), cause=err)
 
+        exchange_of(request.scope).degraded = any(u.degraded for u in outcome.report.stages)
         answer = self.body(outcome, request_id)
         if isinstance(answer, Problem):
             return problem_response(request.scope, answer)

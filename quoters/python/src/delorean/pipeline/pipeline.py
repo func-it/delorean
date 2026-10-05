@@ -256,12 +256,15 @@ class Pipeline:
         stays a second opinion. It is compared, never refused: a recount over
         the copy limit fails the count check, if anything.
 
-        A recount that fails, answers off its schema or is too slow does not
-        fail the quote: None, the stage degraded — no count check, and the
-        judge still the guard. Only a request that is over, or a parse that
-        failed beside it, fails on it: then the recount's failure is a failure,
-        as the parse's is. Whether it is degraded is decided once the parse has
-        settled, so that it does not depend on which failed first."""
+        A recount that fails as an engine does — unreachable, a refused key,
+        an answer off its schema, its own time running out — does not fail the
+        quote: None, the stage degraded — no count check, and the judge still
+        the guard. Only a request that is over, or a parse that failed beside
+        it, fails on it: then the recount's failure is a failure, as the
+        parse's is. So is a failure that is no engine's, a bug: it is not
+        swallowed, it fails the quote as it would from any stage. Whether it is
+        degraded is decided once the parse has settled, so that it does not
+        depend on which failed first."""
         beside = beside or _Beside.alone()
         with run.stage(Stage.RECOUNT) as stage:
             try:
