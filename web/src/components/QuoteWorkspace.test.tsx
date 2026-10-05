@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { problem, quote } from "@/test/fixtures";
 
+import { cartBytes } from "@/lib/size";
+
 import { QuoteWorkspace } from "./QuoteWorkspace";
 
 /** Stands in for the BFF. */
@@ -74,20 +76,19 @@ describe("QuoteWorkspace", () => {
 
   it("does not send a cart over the size the BFF reads, and says so", async () => {
     const bff = stubBff(() => Response.json(quote));
-    render(<QuoteWorkspace quoter="go" maxBodyBytes={200} />);
+    render(<QuoteWorkspace quoter="go" limits={{ maxBodyBytes: 200, maxInputTokens: 256 }} />);
 
     await userEvent.click(screen.getByRole("textbox", { name: "Votre panier" }));
     await userEvent.paste("é".repeat(120));
-    await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
 
-    expect((await refusal()).getByText(/Votre panier est trop volumineux/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Calculer le prix" })).toBeDisabled();
+    expect(screen.getByText(/Votre panier dépasse 0\sKo/)).toBeInTheDocument();
     expect(bff).not.toHaveBeenCalled();
   });
 
-  it("sends a cart that is exactly the size the BFF reads", async () => {
+  it("sends a cart that is exactly the size the quoters read", async () => {
     const bff = stubBff(() => Response.json(quote));
-    const body = JSON.stringify({ cart: "Back to the Future 1", quoter: "go" });
-    render(<QuoteWorkspace quoter="go" maxBodyBytes={new TextEncoder().encode(body).length} />);
+    render(<QuoteWorkspace quoter="go" limits={{ maxBodyBytes: cartBytes("Back to the Future 1"), maxInputTokens: 256 }} />);
 
     await userEvent.type(screen.getByRole("textbox", { name: "Votre panier" }), "Back to the Future 1");
     await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));

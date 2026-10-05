@@ -1,5 +1,5 @@
 import { QuoteWorkspace } from "@/components/QuoteWorkspace";
-import { maxBodyBytes } from "@/lib/body";
+import { maxBodyBytes, maxInputTokens } from "@/lib/limits";
 import { configuredQuoters } from "@/lib/quoters";
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ quoter?: string | string[] }> }) {
@@ -8,6 +8,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   // Names only: quoter URLs never reach the browser.
   const names = configuredQuoters().map((entry) => entry.name);
   const picked = typeof quoter === "string" && names.includes(quoter) ? quoter : names[0];
-  // The size the BFF reads: a cart over it is not sent, the page says so.
-  return <QuoteWorkspace quoter={picked} maxBodyBytes={maxBodyBytes()} />;
+  // The quoters' limits, one figure from here to them: the page says when a cart nears them, and sends no cart over the first.
+  return <QuoteWorkspace quoter={picked} limits={{ maxBodyBytes: maxBodyBytes(), maxInputTokens: maxInputTokens() }} />;
 }

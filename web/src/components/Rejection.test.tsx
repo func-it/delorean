@@ -21,7 +21,7 @@ const MESSAGES: Record<ProblemCode, [number, string]> = {
   malformed_request: [400, "La demande n'a pas pu être lue : rechargez la page, puis réessayez."],
   payload_too_large: [413, "Votre panier est trop volumineux : raccourcissez-le, puis réessayez."],
   empty_cart: [422, "Votre panier est vide : écrivez au moins un film, par exemple « Retour vers le futur II »."],
-  too_long: [422, "Votre panier est trop long : raccourcissez-le."],
+  too_long: [422, "Votre panier est trop long : gardez seulement les titres et les quantités."],
   injection: [422, "Ce texte essaie de donner des ordres au système : gardez seulement les titres des films."],
   invalid_request: [422, "Nous n'y lisons pas une commande de films : dites-nous quels films vous voulez."],
   no_film: [422, "Aucun film à acheter dans ce panier : précisez les titres que vous voulez."],
@@ -71,12 +71,12 @@ describe("Rejection", () => {
     expect(text(container)).toBe("Le vidéoclub a épuisé son budget du jour, revenez demain.");
   });
 
-  it("gives the token counts of a cart too long", () => {
-    render(<Rejection problem={problem({ code: "too_long", status: 422, tokens: { count: 3120, max: 2048 } })} />);
+  it("says a cart is too long in words a customer uses, never tokens", () => {
+    render(<Rejection problem={problem({ code: "too_long", status: 422, tokens: { count: 3120, max: 256 } })} />);
 
-    expect(text(screen.getByText(/trop long/))).toBe(
-      "Votre panier est trop long (3 120 tokens, pour 2 048 au plus) : raccourcissez-le.",
-    );
+    const sentence = text(screen.getByText(/trop long/));
+    expect(sentence).toBe("Votre panier est trop long : gardez seulement les titres et les quantités.");
+    expect(sentence).not.toMatch(/token/i);
   });
 
   it.each([

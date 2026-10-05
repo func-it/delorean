@@ -1,11 +1,5 @@
 import "server-only";
 
-/** The most bytes of a request body the BFF reads (`MAX_BODY_BYTES`, 65536 by default; the quoters hold the cart itself to their own limit). */
-export function maxBodyBytes(): number {
-  const value = Number(process.env.MAX_BODY_BYTES);
-  return Number.isInteger(value) && value > 0 ? value : 65_536;
-}
-
 export type BodyText = { ok: true; text: string } | { ok: false };
 
 /**

@@ -47,7 +47,8 @@ docker run -p 24790:24790 -e SESSION_SECRET=… -e QUOTER_URL=http://go:24791 de
 | `IP_DAILY_BUDGET_USD` | a quarter of `DAILY_BUDGET_USD` | one client address's share of the day's budget; `0` for no share ([per-address share](#per-address-share)) |
 | `IP_RATE_LIMIT` | `20` | quotes one client address may send within `IP_RATE_WINDOW_S`; `0` for no limit ([rate](#rate-per-address)) |
 | `IP_RATE_WINDOW_S` | `60` | the window of that rate, in seconds |
-| `MAX_BODY_BYTES` | `65536` | the most bytes of a request body the BFF reads: over it, `413 payload_too_large` (the quoters hold the cart itself to their own, smaller, limit) |
+| `MAX_BODY_BYTES` | `8192` | the quoters' own limit on the body `{"cart": …}`, one figure from the browser to the quoter (compose gives it to all four): the page sends no cart over it, the BFF reads that much and 256 bytes more for its envelope, then `413 payload_too_large` |
+| `MAX_INPUT_TOKENS` | `256` | the quoters' limit on a cart in tokens: the page only uses it to say, in characters (about three to a token), when a cart nears it |
 | `ENGINES` | — | `live` or `fake`, what the quoters run on (compose passes it along): with `live` and no `DAILY_BUDGET_USD` the app **refuses to start** ([daily budget](#daily-budget)); absent, nothing is checked |
 | `TRUST_PROXY_HOPS` | `0` | how many proxies of ours stand in front of the app, each appending to `X-Forwarded-For` ([client address](#client-address)) |
 
@@ -98,7 +99,7 @@ On top of the contract's codes, the BFF adds its own, in the same format
 - `rate_limited` (429): the client address sent more than `IP_RATE_LIMIT`
   quotes within `IP_RATE_WINDOW_S` ([rate](#rate-per-address)); `Retry-After`
   and `retry_after_s` say how many seconds to wait;
-- `payload_too_large` (413): the body is over `MAX_BODY_BYTES`; it is never
+- `payload_too_large` (413): the body is over `MAX_BODY_BYTES` (and its envelope); it is never
   read past it, and `Content-Length` over it is refused before reading;
 - `quoter_unavailable` (502): the quoter is unreachable, too slow, or
   answers outside the contract.

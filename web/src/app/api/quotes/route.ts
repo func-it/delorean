@@ -1,4 +1,5 @@
-import { maxBodyBytes, readBodyText } from "@/lib/body";
+import { readBodyText } from "@/lib/body";
+import { BODY_ENVELOPE_BYTES, maxBodyBytes } from "@/lib/limits";
 import {
   budgetStore,
   dailyBudgetUsd,
@@ -39,7 +40,7 @@ interface QuoteBody {
  * `429 too_many_refusals`, and a text refused as an injection before gets the
  * same refusal again; none of them reaches the quoter. Never a retry of the
  * guard on our side either: each draw of a probabilistic classifier is one
- * more chance to slip past it. The body is read up to `MAX_BODY_BYTES`, no
+ * more chance to slip past it. The body is read up to `MAX_BODY_BYTES` (the quoters') and a little more for its envelope, no
  * further (`413 payload_too_large`).
  *
  * Then the budgets (lib/budget.ts), before the quoter is called: the client
@@ -203,7 +204,7 @@ async function injectionRefusal(response: Response): Promise<Problem | undefined
 
 /** The body as `{cart, quoter?}`: `null` when malformed, `"too_large"` when over `MAX_BODY_BYTES` (never read past it). */
 async function readBody(request: Request): Promise<QuoteBody | null | "too_large"> {
-  const text = await readBodyText(request, maxBodyBytes());
+  const text = await readBodyText(request, maxBodyBytes() + BODY_ENVELOPE_BYTES);
   if (!text.ok) return "too_large";
   let body: unknown;
   try {

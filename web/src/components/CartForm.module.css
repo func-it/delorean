@@ -17,6 +17,17 @@
   opacity: 1;
 }
 
+/* Shown only near the limit: quiet, until it is over. */
+.size {
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+}
+
+.size[data-state="long"],
+.size[data-state="too_big"] {
+  color: var(--warning-ink);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

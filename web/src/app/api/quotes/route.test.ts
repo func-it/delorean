@@ -12,6 +12,8 @@ import { MemoryStrikeStore, setStrikeStore, strikeLimits } from "@/lib/strikes";
 import { fakeCookieStore } from "@/test/cookies";
 import { problem, quote } from "@/test/fixtures";
 
+import { BODY_ENVELOPE_BYTES } from "@/lib/limits";
+
 import { POST } from "./route";
 
 vi.mock("next/headers", () => ({ cookies: vi.fn() }));
@@ -708,13 +710,13 @@ describe("POST /api/quotes: the size of the body", () => {
     );
   }
 
-  it("passes a body of exactly MAX_BODY_BYTES, and refuses one byte more with 413 payload_too_large, quoter not called", async () => {
+  it("passes a body of exactly MAX_BODY_BYTES plus its envelope, and refuses one byte more with 413 payload_too_large, quoter not called", async () => {
     vi.stubEnv("MAX_BODY_BYTES", "1000");
     const quoter = stubQuoter(async () => Response.json(quote));
 
-    expect((await post(bodyOf(1000))).status).toBe(200);
+    expect((await post(bodyOf(1000 + BODY_ENVELOPE_BYTES))).status).toBe(200);
 
-    const over = await post(bodyOf(1001));
+    const over = await post(bodyOf(1001 + BODY_ENVELOPE_BYTES));
     expect(over.status).toBe(413);
     expect(over.headers.get("Content-Type")).toBe("application/problem+json");
     expect(await over.json()).toMatchObject({ code: "payload_too_large", status: 413, title: "Payload too large" });
@@ -763,12 +765,12 @@ describe("POST /api/quotes: the size of the body", () => {
     expect((await post("{not json")).status).toBe(400);
   });
 
-  it.each([undefined, "", "0", "-5", "many", "1.5"])("takes MAX_BODY_BYTES=%s as the default, 65536", async (value) => {
+  it.each([undefined, "", "0", "-5", "many", "1.5"])("takes MAX_BODY_BYTES=%s as the default, the quoters' 8192", async (value) => {
     vi.stubEnv("MAX_BODY_BYTES", value as string);
     stubQuoter(async () => Response.json(quote));
 
-    expect((await post(bodyOf(65_536))).status).toBe(200);
-    expect((await post(bodyOf(65_537))).status).toBe(413);
+    expect((await post(bodyOf(8192 + BODY_ENVELOPE_BYTES))).status).toBe(200);
+    expect((await post(bodyOf(8193 + BODY_ENVELOPE_BYTES))).status).toBe(413);
   });
 });
 

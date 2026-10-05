@@ -1,15 +1,16 @@
 import { isProblem, type Problem, type ProblemCode, type Quote } from "@/lib/contract";
+import { cartBytes } from "@/lib/size";
 
 /** What the browser gets from the BFF: the payload, or a problem to explain. */
 export type BffResult<T> = { ok: true; data: T } | { ok: false; problem: Problem };
 
 /**
- * Asks for a quote. A body over `maxBodyBytes` (what the BFF reads, passed down by the page) is not
+ * Asks for a quote. A cart over `maxBodyBytes` (the quoters' own figure, passed down by the page) is not
  * sent: a proxy in front would cut it with a page of its own, and the visitor can be told at once.
  */
 export function requestQuote(cart: string, quoter: string, maxBodyBytes?: number): Promise<BffResult<Quote>> {
   const body = JSON.stringify({ cart, quoter });
-  if (maxBodyBytes !== undefined && new TextEncoder().encode(body).length > maxBodyBytes) {
+  if (maxBodyBytes !== undefined && cartBytes(cart) > maxBodyBytes) {
     return Promise.resolve({ ok: false, problem: localProblem("payload_too_large", 413) });
   }
   return callBff("/api/quotes", { method: "POST", headers: { "Content-Type": "application/json" }, body });

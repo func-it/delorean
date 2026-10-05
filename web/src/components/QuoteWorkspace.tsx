@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { type BffResult, requestQuote } from "@/lib/bff-client";
 import type { Quote } from "@/lib/contract";
 import { formatCents } from "@/lib/format";
+import type { Limits } from "@/lib/size";
 import { explainProblem } from "@/lib/rejections";
 
 import { CartForm } from "./CartForm";
@@ -12,7 +13,7 @@ import { QuoteResult } from "./QuoteResult";
 import styles from "./QuoteWorkspace.module.css";
 import { Rejection } from "./Rejection";
 
-export function QuoteWorkspace({ quoter, maxBodyBytes }: { quoter: string; maxBodyBytes?: number }) {
+export function QuoteWorkspace({ quoter, limits }: { quoter: string; limits?: Limits }) {
   const [cart, setCart] = useState("");
   const [outcome, setOutcome] = useState<BffResult<Quote>>();
   const [pending, startTransition] = useTransition();
@@ -20,7 +21,7 @@ export function QuoteWorkspace({ quoter, maxBodyBytes }: { quoter: string; maxBo
   function submit() {
     if (pending) return;
     startTransition(async () => {
-      const result = await requestQuote(cart, quoter, maxBodyBytes);
+      const result = await requestQuote(cart, quoter, limits?.maxBodyBytes);
       startTransition(() => setOutcome(result));
     });
   }
@@ -29,7 +30,7 @@ export function QuoteWorkspace({ quoter, maxBodyBytes }: { quoter: string; maxBo
     <div className={styles.page}>
       <main className={styles.main}>
         <h1 className={styles.title}>Delorean</h1>
-        <CartForm cart={cart} onCartChange={setCart} onSubmit={submit} pending={pending} />
+        <CartForm cart={cart} onCartChange={setCart} onSubmit={submit} pending={pending} limits={limits} />
         <p role="status" className="visually-hidden">
           {announcement(pending, outcome)}
         </p>

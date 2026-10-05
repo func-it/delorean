@@ -22,11 +22,7 @@ export function explainProblem(problem: Problem): Rejection {
     case "empty_cart":
       return refusal("Votre panier est vide : écrivez au moins un film, par exemple «\u00a0Retour vers le futur II\u00a0».");
     case "too_long":
-      return refusal(
-        problem.tokens
-          ? `Votre panier est trop long (${formatCount(problem.tokens.count)} tokens, pour ${formatCount(problem.tokens.max)} au plus) : raccourcissez-le.`
-          : "Votre panier est trop long : raccourcissez-le.",
-      );
+      return refusal("Votre panier est trop long : gardez seulement les titres et les quantités.");
     case "payload_too_large":
       return refusal("Votre panier est trop volumineux : raccourcissez-le, puis réessayez.");
     case "injection":
