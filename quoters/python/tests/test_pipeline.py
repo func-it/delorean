@@ -378,11 +378,12 @@ async def test_the_parse_decides_before_the_recount(pipeline: Pipeline) -> None:
     down = Says(EngineError("recount down", usage=billed))
     rej = await rejection(engines(pipeline, recounter=down), "#fake:nothing to buy")
     assert rej.code == Code.NO_FILM, "the parse's refusal stands over the recount's failure"
-    recount = replace(ran(Stage.RECOUNT, billed.engine, billed.model, calls=1, cost_usd=0.0002), degraded=True)
+    # a recount left out is asked again at each reading: the first reading had no film, the second refused
+    recount = replace(ran(Stage.RECOUNT, billed.engine, billed.model, calls=2, cost_usd=0.0004), degraded=True)
     assert recount in [replace(u, ms=0) for u in rej.report.stages], (
         "the failed recount ran too, and its usage is reported"
     )
-    assert rej.report.cost_usd == pytest.approx(0.0002)
+    assert rej.report.cost_usd == pytest.approx(0.0004)
 
 
 async def test_a_refusal_waits_for_the_recount(pipeline: Pipeline) -> None:
@@ -749,6 +750,53 @@ async def test_a_last_attempt_with_no_film_refuses_with_its_judgement(pipeline: 
     assert rej.judgement is not None
     assert (rej.judgement.attempts, rej.judgement.score) == (2, 0)
     assert rej.judgement.findings == (Finding(Check.MISSING, "the whole reading", 0.0),)
+
+
+async def test_a_first_reading_with_no_film_is_read_once_more_told_so(pipeline: Pipeline) -> None:
+    script = Script([], [Mention("Heat", 1)])
+    q = await quote(engines(pipeline, parser=script, recounter=Says([Mention("Heat", 1)])), "Heat")
+    assert q.judgement.attempts == 2
+    second = script.told[1]
+    assert second is not None
+    assert second.reading == [], "the reading that named no film"
+    assert second.failed == [Finding(Check.MISSING, "the whole reading", 0.0)], "told as a later one with none is"
+    assert calls(q)[Stage.PARSE] == 2
+    assert calls(q)[Stage.JUDGE] == 1, "the empty reading is not put to Jev"
+
+
+async def test_two_readings_with_no_film_are_refused_no_film(pipeline: Pipeline) -> None:
+    script = Script([], [], [Mention("Heat", 1)])
+    rej = await rejection(engines(pipeline, parser=script), "Heat")
+    assert rej.code == Code.NO_FILM, "final at the second reading, not unfaithful_reading"
+    assert calls(rej)[Stage.PARSE] == 2
+    assert len(script.told) == 2, "no third reading"
+    assert Stage.JUDGE not in stages(rej)
+
+
+async def test_with_one_reading_only_a_first_reading_with_no_film_is_refused_at_once(pipeline: Pipeline) -> None:
+    script = Script([], [Mention("Heat", 1)])
+    rej = await rejection(engines(replace(pipeline, read_attempts=1), parser=script), "Heat")
+    assert rej.code == Code.NO_FILM
+    assert calls(rej)[Stage.PARSE] == 1
+
+
+async def test_too_many_copies_is_final_at_a_second_reading_after_a_first_with_no_film(pipeline: Pipeline) -> None:
+    script = Script([], [Mention("Heat", 1001)], [Mention("Heat", 1)])
+    rej = await rejection(engines(pipeline, parser=script), "Heat")
+    assert rej.code == Code.QUANTITY_TOO_LARGE
+    assert calls(rej)[Stage.PARSE] == 2
+
+
+async def test_a_later_reading_with_no_film_still_fails_after_a_first_with_no_film_was_read_again(
+    pipeline: Pipeline,
+) -> None:
+    """Empty, then a reading the count refuses, then empty again: a failed attempt, as ever, then the last
+    judgement."""
+    script = Script([], [Mention("Heat", 2)], [])
+    rej = await rejection(engines(pipeline, parser=script, recounter=Says([Mention("Heat", 1)])), "Heat")
+    assert rej.code == Code.UNFAITHFUL_READING
+    assert rej.judgement is not None
+    assert rej.judgement.attempts == 3
 
 
 async def test_too_many_copies_is_refused_on_any_attempt(pipeline: Pipeline) -> None:

@@ -176,10 +176,15 @@ class Pipeline:
         judgement: Judgement | None = None
         for attempt in range(1, self.read_attempts + 1):
             run.attempt = run.readings = attempt
+            # A first reading with no film is read once more before the cart is refused no_film (at
+            # once when there is no second reading to make); a second one with none is final.
+            memory.refuse_no_film = (attempt == 1 and self.read_attempts == 1) or (attempt == 2 and memory.empty_first)
             readings = await self._read_twice(run, text, retry, memory)
             if isinstance(readings, Rejection):
                 return readings
             parsed, recounted = readings  # recounted None: degraded, no recount
+            if attempt == 1 and not parsed.reading:
+                memory.empty_first = True
             if recounted is not None and memory.recount is None:
                 memory.recount = recounted
             if parsed.reading:
@@ -197,9 +202,9 @@ class Pipeline:
                         )
                     return self._price(run, reading, replace(judgement, attempts=attempt))
             else:
-                # no film, past the first attempt: the text has not changed, the
-                # model has. A failed attempt, not a refusal, with nothing to
-                # identify or put to Jev: it misses every film asked for
+                # no film, and not refused: the text has not changed, the model
+                # has. A failed attempt, with nothing to identify or put to Jev:
+                # it misses every film asked for
                 judgement = rules.NOTHING_READ
             failed = [f for f in judgement.findings if f.score < self.judge_threshold]
             retry = Retry(reading=parsed.answered, failed=failed)
@@ -226,11 +231,11 @@ class Pipeline:
         are counted against it. One left out is asked again at the next
         reading."""
         if memory.recount is not None:
-            parsed = await self._parse(run, text, retry)
+            parsed = await self._parse(run, text, retry, refuse_no_film=memory.refuse_no_film)
             return parsed if isinstance(parsed, Rejection) else (parsed, memory.recount)
         # both start before anything can cancel them: each opens its span
         beside = _Beside()
-        parse = asyncio.create_task(self._parse(run, text, retry, beside))
+        parse = asyncio.create_task(self._parse(run, text, retry, beside, refuse_no_film=memory.refuse_no_film))
         recount = asyncio.create_task(self._recount(run, text, beside))
         try:
             parsed = await parse
@@ -249,12 +254,19 @@ class Pipeline:
                     task.exception()
 
     async def _parse(
-        self, run: _Run, text: str, retry: Retry | None, beside: _Beside | None = None
+        self,
+        run: _Run,
+        text: str,
+        retry: Retry | None,
+        beside: _Beside | None = None,
+        *,
+        refuse_no_film: bool = False,
     ) -> _Parsed | Rejection:
         """The parser's reading, told what failed when it reads again. Too
         many copies of a title is refused on any attempt: a safety limit,
-        whichever reading crosses it. No film is refused on the first
-        attempt; on a later one it is a failed attempt, the loop's to judge.
+        whichever reading crosses it. No film is refused when `refuse_no_film`
+        says it is final (the second reading of a cart whose first had none,
+        or the only one); otherwise it is a failed attempt, the loop's to judge.
         `beside` tells the recount when the parse has settled, and whether it
         failed: then the recount no longer matters."""
         beside = beside or _Beside()
@@ -269,7 +281,7 @@ class Pipeline:
         finally:
             beside.settled.set()
         # the refusal is the quote's, not the parse's: its span shows the reading
-        if run.attempt == 1 and not parsed.reading:
+        if refuse_no_film and not parsed.reading:
             return run.reject(Code.NO_FILM, "The text names no film to buy.")
         if copies := rules.too_many_copies(parsed.reading):
             return run.reject(Code.QUANTITY_TOO_LARGE, _too_many(copies), copies=copies)
@@ -578,6 +590,10 @@ class _Memory:
     judged: dict[frozenset[rules.Fact], rules.Judged] = field(default_factory=dict)
     recount: list[Mention] | None = None
     """The first recount that succeeded, merged: kept for every later reading."""
+    empty_first: bool = False
+    """The first reading named no film: it is read once more, told so."""
+    refuse_no_film: bool = False
+    """A reading with no film is final (no_film) at the reading under way."""
 
 
 @dataclass(slots=True)
