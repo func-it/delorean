@@ -17,6 +17,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from delorean.pipeline import EngineError, Usage
+from delorean.pipeline.ports import note_cut
 from delorean.prompts import Question
 from delorean.tasks import all_of
 from delorean.telemetry import Tracer
@@ -151,10 +152,19 @@ class Jev:
     async def decide_all(self, asks: Sequence[Ask]) -> list[Decision]:
         """The asks side by side, their decisions in the order of the asks.
         Independent judgements go in separate requests and so are answered
-        apart. The first failure cancels the rest."""
+        apart. The first failure cancels the rest.
+
+        A request counts as it leaves, not as its answer comes: a set that
+        fails, or is cut, still says what it spent — the requests that went
+        out, answered, failed or cancelled, and the cost of the answers that
+        came. Not counted: a request still waiting its turn when the set was
+        cancelled."""
         answered: list[Decision] = []
+        sent = 0
 
         async def decide(ask: Ask) -> Decision:
+            nonlocal sent
+            sent += 1
             decision = await self.decide(ask)
             answered.append(decision)
             return decision
@@ -162,7 +172,10 @@ class Jev:
         try:
             return await all_of((decide(a) for a in asks), limit=IN_FLIGHT)
         except EngineError as err:
-            err.usage = self.usage(answered)  # what the set took before it failed
+            err.usage = self._spent(sent, answered)  # what the set took before it failed
+            raise
+        except asyncio.CancelledError as cut:
+            note_cut(cut, self._spent(sent, answered))  # or was cut: the requests out count all the same
             raise
 
     async def decide(self, ask: Ask) -> Decision:
@@ -180,11 +193,15 @@ class Jev:
 
     def usage(self, decisions: Sequence[Decision]) -> Usage:
         """What a set of decisions took."""
+        return self._spent(len(decisions), decisions)
+
+    def _spent(self, sent: int, answered: Sequence[Decision]) -> Usage:
+        """What a set took: the requests sent, and the cost of the answers that came."""
         return Usage(
             engine=self.engine,
             model=self.model,
-            calls=len(decisions),
-            cost_usd=sum(d.cost_usd for d in decisions),
+            calls=sent,
+            cost_usd=sum(d.cost_usd for d in answered),
         )
 
     async def _call(self, ask: Ask) -> Decision:

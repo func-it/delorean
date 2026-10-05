@@ -366,7 +366,12 @@ class Problem(BaseModel):
     quantity: Annotated[
         Quantity | None, Field(description="The title asked in too many copies (`quantity_too_large`).")
     ] = None
-    usage: Usage | None = None
+    usage: Annotated[
+        Usage | None,
+        Field(
+            description="What the stages that ran took (calls, time, cost), on every\nproblem that comes after the pipeline started: a refusal (422), an\nengine failure (502, the stage that failed included: a call that\nwent out counts, answered or not) and an unexpected failure (500).\nWhat a failure cost is spent all the same: the BFF adds it to its\ndaily budget.\n"
+        ),
+    ] = None
 
 
 class Catalog(BaseModel):

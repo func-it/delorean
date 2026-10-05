@@ -58,6 +58,22 @@ class Usage:
 
 
 LOCAL = Usage(engine="local")
+
+
+def note_cut(error: BaseException, usage: Usage) -> None:
+    """Says what an engine took before its call was cut — by the request's
+    time running out, by the client gone, by a call beside it that failed — on
+    the cancellation itself: a call that went out counts, answered or not,
+    where the stage that ran it cannot know."""
+    error.__dict__["usage"] = usage
+
+
+def cut_usage(error: BaseException) -> Usage | None:
+    """What `note_cut` said, if anything."""
+    usage = error.__dict__.get("usage")
+    return usage if isinstance(usage, Usage) else None
+
+
 """The usage of a stage that is plain code."""
 
 

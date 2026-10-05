@@ -55,6 +55,12 @@ def rejection(rej: pipeline.Rejection, *, engines: Literal["live", "fake"], thre
     )
 
 
+def with_usage(p: contract.Problem, report: pipeline.Report, *, engines: Literal["live", "fake"]) -> contract.Problem:
+    """p with what the stages that ran took: a failure costs what it cost, and
+    whoever keeps a budget needs to know."""
+    return p.model_copy(update={"usage": usage(report, engines=engines)})
+
+
 def guard(v: pipeline.GuardVerdict) -> contract.GuardOutcome:
     return contract.GuardOutcome(
         verdict=contract.Verdict(v.verdict),

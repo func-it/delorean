@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from delorean.cart import Film, Mention
 from delorean.config import Effort
 from delorean.pipeline import EngineError, Retry, Usage
+from delorean.pipeline.ports import note_cut
 from delorean.prompts import ParsePrompt
 from delorean.telemetry import Tracer
 
@@ -115,6 +116,9 @@ class LlmReader:
                     )
             except TimeoutError as err:  # the whole call, past MODEL_TIMEOUT
                 raise EngineError(f"{self.model}: no answer in {self._timeout}s", usage=self._usage(0.0)) from err
+            except asyncio.CancelledError as cut:  # cut from outside: the call went out, it counts
+                note_cut(cut, self._usage(0.0))
+                raise
             except openai.OpenAIError as err:
                 raise EngineError(f"{self.model}: {err}", usage=self._usage(0.0)) from err
             cost, input_tokens, output_tokens = _metered(completion)

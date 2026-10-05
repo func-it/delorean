@@ -8,7 +8,7 @@ import json
 import logging
 import re
 import time
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -19,10 +19,11 @@ from fastapi import FastAPI
 
 from delorean.api.app import Service, create_app
 from delorean.api.middleware import Exchanges
-from delorean.cart import Mention
+from delorean.cart import Line, Mention
 from delorean.engines import fake
 from delorean.logs import JsonFormatter
-from delorean.pipeline import GuardAnswers, Pipeline, Retry, Usage
+from delorean.pipeline import Finding, GuardAnswers, Pipeline, Retry, Usage
+from delorean.pipeline.ports import note_cut
 from delorean.prompts import Prompts
 from tests.conftest import PROMPTS_DIR, Spans
 from tests.contract import violations
@@ -454,6 +455,16 @@ async def test_engine_unavailable(api: httpx.AsyncClient, logs: io.StringIO) -> 
     assert fake.ENGINE_DOWN in line["err"]
 
 
+async def test_an_engine_failure_costs_what_it_cost(api: httpx.AsyncClient) -> None:
+    """A 502 says what the stages that ran took, the one that failed included, as a refusal does."""
+    p = problem_of(await post_cart(api, f"Heat\n{fake.ENGINE_DOWN}"), 502, "engine_unavailable")
+    stages = {s["stage"]: s for s in p["usage"]["stages"]}
+    assert list(stages) == ["prepare", "guard", "parse", "recount"]
+    assert (stages["parse"]["engine"], stages["parse"]["calls"]) == ("fake", 1), "the call that failed counts"
+    assert p["usage"]["engines"] == "fake"
+    assert p["usage"]["cost_usd"] == 0
+
+
 async def test_timeout(make: Make, pipeline: Pipeline) -> None:
     class Stuck:
         async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
@@ -462,7 +473,24 @@ async def test_timeout(make: Make, pipeline: Pipeline) -> None:
 
     stuck = replace(pipeline, engines=replace(pipeline.engines, parser=Stuck()))
     api = make(pipeline=stuck, request_timeout=0.05)
-    problem_of(await post_cart(api, "Heat"), 502, "engine_unavailable")
+    p = problem_of(await post_cart(api, "Heat"), 502, "engine_unavailable")
+    assert [s["stage"] for s in p["usage"]["stages"]] == ["prepare", "guard", "parse", "recount"], "a cut stage ran too"
+
+
+async def test_a_request_cut_by_its_time_counts_the_calls_that_went_out(make: Make, pipeline: Pipeline) -> None:
+    class Judging:
+        async def judge(self, text: str, lines: Sequence[Line]) -> tuple[list[Finding], Usage]:
+            try:
+                await asyncio.sleep(60)
+            except asyncio.CancelledError as cut:
+                note_cut(cut, Usage(engine="jev-1.13", model="typesafe/jev-1.13", calls=3))
+                raise
+            raise AssertionError("not cancelled")
+
+    api = make(pipeline=replace(pipeline, engines=replace(pipeline.engines, judge=Judging())), request_timeout=0.2)
+    p = problem_of(await post_cart(api, "Heat"), 502, "engine_unavailable")
+    judge = next(s for s in p["usage"]["stages"] if s["stage"] == "judge")
+    assert (judge["engine"], judge["model"], judge["calls"]) == ("jev-1.13", "typesafe/jev-1.13", 3)
 
 
 async def test_internal(make: Make, pipeline: Pipeline, logs: io.StringIO) -> None:
@@ -473,6 +501,7 @@ async def test_internal(make: Make, pipeline: Pipeline, logs: io.StringIO) -> No
     api = make(pipeline=replace(pipeline, engines=replace(pipeline.engines, guard=Buggy())))
     p = problem_of(await post_cart(api, "Heat"), 500, "internal")
     assert "bug" not in p["detail"], "the cause is logged, not shown"
+    assert [s["stage"] for s in p["usage"]["stages"]] == ["prepare"], "what ran before the bug is spent all the same"
     line = json.loads(logs.getvalue())
     assert (line["level"], line["status"], line["code"]) == ("ERROR", 500, "internal")
     assert "a bug, not an engine" in line["err"]

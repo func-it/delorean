@@ -33,6 +33,7 @@ from delorean.api.problems import (
     problem_response,
 )
 from delorean.cart import MAX_QUANTITY
+from delorean.pipeline import Report
 
 type Outcome = pipeline.Quote | pipeline.Rejection | BaseException
 """What a quote comes to: a quote, a refusal, or a failure."""
@@ -108,6 +109,8 @@ class Service:
         cart = await read_cart(request, self.max_body_bytes)
 
         request_id = exchange_of(request.scope).id
+        # what the reading takes, as it goes: a failure costs what it cost, and the 502 or the 500 says so
+        report = Report()
         try:
             async with asyncio.timeout(self.request_timeout):
                 outcome = await self.pipeline.quote(
@@ -116,22 +119,26 @@ class Service:
                         user_id=user_id,
                         session_id=session_id,
                         request_id=request_id,
-                        respond=lambda outcome: render.body(self.body(outcome, request_id)).decode(),
+                        respond=lambda outcome: render.body(self.body(outcome, request_id, report)).decode(),
+                        report=report,
                     )
                 )
         # an engine that failed, or that did not answer within the budget
         except (pipeline.EngineError, TimeoutError) as err:
-            return problem_response(request.scope, _failure(err, request_id), cause=err)
+            return problem_response(request.scope, self._failure(err, request_id, report), cause=err)
+        except Exception as err:  # noqa: BLE001 — a bug: the client gets a 500 problem, its cause logged
+            return problem_response(request.scope, self._failure(err, request_id, report), cause=err)
 
         exchange_of(request.scope).degraded = any(u.degraded for u in outcome.report.stages)
-        answer = self.body(outcome, request_id)
+        answer = self.body(outcome, request_id, report)
         if isinstance(answer, Problem):
             return problem_response(request.scope, answer)
         return _json(answer)
 
-    def body(self, outcome: Outcome, request_id: str) -> contract.Quote | Problem:
+    def body(self, outcome: Outcome, request_id: str, report: Report) -> contract.Quote | Problem:
         """The body an outcome is answered with — the trace's output too, the
-        same bytes the client gets."""
+        same bytes the client gets. `report` is what the reading took, which
+        a failure says as a refusal does."""
         threshold = self.pipeline.judge_threshold
         match outcome:
             case pipeline.Quote():
@@ -139,19 +146,21 @@ class Service:
             case pipeline.Rejection():
                 rejected = answers.rejection(outcome, engines=self.engines, threshold=threshold)
                 return rejected.model_copy(update={"request_id": request_id})
-        return _failure(outcome, request_id)
+        return self._failure(outcome, request_id, report)
 
-
-def _failure(error: BaseException, request_id: str) -> Problem:
-    """The problem a failure is answered with: 502 for an engine that failed or
-    did not answer in time, 500 for anything else."""
-    if isinstance(error, pipeline.EngineError | TimeoutError | asyncio.CancelledError):
-        answer = problem(
-            502, ProblemCode.engine_unavailable, "A model engine could not be reached, or answered out of contract."
-        )
-    else:
-        answer = problem(500, ProblemCode.internal, INTERNAL_DETAIL)
-    return answer.model_copy(update={"request_id": request_id})
+    def _failure(self, error: BaseException, request_id: str, report: Report) -> Problem:
+        """The problem a failure is answered with: 502 for an engine that failed
+        or did not answer in time, 500 for anything else; both with what the
+        stages that ran took, the failed one included, when any ran."""
+        if isinstance(error, pipeline.EngineError | TimeoutError | asyncio.CancelledError):
+            answer = problem(
+                502, ProblemCode.engine_unavailable, "A model engine could not be reached, or answered out of contract."
+            )
+        else:
+            answer = problem(500, ProblemCode.internal, INTERNAL_DETAIL)
+        if report.stages:
+            answer = answers.with_usage(answer, report, engines=self.engines)
+        return answer.model_copy(update={"request_id": request_id})
 
 
 def create_app(service: Service, *, log: logging.Logger | None = None) -> FastAPI:

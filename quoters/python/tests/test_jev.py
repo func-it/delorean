@@ -11,6 +11,7 @@ import pytest
 
 from delorean.engines.live.jev import JEV_MODEL, JEV_URL, Ask, Jev, JevError
 from delorean.pipeline import EngineError
+from delorean.pipeline.ports import cut_usage
 from delorean.prompts import Question
 from delorean.telemetry import NoTracer
 from tests.conftest import Spans
@@ -275,5 +276,55 @@ async def test_decide_all_fails_with_its_first_failure() -> None:
         await j.decide_all(asks)
     usage = raised.value.usage
     assert usage is not None, "what the set took before it failed"
-    assert (usage.engine, usage.calls) == ("jev-1.13", 2), "the others were cancelled"
-    assert usage.cost_usd == pytest.approx(2 * 0.00004)
+    assert (usage.engine, usage.calls) == ("jev-1.13", 8), "the requests that went out, cancelled or not"
+    assert usage.cost_usd == pytest.approx(2 * 0.00004), "the cost of the answers that came in time"
+
+
+async def test_decide_all_does_not_count_a_request_that_never_left() -> None:
+    """Past 16 requests in flight the others wait their turn: cancelled there, they were never sent."""
+    started = 0
+    all_out = asyncio.Event()
+
+    async def handle(request: httpx.Request) -> httpx.Response:
+        nonlocal started
+        started += 1
+        if started == 16:
+            all_out.set()
+        await all_out.wait()
+        if int(json.loads(request.content)["state"]["n"]) == 3:
+            return httpx.Response(402, json={"error": {"message": "credits"}})
+        await asyncio.sleep(30)
+        raise AssertionError("not cancelled")
+
+    j = Jev(key="k", client=httpx.AsyncClient(transport=httpx.MockTransport(handle)), tracer=NoTracer())
+    asks = [Ask(state={"n": str(i)}, questions=[FILM]) for i in range(20)]
+    with pytest.raises(JevError, match="credits") as raised:
+        await j.decide_all(asks)
+    assert raised.value.usage is not None
+    # a request that was waiting its turn when the first failure came is not sent: not all 20 count (the
+    # slot the failed one freed may let one more start before the set is cancelled)
+    assert 16 <= raised.value.usage.calls <= 17, "the requests past the 16 in flight that waited were never sent"
+
+
+async def test_decide_all_cut_from_outside_says_what_went_out() -> None:
+    """A set cancelled — the request's time out, the client gone — still counts the requests it had sent."""
+    sent = 0
+    all_out = asyncio.Event()
+
+    async def handle(request: httpx.Request) -> httpx.Response:
+        nonlocal sent
+        sent += 1
+        if sent == 5:
+            all_out.set()
+        await asyncio.sleep(30)
+        raise AssertionError("not cancelled")
+
+    j = Jev(key="k", client=httpx.AsyncClient(transport=httpx.MockTransport(handle)), tracer=NoTracer())
+    task = asyncio.create_task(j.decide_all([Ask(state={"n": str(i)}, questions=[FILM]) for i in range(5)]))
+    await all_out.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError) as raised:
+        await task
+    usage = cut_usage(raised.value)
+    assert usage is not None
+    assert (usage.engine, usage.model, usage.calls, usage.cost_usd) == ("jev-1.13", JEV_MODEL, 5, 0.0)

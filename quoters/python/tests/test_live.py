@@ -33,6 +33,7 @@ from delorean.pipeline import (
     Stage,
     Usage,
 )
+from delorean.pipeline.ports import cut_usage
 from delorean.prompts import Prompts, load_prompts
 from delorean.telemetry import NoTracer
 from tests.conftest import TINY_PROMPTS_DIR, Spans
@@ -445,6 +446,25 @@ async def test_the_reader_bounds_the_whole_call_not_each_phase(prompts: Prompts)
     assert usage is not None
     model = "openai/gpt-6-luna"
     assert (usage.engine, usage.model, usage.calls) == (model, model, 1), "the call went out"
+
+
+async def test_a_reader_cut_from_outside_says_its_call_went_out(prompts: Prompts) -> None:
+    started = asyncio.Event()
+
+    async def hang(request: httpx2.Request) -> httpx2.Response:
+        started.set()
+        await asyncio.sleep(30)
+        raise AssertionError("not cancelled")
+
+    task = asyncio.create_task(Llm({}, handler=hang).reader(prompts).read("Heat"))
+    await started.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError) as raised:
+        await task
+    usage = cut_usage(raised.value)
+    assert usage is not None
+    model = "openai/gpt-6-luna"
+    assert (usage.engine, usage.model, usage.calls, usage.cost_usd) == (model, model, 1, 0.0)
 
 
 async def test_a_recount_reaching_model_timeout_is_left_out_and_the_quote_goes_on(

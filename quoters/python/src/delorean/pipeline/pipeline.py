@@ -24,7 +24,17 @@ from delorean.pipeline.outcome import (
     StageUsage,
     Tokens,
 )
-from delorean.pipeline.ports import LOCAL, EngineError, Engines, Identification, Retry, Stage, Usage, Verdict
+from delorean.pipeline.ports import (
+    LOCAL,
+    EngineError,
+    Engines,
+    Identification,
+    Retry,
+    Stage,
+    Usage,
+    Verdict,
+    cut_usage,
+)
 from delorean.prepare import TokenCounter, normalize
 from delorean.pricing import Catalog
 from delorean.telemetry import NoTracer, Observation, SpanKind, Trace, Tracer
@@ -41,6 +51,10 @@ class Request:
     respond: Callable[[Quote | Rejection | BaseException], object] | None = None
     """The response body an outcome is answered with — a quote, a refusal, a
     failure — which the trace shows as its output; plain data when unset."""
+    report: Report | None = None
+    """Where the reading says what it took, as it goes: given by the caller,
+    it still tells what a failure cost — the pipeline raises, and what was
+    spent before is spent all the same. A new one when unset."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,7 +94,7 @@ class Pipeline:
         engine that fails, or answers out of its contract, raises
         EngineError."""
         started = time.perf_counter()
-        run = _Run(id=_quote_id(), tracer=self.tracer)
+        run = _Run(id=_quote_id(), tracer=self.tracer, report=request.report or Report())
         with self.tracer.trace(
             "quote",
             input=request.cart,
@@ -92,6 +106,7 @@ class Pipeline:
                 outcome = await self._read(run, request.cart)
             except BaseException as err:
                 run.report.ms = _ms_since(started)
+                run.report.trace_id = trace.trace_id
                 if request.respond:
                     trace.output(request.respond(err))
                 self._measure(trace, run, request, _failure(err))
@@ -465,6 +480,12 @@ class _Run:
             # a failed stage ran too: a refusal beside it reports what it took
             waited = running.waited if running else 0.0
             self._account(stage, started + waited, err.usage or Usage(engine="unknown"), tokens=None)
+            raise
+        except asyncio.CancelledError as cut:
+            # a stage cut — the request's time ran out, the client went, a stage beside it failed — ran too, and
+            # the call it had sent counts, answered or not
+            waited = running.waited if running else 0.0
+            self._account(stage, started + waited, cut_usage(cut) or Usage(engine="unknown"), tokens=None)
             raise
         assert running is not None
         if not running.ended:
