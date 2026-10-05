@@ -365,7 +365,7 @@ an abbreviation or another numbering of the film; it fails for another film,
 for something that is not the film (a soundtrack, a book, a game), and for a
 title of the trilogy identified as a film outside it.
 
-What Jev reads, so that every implementation asks the same thing: `asked`
+What Jev reads, written down so that the question is the same each time: `asked`
 gets `order_line` = the title in double quotes (JSON escaping as
 `JSON.stringify` writes it: only `"`, `\` and control characters are
 escaped, never `<`, `>`, `&` nor any other character);
