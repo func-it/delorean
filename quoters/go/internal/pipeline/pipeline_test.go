@@ -1417,3 +1417,53 @@ func TestQuoteDegradesOnEngineFailuresOnly(t *testing.T) {
 		t.Errorf("recount usage %+v, want degraded, the call that went out counted, its engine known", recount)
 	}
 }
+
+// "Degraded" is a mark of the reading that left the recount out, not of the
+// ones after it: a recount that fails on the first reading and succeeds on
+// the second counts the second, its span is no warning, and the usage says,
+// once, that it was left out, with the calls of both added up.
+func TestQuoteDegradedDoesNotStickToTheNextReading(t *testing.T) {
+	spans := recordSpans(t)
+	var calls atomic.Int32
+	p := newPipeline(t, func(p *pipeline.Pipeline) {
+		p.Engines.Recounter = parserFunc(func(ctx context.Context, text string, again *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
+			if calls.Add(1) == 1 {
+				return nil, pipeline.Usage{Engine: "flaky", Calls: 1}, errDown
+			}
+			return fake.Recounter{}.Parse(ctx, text, again)
+		})
+	})
+	q, err := p.Quote(t.Context(), pipeline.Request{Cart: "Heat\nRonin\n" + fake.Reread})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if q.Judgement.Attempts != 2 {
+		t.Fatalf("%d readings, want 2", q.Judgement.Attempts)
+	}
+	if !slices.ContainsFunc(q.Judgement.Findings, func(f pipeline.Finding) bool { return f.Check == pipeline.CheckCount && f.Score == 1 }) {
+		t.Errorf("findings %+v: the second reading is counted against the recount that succeeded", q.Judgement.Findings)
+	}
+	if recount := q.Report.Stages[3]; recount.Stage != pipeline.StageRecount || !recount.Degraded || recount.Calls != 2 {
+		t.Errorf("recount usage %+v, want left out once, the calls of both readings added up", recount)
+	}
+	levels := map[int64]string{}
+	for _, s := range spans.Ended() {
+		if s.Name() != "recount" {
+			continue
+		}
+		var attempt int64
+		level := ""
+		for _, kv := range s.Attributes() {
+			switch kv.Key {
+			case "langfuse.observation.metadata.attempt":
+				attempt = kv.Value.AsInt64()
+			case "langfuse.observation.level":
+				level = kv.Value.AsString()
+			}
+		}
+		levels[attempt] = level
+	}
+	if !reflect.DeepEqual(levels, map[int64]string{1: "WARNING", 2: ""}) {
+		t.Errorf("recount span levels by reading %v, want a warning on the first only", levels)
+	}
+}
