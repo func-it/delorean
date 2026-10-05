@@ -21,7 +21,11 @@ reads `OPENROUTER_API_KEY` and `LANGFUSE_*` from the root `.env`).
 
 `delorean version` prints the version (set at build time, `-ldflags "-X
 main.version=…"`), `delorean tokenizer` the size of the embedded
-o200k_base vocabulary.
+o200k_base vocabulary. `delorean healthcheck` asks the running service on this
+machine for `/healthz` (the `PORT` it reads, 24791 by default, and nothing else):
+exit code 0 and no output when it answers 200 with its health, else one line on
+stderr and exit code 1. The image is distroless, with no shell or curl: this is
+what a container's healthcheck runs.
 
 ```sh
 curl -s localhost:24791/v1/quotes -d '{"cart": "Back to the Future 1\nBack to the Future 2\nLa chèvre"}'
@@ -73,7 +77,7 @@ directory to point at, and `/healthz` serves their versions.
 
 ```
 cmd/
-  delorean/          entry: serve, version, tokenizer; configuration, tracing, engines, graceful shutdown
+  delorean/          entry: serve, healthcheck, version, tokenizer; configuration, tracing, engines, graceful shutdown
   bench/             the component benches: list, check, run, matrix, table
 internal/
   config/            the environment, checked; errors in the table's order

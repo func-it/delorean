@@ -4,10 +4,12 @@
 //	delorean [serve]     the HTTP API (api/openapi.yaml), configured by the environment
 //	delorean version     the version of this build
 //	delorean tokenizer   loads the token vocabulary, offline, and says its size
+//	delorean healthcheck asks the running service for /healthz: exit 0 when it is up
 package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -62,6 +64,8 @@ func run(args []string) error {
 	case "version":
 		fmt.Println(version)
 		return nil
+	case "healthcheck":
+		return healthcheck(os.Getenv, 3*time.Second)
 	case "tokenizer":
 		counter, err := prepare.NewCounter()
 		if err != nil {
@@ -70,7 +74,40 @@ func run(args []string) error {
 		fmt.Printf("%s: %d ranks\n", prepare.Encoding, counter.Ranks())
 		return nil
 	}
-	return usageError(fmt.Sprintf("unknown command %q: want serve, version or tokenizer", cmd))
+	return usageError(fmt.Sprintf("unknown command %q: want serve, healthcheck, version or tokenizer", cmd))
+}
+
+// healthcheck asks the service on this machine for /healthz, for a container
+// that has no shell or curl to do it (compose's healthcheck runs this command
+// in the image). It reads PORT, as the service does, and nothing else: it must
+// not fail on a setting the service accepted. Up is a 200 with the health
+// JSON, said by nothing at all; anything else is one short line on stderr and
+// exit code 1.
+func healthcheck(getenv func(string) string, timeout time.Duration) error {
+	port := 24791
+	if v := getenv("PORT"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 65535 {
+			return fmt.Errorf("healthcheck: PORT=%q is not a port", v)
+		}
+		port = n
+	}
+	client := &http.Client{Timeout: timeout}
+	rsp, err := client.Get("http://127.0.0.1:" + strconv.Itoa(port) + "/healthz")
+	if err != nil {
+		return fmt.Errorf("healthcheck: no answer on port %d", port)
+	}
+	defer rsp.Body.Close()
+	var health struct {
+		Status string `json:"status"`
+	}
+	if rsp.StatusCode != http.StatusOK {
+		return fmt.Errorf("healthcheck: HTTP %d on port %d", rsp.StatusCode, port)
+	}
+	if err := json.NewDecoder(io.LimitReader(rsp.Body, 1<<20)).Decode(&health); err != nil || health.Status != "ok" {
+		return fmt.Errorf("healthcheck: not the health of a quoter on port %d", port)
+	}
+	return nil
 }
 
 // newLogger writes JSON lines as every quoter does: time in UTC with
