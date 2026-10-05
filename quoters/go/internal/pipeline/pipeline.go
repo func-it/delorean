@@ -252,10 +252,23 @@ func (p *Pipeline) read(ctx context.Context, r *run, raw string) (Quote, error) 
 		}
 	}
 
+	if !read.Counted && hasSeveralCopies(read.Lines) {
+		return Quote{}, &Rejection{
+			Code:   CodeQuantityUnverified,
+			Detail: "The quantities could not be cross-checked and a line asks for more than one copy: try again.",
+		}
+	}
+
 	_, end = r.stage(ctx, StagePrice, 0)
 	price := p.Catalog.Price(read.Lines)
 	end(Usage{Engine: engineLocal}, map[string]int{"total_cents": price.TotalCents}, nil)
 	return Quote{ID: r.id, Price: price, Judgement: judgement, CreatedAt: time.Now().UTC()}, nil
+}
+
+// hasSeveralCopies reports whether a line of the reading, as merged by title,
+// asks for more than one copy.
+func hasSeveralCopies(lines []cart.Line) bool {
+	return slices.ContainsFunc(lines, func(l cart.Line) bool { return l.Quantity > 1 })
 }
 
 func (p *Pipeline) guardRejection(v GuardVerdict) *Rejection {

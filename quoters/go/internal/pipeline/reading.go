@@ -21,6 +21,9 @@ type Reading struct {
 	Recount   []cart.Line
 	Judgement Judgement
 	First     []cart.Line
+	// Counted: the last reading was counted against a recount. False when
+	// the recount was left out at every reading (degraded).
+	Counted bool
 }
 
 // Read reads a normalized text as Quote does once the guard let it through:
@@ -89,7 +92,7 @@ func (p *Pipeline) readAgain(ctx context.Context, r *run, text string) (Reading,
 		if n == 1 {
 			out.First = lines
 		}
-		out.Lines, out.Recount, out.Judgement = lines, recounted, j
+		out.Lines, out.Recount, out.Judgement, out.Counted = lines, recounted, j, counted
 		if j.Score >= p.JudgeThreshold {
 			out.Judgement.Attempts = n
 			return out, nil

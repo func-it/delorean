@@ -9,19 +9,20 @@ import (
 )
 
 var titles = map[ProblemCode]string{
-	ProblemCodeMalformedRequest:  "Malformed request",
-	ProblemCodePayloadTooLarge:   "Payload too large",
-	ProblemCodeEmptyCart:         "Cart rejected",
-	ProblemCodeTooLong:           "Cart rejected",
-	ProblemCodeInjection:         "Cart rejected",
-	ProblemCodeInvalidRequest:    "Cart rejected",
-	ProblemCodeNoFilm:            "Cart rejected",
-	ProblemCodeQuantityTooLarge:  "Cart rejected",
-	ProblemCodeUnfaithfulReading: "Cart rejected",
-	ProblemCodeEngineUnavailable: "Engine unavailable",
-	ProblemCodeNotFound:          "Not found",
-	ProblemCodeMethodNotAllowed:  "Method not allowed",
-	ProblemCodeInternal:          "Internal error",
+	ProblemCodeMalformedRequest:   "Malformed request",
+	ProblemCodePayloadTooLarge:    "Payload too large",
+	ProblemCodeEmptyCart:          "Cart rejected",
+	ProblemCodeTooLong:            "Cart rejected",
+	ProblemCodeInjection:          "Cart rejected",
+	ProblemCodeInvalidRequest:     "Cart rejected",
+	ProblemCodeNoFilm:             "Cart rejected",
+	ProblemCodeQuantityTooLarge:   "Cart rejected",
+	ProblemCodeUnfaithfulReading:  "Cart rejected",
+	ProblemCodeEngineUnavailable:  "Engine unavailable",
+	ProblemCodeQuantityUnverified: "Quantities not verified",
+	ProblemCodeNotFound:           "Not found",
+	ProblemCodeMethodNotAllowed:   "Method not allowed",
+	ProblemCodeInternal:           "Internal error",
 }
 
 func newProblem(status int, code ProblemCode, detail string) Problem {
@@ -36,7 +37,12 @@ func internalProblem() Problem {
 // rejected is the problem of a cart a stage refused, with the facts that
 // decided and what the reading cost.
 func (s *server) rejected(rej *pipeline.Rejection) Problem {
-	p := newProblem(http.StatusUnprocessableEntity, ProblemCode(rej.Code), rej.Detail)
+	status := http.StatusUnprocessableEntity
+	if rej.Code == pipeline.CodeQuantityUnverified {
+		// nothing is wrong with the cart: the same one may be priced on a retry
+		status = http.StatusServiceUnavailable
+	}
+	p := newProblem(status, ProblemCode(rej.Code), rej.Detail)
 	if rej.Tokens != nil {
 		p.Tokens = &Problem_Tokens{Count: rej.Tokens.Count, Max: rej.Tokens.Max}
 	}

@@ -149,6 +149,8 @@ func statusOf(code httpapi.ProblemCode) int {
 		return 500
 	case httpapi.ProblemCodeEngineUnavailable:
 		return 502
+	case httpapi.ProblemCodeQuantityUnverified:
+		return 503
 	}
 	return 422
 }
