@@ -17,6 +17,9 @@ node_modules/
 .next/
 out/
 coverage/
+# Playwright
+test-results/
+playwright-report/
 *.tsbuildinfo
 
 # bench reports (kept out unless committed on purpose: git add -f)

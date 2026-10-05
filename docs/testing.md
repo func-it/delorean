@@ -59,10 +59,13 @@ identical in the three implementations. They recognise canonical titles
 ("Back to the Future 2", "2 x Back to the Future 2", roman numerals), answer
 the guard's two questions from a few markers (`steer` 0.99 on an injection
 word, `order` 1 when a line has three letters) and derive the verdict from
-them as the live guard does, and accept four fault lines:
+them as the live guard does, and accept five fault lines:
 `#fake:engine_down` (→ 502), `#fake:unfaithful` (the `missing` check fails
 at every reading → 422 after the last), `#fake:miscount` (the recount reads
-one more copy of the first title, so its `count` check fails → 422) and
+one more copy of the first title, so its `count` check fails → 422),
+`#fake:recount_offschema` (the recount answers off its schema at every call:
+asked once more, then left out, the quote priced on the parse alone with the
+recount `degraded`) and
 `#fake:reread` (the first reading leaves out the last title; read again, it
 is priced, `judge.attempts` 2). Their exact rules are part of the test
 contract: [Fake engines](architecture.md#fake-engines-enginesfake).
@@ -74,16 +77,18 @@ benches. Each case has a `note` that says which mistake it guards against.
 
 | Folder | Subject | Cases |
 |---|---|---|
-| `quote/` | the API end to end: a total, the quantities per film, or a refusal code | 79 |
+| `quote/` | the API end to end: a total, the quantities per film, or a refusal code | 80 |
 | `guard/` | valid, injection or invalid | 113 |
 | `identify/` | one title → `bttf_1`, `bttf_2`, `bttf_3` or `other` | 61 |
 | `reading/` | parse and identify together: quantities per film | 46 |
 | `judge/` | is a given reading faithful to the text, and which check says it is not (`asked`, `identity`, `missing`, `count`)? | 42 |
 
-The `fake` tag marks the 33 quote cases the fake engines must pass; CI plays
-them. The others are played against the real models only. Three of them use
+The `fake` tag marks the 34 quote cases the fake engines must pass; CI plays
+them. The others are played against the real models only. Four of them use
 a fault line: `recomptage-en-desaccord` (`#fake:miscount`) proves that a
-recount in disagreement refuses the cart, `relecture-film-oublie`
+recount in disagreement refuses the cart, `recomptage-hors-schema`
+(`#fake:recount_offschema`) that a recount answering off its schema is left
+out instead of failing the quote, `relecture-film-oublie`
 (`#fake:reread`) that a reading the judge refuses is read again and priced,
 `relecture-toujours-infidele` (`#fake:unfaithful`) that it is refused after
 the last reading.
@@ -120,7 +125,7 @@ RUN_LIVE=1 BASE_URL=http://localhost:24791 npm run e2e   # against live engines 
 ```
 
 The suite reads `GET /healthz` first. On fake engines it runs the contract
-suites and every `fake` case: 70 tests today, passed by each of the three
+suites and every `fake` case: 72 tests today, passed by each of the three
 quoters (`task e2e:all`). On live engines it refuses to
 start without `RUN_LIVE=1`, then plays every quote case. It checks:
 
@@ -133,8 +138,30 @@ start without `RUN_LIVE=1`, then plays every quote case. It checks:
 - the invariants of every quote: subtotal = sum of the lines, line = unit
   price × quantity, the discount tier matches the distinct volumes, total =
   subtotal − discount, judge score ≥ threshold;
-- on fake engines, the guard's two answers (`questions: {order, steer}`) and
-  the judge's `count` checks, passed and failed.
+- on fake engines, the guard's two answers (`questions: {order, steer}`),
+  the judge's `count` checks, passed and failed, and a recount off its schema
+  left out: priced, `degraded`, two calls, no `count` check; `degraded` on no
+  other stage.
+
+### Web app in a browser (Playwright)
+
+The web app end to end, as a customer uses it: a real browser (Chromium, on
+a desktop and on a Pixel 7) on the page, through the BFF and its session
+cookie, to the three quoters on fake engines.
+
+```sh
+task web:e2e                                        # or scripts/web-e2e.sh [playwright test args]
+```
+
+`scripts/web-e2e.sh` starts the whole stack as a compose project of its own
+(`delorean-web-e2e`, `deploy/web-e2e/compose.yml`: fake engines, no key, no
+port on the host, so it never meets a stack already running), runs
+`web/e2e` in the Playwright image on that project's network, and takes
+everything down. It checks a priced cart (the total, the lines, the saga
+discount, the announcement to screen readers), the reading behind
+« détails », an example cart, Ctrl+Enter, the refusals in one sentence (an
+injection, a text that orders no film, a cart over the token limit), a
+recount off its schema left out, and `?quoter=python`.
 
 ### Parity suite
 
@@ -450,12 +477,14 @@ times: `parse` and `recount` side by side, a stage read again repeated.
 
 ## CI
 
-GitHub Actions, six jobs on every push and pull request:
+GitHub Actions, seven jobs on every push and pull request:
 
 - **Go**: generated code matches the contract, golangci-lint, tests with the
   race detector, shared cases valid, the image builds (from the repository's
   root, for `prompts/`);
 - **Web**: generated types match the contract, lint, type check, tests, build;
+- **Web end to end**: the Playwright suite against the whole stack on fake
+  engines (`scripts/web-e2e.sh`), its report kept when it fails;
 - **TypeScript** and **Python**: each quoter's generated code or models,
   lint, types, tests, then the end-to-end suite against it and its image;
 - **End-to-end**: the harness's lint, types and tests, then the suite against
