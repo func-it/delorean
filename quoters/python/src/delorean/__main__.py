@@ -1,8 +1,9 @@
 """delorean prices a free-text DVD cart with the Back to the Future promotion.
 
-delorean [serve]    the HTTP API (api/openapi.yaml), configured by the environment
-delorean version    the version of this build
-delorean tokenizer  make the tokenizer's vocabulary available offline, once
+delorean [serve]      the HTTP API (api/openapi.yaml), configured by the environment
+delorean healthcheck  asks the running service for /healthz: exit 0 when it is up
+delorean version      the version of this build
+delorean tokenizer    make the tokenizer's vocabulary available offline, once
 """
 
 import asyncio
@@ -18,7 +19,7 @@ from typing import override
 
 import uvicorn
 
-from delorean import logs, prepare
+from delorean import healthcheck, logs, prepare
 from delorean.api.app import Service, create_app
 from delorean.config import ConfigError, Settings, tokenizer_dir
 from delorean.engines import open_engines
@@ -27,7 +28,7 @@ from delorean.pricing import DEFAULT_CATALOG
 from delorean.prompts import PromptError, Prompts, load_prompts
 from delorean.telemetry import LangfuseTracer, NoTracer, Tracer
 
-COMMANDS = ("serve", "version", "tokenizer")
+COMMANDS = ("serve", "healthcheck", "version", "tokenizer")
 
 log = logging.getLogger("delorean")
 
@@ -42,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     command = args[0] if args else "serve"
     if command not in COMMANDS:
-        return _usage(f"unknown command {_quoted(command)}: want serve, version or tokenizer")
+        return _usage(f"unknown command {_quoted(command)}: want serve, healthcheck, version or tokenizer")
     if len(args) > 1:
         return _usage(f"unexpected argument {_quoted(args[1])}")
     try:
@@ -54,6 +55,8 @@ def main(argv: list[str] | None = None) -> int:
                 # this way the process ends cleanly, the last spans sent
                 signal.signal(signal.SIGTERM, _interrupt)
                 asyncio.run(serve(Settings.from_env(os.environ)))
+            case "healthcheck":
+                healthcheck.check(os.environ)
             case "version":
                 print(version())
             case "tokenizer":
@@ -61,6 +64,9 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"{prepare.ENCODING}: {prepare.ranks(path)} ranks")
     except ConfigError as err:
         print(f"delorean: configuration:\n{err}", file=sys.stderr)
+        return 1
+    except healthcheck.HealthcheckError as err:
+        print(f"delorean: {err}", file=sys.stderr)
         return 1
     except (PromptError, prepare.TokenizerMissingError) as err:
         print(f"delorean: {err}", file=sys.stderr)

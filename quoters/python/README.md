@@ -25,11 +25,15 @@ task e2e:python      # the end-to-end suite against it, on fake engines, port 24
 
 Without Task: `uv sync`, `uv run delorean tokenizer`, then
 `ENGINES=fake uv run delorean serve`. The command line is
-`delorean [serve | version | tokenizer]`.
+`delorean [serve | healthcheck | version | tokenizer]`. `delorean healthcheck`
+asks the running service for `/healthz` (it reads `PORT`, nothing else: 24792
+by default, 3 seconds at most): exit 0 and no output when it answers 200 with
+its health, one line on stderr and exit 1 otherwise. It is what compose's
+healthcheck runs in the image.
 
 ## Test
 
-`task py:test` runs about 390 tests in a few seconds and calls no model.
+`task py:test` runs about 500 tests in a few seconds and calls no model.
 
 - **Ported from Go:** the prepare and pricing tests, case for case, with the
   same normal forms, token counts and cents.
@@ -70,6 +74,7 @@ the quoter with every error at once, in the words every quoter uses
 
 ```
 src/delorean/
+  healthcheck.py       `delorean healthcheck`: is the service on this machine up
   __main__.py          the command line; serve wires settings, prompts, tokenizer, tracer, engines, app
   config.py            settings from the environment, every error at once
   cart.py              the vocabulary: Film, Mention, Line, the copy limit

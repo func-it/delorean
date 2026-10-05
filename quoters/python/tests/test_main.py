@@ -27,7 +27,7 @@ def test_version(capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyP
 
 def test_unknown_command(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["fly"]) == 2
-    assert capsys.readouterr().err == 'delorean: unknown command "fly": want serve, version or tokenizer\n'
+    assert capsys.readouterr().err == 'delorean: unknown command "fly": want serve, healthcheck, version or tokenizer\n'
 
 
 def test_an_extra_argument_is_a_usage_error(capsys: pytest.CaptureFixture[str]) -> None:
