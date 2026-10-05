@@ -1,0 +1,12 @@
+.banner {
+  padding: 12px var(--gutter);
+  border-bottom: 2px solid var(--amber);
+  background: var(--warning-surface);
+  color: var(--warning-ink);
+  font-size: 0.9375rem;
+}
+
+.banner p {
+  max-width: 40rem;
+  margin: 0 auto;
+}

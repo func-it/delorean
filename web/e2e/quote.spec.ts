@@ -32,6 +32,22 @@ test("answers with its security headers, and the page still works under them", a
   expect(refused).toEqual([]);
 });
 
+test("says it is a demo, on the fake engines, and offers only the examples they read", async ({ page }, testInfo) => {
+  const banner = page.getByRole("complementary", { name: "Mode démo" });
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText("Mode démo : lecteur simplifié, pas d'IA.");
+  await expect(page.getByRole("button", { name: "Les trois volets" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Plusieurs langues" })).toHaveCount(0);
+  await shot(page, "demo-banner", testInfo.project.name);
+});
+
+test("writes the prices of its footer from the quoter's catalog", async ({ page }) => {
+  await expect(page.getByRole("contentinfo")).toContainText(
+    amount("Chaque volet de la saga : 15,00 € le DVD, tout autre film : 20,00 €."),
+  );
+  await expect(page.getByRole("contentinfo")).toContainText(amount("2 volets différents : −10 %, 3 volets différents : −20 %"));
+});
+
 test("prices a cart written in free text: the total, the lines, the saga discount", async ({ page }) => {
   await price(page, "Back to the Future 1\nBack to the Future 2\nBack to the Future 3\nLa chèvre");
 
@@ -98,7 +114,7 @@ test("does not price several copies nobody could count, and says to retry", asyn
   await expect(result(page)).toHaveCount(0);
 });
 
-/** The pages Karim is shown: one picture per case and per screen, in test-results/screenshots. */
+/** The pages to show: one picture per case and per screen, in test-results/screenshots. */
 async function shot(page: Page, name: string, project: string) {
   await page.screenshot({ path: `test-results/screenshots/${name}-${project}.png`, fullPage: true });
 }

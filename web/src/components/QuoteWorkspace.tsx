@@ -9,11 +9,20 @@ import type { Limits } from "@/lib/size";
 import { explainProblem } from "@/lib/rejections";
 
 import { CartForm } from "./CartForm";
+import { DemoBanner } from "./DemoBanner";
 import { QuoteResult } from "./QuoteResult";
 import styles from "./QuoteWorkspace.module.css";
 import { Rejection } from "./Rejection";
 
-export function QuoteWorkspace({ limits }: { limits?: Limits }) {
+interface Props {
+  limits?: Limits;
+  /** What the quoter reads with: `fake` shows the demo banner and only the examples the fake can read. */
+  engines?: "live" | "fake";
+  /** The shop's prices, as a sentence written from the quoter's catalog; none when it did not answer. */
+  prices?: string;
+}
+
+export function QuoteWorkspace({ limits, engines, prices }: Props) {
   const [cart, setCart] = useState("");
   const [outcome, setOutcome] = useState<BffResult<Quote>>();
   const [pending, startTransition] = useTransition();
@@ -28,9 +37,10 @@ export function QuoteWorkspace({ limits }: { limits?: Limits }) {
 
   return (
     <div className={styles.page}>
+      {engines === "fake" && <DemoBanner />}
       <main className={styles.main}>
         <h1 className={styles.title}>Delorean</h1>
-        <CartForm cart={cart} onCartChange={setCart} onSubmit={submit} pending={pending} limits={limits} />
+        <CartForm cart={cart} onCartChange={setCart} onSubmit={submit} pending={pending} limits={limits} engines={engines} />
         <p role="status" className="visually-hidden">
           {announcement(pending, outcome)}
         </p>
@@ -40,12 +50,11 @@ export function QuoteWorkspace({ limits }: { limits?: Limits }) {
           </div>
         )}
       </main>
-      <footer className={styles.footer}>
-        <p>
-          Retour vers le futur : 15 € le DVD, tout autre film : 20 €. Deux volets différents de la saga dans le panier :
-          −10 % sur ses DVD, trois : −20 %.
-        </p>
-      </footer>
+      {prices && (
+        <footer className={styles.footer}>
+          <p>{prices}</p>
+        </footer>
+      )}
     </div>
   );
 }

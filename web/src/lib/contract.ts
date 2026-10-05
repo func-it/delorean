@@ -2,6 +2,7 @@ import type { components } from "@/generated/api";
 
 type Schemas = components["schemas"];
 
+export type Catalog = Schemas["Catalog"];
 export type Quote = Schemas["Quote"];
 export type QuoteLine = Schemas["QuoteLine"];
 export type Discount = Schemas["Discount"];

@@ -2,7 +2,8 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { problem, quote } from "@/test/fixtures";
+import { describePrices } from "@/lib/shelf";
+import { catalog, problem, quote } from "@/test/fixtures";
 
 import { cartBytes } from "@/lib/size";
 
@@ -26,16 +27,41 @@ describe("QuoteWorkspace", () => {
     stubBff(() => Response.json(quote));
   });
 
-  it("is one page: a title, a text area, a button, and the rules in a footer", () => {
-    render(<QuoteWorkspace />);
+  it("is one page: a title, a text area, a button, and the quoter's prices in a footer", () => {
+    render(<QuoteWorkspace prices={describePrices(catalog)} />);
 
     expect(screen.getByRole("heading", { level: 1, name: "Delorean" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Votre panier" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Calculer le prix" })).toBeInTheDocument();
-    expect(screen.getByRole("contentinfo")).toHaveTextContent(/15\s€ le DVD, tout autre film\s: 20\s€/);
+    expect(screen.getByRole("contentinfo")).toHaveTextContent(/15,00\s€ le DVD, tout autre film\s: 20,00\s€/);
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+  });
+
+  it("has no footer when the quoter gave no prices, and invents none", () => {
+    render(<QuoteWorkspace />);
+
+    expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+  });
+
+  it("says it is a demo, first, when the quoter reads with its fake engines, and offers only what they read", () => {
+    render(<QuoteWorkspace engines="fake" />);
+
+    const banner = screen.getByRole("complementary", { name: "Mode démo" });
+    expect(banner).toHaveTextContent("Mode démo : lecteur simplifié, pas d'IA.");
+    expect(screen.queryByRole("button", { name: "Plusieurs langues" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Les trois volets" })).toBeInTheDocument();
+  });
+
+  it("shows no banner, and every example, with the real models or when the quoter did not say", () => {
+    const { rerender } = render(<QuoteWorkspace engines="live" />);
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Plusieurs langues" })).toBeInTheDocument();
+
+    rerender(<QuoteWorkspace />);
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Plusieurs langues" })).toBeInTheDocument();
   });
 
   it("prices a cart through the BFF and announces the total", async () => {

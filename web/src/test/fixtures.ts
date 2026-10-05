@@ -1,4 +1,20 @@
-import type { Problem, Quote } from "@/lib/contract";
+import type { Catalog, Problem, Quote } from "@/lib/contract";
+
+/** The quoter's catalog as it serves it: 15 € a volume, 20 € any other film, 10 % off the saga with two volumes, 20 % with three. */
+export const catalog: Catalog = {
+  currency: "EUR",
+  films: [
+    { id: "bttf_1", title: "Back to the Future", volume: 1, unit_price_cents: 1500 },
+    { id: "bttf_2", title: "Back to the Future Part II", volume: 2, unit_price_cents: 1500 },
+    { id: "bttf_3", title: "Back to the Future Part III", volume: 3, unit_price_cents: 1500 },
+  ],
+  other_film_unit_price_cents: 2000,
+  saga_discounts: [
+    { distinct_volumes: 3, percent: 20 },
+    { distinct_volumes: 2, percent: 10 },
+  ],
+  limits: { max_body_bytes: 8192, max_input_tokens: 256, max_copies_per_title: 1000, max_reading_attempts: 3 },
+};
 
 /** Example 5 of the brief, read with one doubtful identification. */
 export const quote: Quote = {

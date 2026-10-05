@@ -2,7 +2,7 @@
 
 import { type KeyboardEvent, useRef } from "react";
 
-import { EXAMPLES } from "@/lib/examples";
+import { examplesFor } from "@/lib/examples";
 import { formatCount } from "@/lib/format";
 import { adviseSize, type Limits, type SizeAdvice } from "@/lib/size";
 
@@ -15,9 +15,11 @@ interface Props {
   pending: boolean;
   /** The quoter's limits: without them the form says nothing about the size. */
   limits?: Limits;
+  /** On `fake` engines only the examples the fake can read are offered. */
+  engines?: "live" | "fake";
 }
 
-export function CartForm({ cart, onCartChange, onSubmit, pending, limits }: Props) {
+export function CartForm({ cart, onCartChange, onSubmit, pending, limits, engines }: Props) {
   const advice: SizeAdvice = limits ? adviseSize(cart, limits) : { state: "ok" };
   const textarea = useRef<HTMLTextAreaElement>(null);
 
@@ -67,7 +69,7 @@ export function CartForm({ cart, onCartChange, onSubmit, pending, limits }: Prop
           {pending ? "Calcul en cours…" : "Calculer le prix"}
         </button>
         <ul className={styles.examples} aria-label="Exemples de paniers">
-          {EXAMPLES.map((example) => (
+          {examplesFor(engines).map((example) => (
             <li key={example.id}>
               <button type="button" className={styles.example} onClick={() => pickExample(example.cart)}>
                 {example.label}
