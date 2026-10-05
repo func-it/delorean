@@ -77,7 +77,7 @@ startup; every wrong one is reported at once, and the service does not start.
 | `JUDGE_THRESHOLD` | `0.5` | lowest judge score priced |
 | `IDENTIFY_CACHE_SIZE` | `10000` | titles whose film is kept in memory across requests (LRU, keyed by merge key, identify version and `JEV_MODEL`); 0 turns it off |
 | `READ_ATTEMPTS` | `3` | most readings of one cart, told what failed, before `unfaithful_reading` |
-| `MODEL_TIMEOUT` | `6s` | most one model call may take, Jev's and the LLMs' (502 past it, or the recount degraded) |
+| `MODEL_TIMEOUT` | `6s` | most one model call may take, Jev's and the LLMs' (502 past it, or the recount degraded); whole milliseconds, and `MODEL_TIMEOUT` ≤ `RECOUNT_TIMEOUT` ≤ `REQUEST_TIMEOUT`, or the service does not start |
 | `RECOUNT_TIMEOUT` | `6s` | the recount's time, a retry included, before the quote goes on without it |
 | `REQUEST_TIMEOUT` | `15s` | budget of one request, model calls included; Go's syntax (`1m30s`, `500ms`) |
 | `FAKE_LATENCY` | `off` | `real`: each fake call waits its stage's time, as docs/architecture.md computes it (load bench) |
@@ -132,11 +132,15 @@ scripts/e2e-fake.sh       the end-to-end suite against this quoter on fake engin
   opinion: one that fails, answers off its schema or outlasts
   `RECOUNT_TIMEOUT` (asked once more when it failed in under half of it)
   does not fail the quote, which goes on with the parse alone, no count
-  check, its stage `degraded` in the usage and a warning in the trace. The request's deadline and the client's
-  disconnect are one `AbortSignal`, passed to every engine call.
+  check, its stage `degraded` in the usage, a warning in the trace and
+  `degraded=recount` on the request's log line. Only an `EngineError`
+  degrades it; a bug fails the quote like any stage's. The request's
+  deadline and the client's disconnect are one `AbortSignal`, passed to every
+  engine call.
 - **A refused reading is read again** (docs/architecture.md, "read again"),
   up to `READ_ATTEMPTS` readings: the parser is told its last reading and
-  the checks that failed, the recount stays blind. Nothing is asked twice in
+  the checks that failed, the recount stays blind, and the first one that
+  succeeded is kept for the request. Nothing is asked twice in
   a request: `Identifications` keeps each title's film, and a reading
   already judged (`readingKey`: titles, quantities and films, in any order)
   keeps its Jev findings, only its count checks made anew, so a wrong

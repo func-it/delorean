@@ -108,7 +108,8 @@ export function llmReader(prompts: ReadingPrompt, options: ReaderOptions): Reade
         } catch (error) {
           if (!isCancelled(signal)) generation.fail(error);
           // a call answered counts, and costs, even off schema
-          throw engineFailure(error, completion ? usage(1, costOf(completion) ?? 0) : usage(0));
+          // the call went out, answered or not: one cut by its time counts, its cost unknown (0)
+          throw engineFailure(error, usage(1, completion ? (costOf(completion) ?? 0) : 0));
         }
       });
     },

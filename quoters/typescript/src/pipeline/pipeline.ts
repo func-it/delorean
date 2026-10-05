@@ -336,6 +336,12 @@ export class Pipeline {
         throw error instanceof EngineError ? engineFailure(error, answer.usage) : error;
       }
     };
+    // the recount's own time running out is an engine that did not answer in time; the request's, or a
+    // cancellation, is not
+    const timedOut = (error: unknown): unknown =>
+      error instanceof EngineError || signal.aborted || !budget.aborted
+        ? error
+        : new EngineError('no answer in time', { cause: error, usage: { ...UNKNOWN, calls: 1 } });
     const started = performance.now();
     try {
       return await once();
@@ -346,15 +352,16 @@ export class Pipeline {
         !(error instanceof EngineError) ||
         performance.now() - started >= recountTimeoutMs / 2
       ) {
-        throw error;
+        throw timedOut(error);
       }
       const first = error.usage ?? UNKNOWN;
       try {
         const again = await once();
         return { mentions: again.mentions, usage: added(first, again.usage) };
       } catch (retried) {
-        if (!(retried instanceof EngineError)) throw retried;
-        throw engineFailure(retried, added(first, retried.usage ?? UNKNOWN));
+        const failure = timedOut(retried);
+        if (!(failure instanceof EngineError)) throw failure;
+        throw engineFailure(failure, added(first, failure.usage ?? UNKNOWN));
       }
     }
   }
@@ -483,9 +490,9 @@ class Run {
           const aborted = signal.aborted;
           const cancelled = isCancelled(signal);
           if (degrade) await degrade.after?.catch(() => undefined);
-          if (degrade && !signal.aborted) {
-            // a failure of the stage itself, not of the request: the quote goes on without it
-            account(error instanceof EngineError && error.usage ? error.usage : UNKNOWN, true, ended);
+          if (degrade && !signal.aborted && error instanceof EngineError) {
+            // an engine's failure of the stage itself, not of the request, nor a bug: the quote goes on without it
+            account(error.usage ?? UNKNOWN, true, ended);
             span.warn(error);
             return degrade.value();
           }

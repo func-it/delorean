@@ -38,6 +38,8 @@ interface Exchange {
   code?: contract.ProblemCode;
   /** What went wrong behind a 5xx: logged, never shown. */
   cause?: unknown;
+  /** A stage failed and the quote went on without it, or was refused without it (the recount). */
+  degraded?: boolean;
 }
 
 /** The node server's bindings, absent when the app is called in-process (tests). */
@@ -87,7 +89,7 @@ export function createApp(config: AppConfig): Hono<Env> {
   app.use(async (c, next) => {
     const started = performance.now();
     await next();
-    const { id, code, cause } = c.var.exchange;
+    const { id, code, cause, degraded } = c.var.exchange;
     const status = c.res.status;
     // the body's length, read off a copy: the answer itself goes out untouched; a HEAD says the length its GET has
     const bytes = (await c.res.clone().arrayBuffer()).byteLength;
@@ -101,6 +103,7 @@ export function createApp(config: AppConfig): Hono<Env> {
       bytes,
       ...(code && { code }),
       ...(cause !== undefined && { err: describe(cause) }),
+      ...(degraded && { degraded: 'recount' }),
     });
   });
 
@@ -173,6 +176,7 @@ export function createApp(config: AppConfig): Hono<Env> {
   async function quote(c: HonoContext<Env>, request: QuoteRequest, signal: AbortSignal, context: contract.Context) {
     try {
       const q = await pipeline.quote(request, signal);
+      c.var.exchange.degraded = wasDegraded(q.report);
       const body = contract.quote(q, context);
       return {
         response: c.json(body),
@@ -183,7 +187,10 @@ export function createApp(config: AppConfig): Hono<Env> {
         totalCents: q.price.totalCents,
       };
     } catch (error) {
-      if (error instanceof Rejection) return refused(c, contract.rejected(error, context), error.code, error.report);
+      if (error instanceof Rejection) {
+        c.var.exchange.degraded = wasDegraded(error.report);
+        return refused(c, contract.rejected(error, context), error.code, error.report);
+      }
       if (error instanceof EngineError) {
         const detail = 'A model engine could not be reached, or answered out of contract.';
         return refused(
@@ -224,7 +231,7 @@ export function createApp(config: AppConfig): Hono<Env> {
         if (cause !== undefined && !c.req.raw.signal.aborted) trace.fail(cause);
         trace.traceIO({ output: body });
         const attempts = report?.attempts;
-        const degraded = report?.stages.some((s) => s.degraded === true) === true;
+        const degraded = wasDegraded(report);
         trace.traceAttributes({
           metadata: {
             outcome,
@@ -266,6 +273,11 @@ export function createApp(config: AppConfig): Hono<Env> {
 /** Answers with a problem. `cause` is what went wrong behind it: logged, never shown. */
 function answer(c: HonoContext<Env>, problem: contract.Problem, cause?: unknown): Response {
   return refused(c, problem, problem.code, undefined, cause).response;
+}
+
+/** Whether a stage of the report failed and the answer was made without it. */
+function wasDegraded(report: Report | undefined): boolean {
+  return report?.stages.some((s) => s.degraded === true) === true;
 }
 
 /** Answers a quote with a problem, and says how, for its trace: the body as sent, request id included. */

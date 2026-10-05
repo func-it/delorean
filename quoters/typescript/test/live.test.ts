@@ -301,7 +301,7 @@ describe('live readers', () => {
     const { sent, engines } = openRouter(() => [429, { error: { message: 'rate limited', code: 429 } }]);
     const error = await engines.parser.read('Heat', call).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(EngineError);
-    expect((error as EngineError).usage).toMatchObject({ calls: 0, costUsd: 0 });
+    expect((error as EngineError).usage).toMatchObject({ calls: 1, costUsd: 0 });
     expect(sent).toHaveLength(1);
   });
 });
@@ -324,6 +324,8 @@ describe('MODEL_TIMEOUT', () => {
     const error = await engines[reader].read('Heat', call).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(EngineError);
     expect(performance.now() - started).toBeLessThan(2_000);
+    // the call that went out counts, its model known and its cost unknown (0)
+    expect((error as EngineError).usage).toMatchObject({ calls: 1, costUsd: 0 });
   });
 
   it('cuts a Jev call that outlasts it: an engine failure', async () => {
