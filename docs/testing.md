@@ -73,9 +73,11 @@ system bench. Each case has a `note` that says which mistake it guards against;
 `input` is the cart, `expect` a total and the films read, or a status and a
 refusal code.
 
-The `fake` tag marks the 35 cases the fake engines must pass; the end-to-end
-suite plays them. The others are played against the real models only. Five of
-them use a fault line: `recomptage-en-desaccord` (`#fake:miscount`) proves that a
+CI (`.github/workflows/ci.yml`, `task ci`) plays on the fake engines the 35
+cases tagged `fake`, out of 81, through the end-to-end suite: they are the cases
+a deterministic reader passes. The other 46 run only at the bench
+(`task bench`), against the real models, at a cost; no CI run plays them. Five
+of the 35 use a fault line: `recomptage-en-desaccord` (`#fake:miscount`) proves that a
 recount in disagreement refuses the cart, `recomptage-hors-schema`
 (`#fake:recount_offschema`) that a recount answering off its schema is left
 out instead of failing the quote, `recomptage-hors-schema-quantites` that a
@@ -170,13 +172,13 @@ pass is also pushed to Langfuse as an experiment on the `quote` dataset.
 
 ## Results kept from the earlier benches
 
-The project began as three implementations of one contract (see
-[History](architecture.md#history)). The tools below, the Go component benches
-and the load bench of the three images, were removed from the tree with the Go
-and Python quoters; they live in git history (`git log --diff-filter=D --
-quoters/go`), and what they measured is kept here, as it was written.
+The project began with several implementations of one contract (see
+[History](architecture.md#history)). The tools below, the component benches and
+the load bench, were removed from the tree with the implementations they
+served; they live in git history, and what they measured is kept here, as it
+was written.
 
-### Component benches (a tool of the Go tree, removed)
+### Component benches (a tool since removed)
 
 One subject per model stage, played in-process with the application's own
 engines, scored by code checks, and kept in Langfuse: the cases become a
@@ -240,7 +242,7 @@ with the two-question guard, the recount and the read-again loop:
   these, behind which the reading, the judge and the code still hold.
 - No wrong price in any run: every wrong reading was refused by the judge.
 
-### Parser variants: `bench matrix` (a tool of the Go tree, removed)
+### Parser variants: `bench matrix` (a tool since removed)
 
 The `parse` subject plays the first reading alone, on the `reading` cases:
 the parse, its mentions merged, identify. It is scored on `films`, and its
@@ -256,7 +258,7 @@ and p90, cost per cart and per 1,000 carts, errors. It wrote one JSON report
 per variant and a Markdown table; the raw reports of the run below
 (`reports/2026-10-03`) went with the tool, the table below keeps its results.
 
-It was run from the Go tree, with a variants file (a set of environment
+It was run by a tool since removed, with a variants file (a set of environment
 overrides per variant), a dry run first, and `--max-usd` to cap the spend.
 
 The matrix writes its table after each variant, under a heading that names
@@ -280,7 +282,7 @@ for Jev's identify.
 
 Results, 2026-10-03: 46 `reading` cases × 3 runs, $0.30 for the matrix.
 Latencies were taken one variant after the other on one machine; the local
-models ran on an Apple M2 Max (32 GB) through Ollama.
+models ran through Ollama.
 
 | Variant | Films right | Parse p50 / p90 | Parse $ / 1,000 carts | With identify |
 |---|---|---|---:|---:|
@@ -311,69 +313,15 @@ What it decided:
   skipped), stopped by a Langfuse timeout while the local models loaded the
   machine.
 
-### Load bench of the three images (removed, no model)
+### Load bench (a tool since removed, no model)
 
-It measures the runtimes, not the models: each quoter's image runs alone
-(`docker run --cpus N --memory 512m`), as shipped (one process, no extra
-worker), on fake engines that take a model's time
-(a setting of the fakes of the earlier tree, `FAKE_LATENCY=real`:
-guard 400 ms, parse 1.2 s, recount 2.5 s, identify 300 ms, judge 350 ms, ±20 %
-by a hash of the call, the same in the three). The load tool (`e2e/src/load/` of the earlier tree) sent the 33
-fake quote cases and a cart read twice, in turn, from 1, 10, 50, 100 and 200
-clients in a closed loop (undici, one connection each): 5 s of warm-up, then
-20 s measured. Per step: requests per second, latency p50/p90/p99/max, errors
-(an unexpected status) and timeouts (60 s), and from `docker stats` the
-container's CPU (100 % is one core) and memory (the cgroup's, page cache
-included); memory at rest before the first request. No model is called.
-
-Run on 2026-10-03, an Apple M2 Max (12 cores, 32 GB), Docker Desktop 29.4
-with 6 CPUs and 12 GB. Not a quiet machine: other projects' containers
-(ClickHouse, MinIO, Langfuse) and an idle Ollama kept the host's load
-between 6 and 11, which the CPU limits keep away from the measured
-container but not entirely. At 200 requests in flight:
-
-| Scenario | | Go | TypeScript | Python |
-|---|---|---:|---:|---:|
-| 1 CPU | req/s · p50 · p99 | 57.6 · 3.5 s · 7.7 s | 57.0 · 3.6 s · 7.7 s | 57.4 · 3.6 s · 7.7 s |
-| | CPU · memory | 7 % · 45 MiB | 17 % · 151 MiB | 14 % · 148 MiB |
-| 4 CPUs | req/s · p50 · p99 | 57.5 · 3.6 s · 7.8 s | 57.2 · 3.6 s · 7.7 s | 57.3 · 3.5 s · 7.7 s |
-| | CPU · memory | 10 % · 64 MiB | 18 % · 162 MiB | 14 % · 151 MiB |
-| 1 CPU, 10 ms CPU per call | req/s · p50 · p99 | **26.4** · 7.2 s · 16.8 s | 19.6 · 6.8 s · 17.5 s | 18.3 · 11.0 s · 22.4 s |
-| | CPU · memory | 100 % · 39 MiB | 99 % · 89 MiB | 94 % · 146 MiB |
-| 4 CPUs, 10 ms CPU per call | req/s · p50 · p99 | **56.1** · 3.6 s · 7.8 s | 20.1 · 6.7 s · 18.8 s | 19.4 · 10.1 s · 22.1 s |
-| | CPU · memory | 253 % · 66 MiB | 101 % · 146 MiB | 100 % · 166 MiB |
-| At rest, 1 CPU | memory | 26 MiB | 138 MiB | 141 MiB |
-
-What it shows:
-
-- **Waiting on models costs nothing to any of them.** With the fakes only
-  waiting, the three serve 200 quotes in flight at the same 57 req/s — the
-  closed loop's own ceiling, 200 clients over a quote's 3.5 s — on one CPU,
-  at 7 to 17 % of it, with no error and no timeout. Goroutines, the event
-  loop and asyncio all hold hundreds of waits for free; the models set the
-  latency, not the runtime.
-- **CPU-bound work is where they part.** With 10 ms of busy CPU per call
-  (about 50 ms per quote), one core caps every quoter, Go a little higher.
-  Given four cores, Go uses them (253 %) and keeps its throughput and
-  latency; Node and Python stay on one core, at 100 %, and their latency
-  doubles or triples: one event loop, and one interpreter lock. Python's
-  queue is the longest (p50 10 s).
-- **Memory**: Go's process is 26 to 66 MiB, Node's and Python's 140 to 165
-  MiB; none grows much with load.
-- **Scaling out**, not benched here: Go takes every core of its container by
-  itself (`GOMAXPROCS` follows the CPU limit). Node needs more processes —
-  `node:cluster` or one container per core behind a load balancer; Python
-  likewise, uvicorn `--workers N` or more containers, since one process runs
-  Python code on one core. The quoters are stateless (the identify cache is
-  per process), so each scales by copies.
-
-**What it meant for the choice of language.** For a quoter, little: it waits
-on models, and the models are more than 99 % of a quote's cost ($0.0006 of
-model calls against a few milliseconds of CPU). Go was cheapest to run (a
-fifth of the memory, half the CPU) and alone spread CPU-bound work over
-cores; TypeScript shares one language and its types with the web app;
-Python owns the ecosystem around the models: evals, data analysis,
-fine-tuning a small model, running one locally. TypeScript was kept.
+One finding is kept. With fake engines that waited a model's time (guard
+400 ms, parse 1.2 s, recount 2.5 s, identify 300 ms, judge 350 ms), the
+runtimes of the earlier implementations served the same load, 200 quotes in
+flight at about 57 requests a second on one CPU with no error: a quoter waits
+on models, which are more than 99 % of a quote's cost ($0.0006 of model calls
+against a few milliseconds of CPU), so the language was chosen for the people,
+not the runtime. TypeScript was kept: it shares its types with the web app.
 
 ## Observability
 

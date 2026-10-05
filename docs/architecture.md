@@ -610,8 +610,13 @@ The end-to-end suite and the system bench read the same cases.
 
 - `films` compares the total quantities per film (`other` adds up all the
   other films).
-- The `fake` tag marks a case that the fake engines must pass: the E2E suite
-  runs it. The other cases only run against live engines.
+- **In CI, on the fake engines:** the 35 cases tagged `fake` (of 81), played by
+  the end-to-end suite (`task e2e`, which `task ci` and `.github/workflows/ci.yml`
+  run): each is a case the fake engines pass deterministically.
+- **Only at the bench, against the real models:** the other 46, played by the
+  system bench (`task bench`), which costs money and is never run by CI. They
+  are the free-text carts a deterministic reader cannot read: other languages,
+  stories, quantities in words.
 
 ## Benches
 
@@ -619,7 +624,7 @@ The end-to-end suite and the system bench read the same cases.
   the quoter; correct price rate, correct rejection rate, p50 / p90 latency,
   cost per cart and per stage.
 - **Component benches** (guard, identify, reading, judge, a matrix of parser
-  models) were run by a tool of the earlier Go tree, on `guard/`,
+  models) were run by a tool of an earlier tree, on `guard/`,
   `identify/`, `reading/` and `judge/` cases that went with it (they are in
   git history). Their results, and what they decided, are kept in
   [testing](testing.md#results-kept-from-the-earlier-benches).
@@ -708,7 +713,7 @@ fake engines.
 
 | When | Level | `msg` | Fields |
 |---|---|---|---|
-| startup, fake engines | `WARN` | `fake engines: deterministic stand-ins for tests, never in production` | `latency`, `cpu_ms` |
+| startup, fake engines | `WARN` | `fake engines: deterministic stand-ins for tests, never in production` | none |
 | startup, once the port takes connections | `INFO` | `listening` | `addr` (`:24793`), `version`, `engines`, `tracing`, `prompts` (as `/healthz`) |
 | every response | `INFO`, `ERROR` for a 5xx | `request` | `request_id`, `method`, `path`, `status`, `ms`, `bytes`, then `code` for a problem and `err` for a 5xx |
 | scores not sent, dropped, traces or scores not flushed | `WARN` | `langfuse scores not sent`, `langfuse scores dropped, the queue is full`, `traces not flushed`, `scores not flushed` | `trace_id`, `err` |

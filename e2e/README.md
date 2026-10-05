@@ -35,8 +35,8 @@ npm run e2e                                   # quoter on http://localhost:24793
 BASE_URL=http://localhost:9000 npm run e2e    # another one
 ```
 
-The suite first reads `GET /healthz`. Quoter in `fake` mode: contract + cases
-tagged `fake`, nothing is billed. Quoter in `live` mode: every request costs
+The suite first reads `GET /healthz`. Quoter in `fake` mode (what CI runs, 35 cases
+of 81): contract + cases tagged `fake`, nothing is billed. Quoter in `live` mode: every request costs
 OpenRouter credits, so the suite refuses to start without `RUN_LIVE=1`, then
 runs every case:
 
@@ -78,7 +78,8 @@ A file `cases/quote/<id>.json`, with the `id` equal to the file name:
 
 or `"expect": { "status": 422, "code": "injection" }` for a rejection. The
 `fake` tag is reserved for cases that the fake engines pass deterministically
-(see `docs/architecture.md`). `npm test` checks the shape of each case and
+(see `docs/architecture.md`); the 46 others run only at the bench, against the real
+models, never in CI. `npm test` checks the shape of each case and
 that its total follows from its `films`.
 
 ## The harness itself
