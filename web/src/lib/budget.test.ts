@@ -4,7 +4,15 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { dailyBudgetUsd, FileBudgetStore, secondsUntilUtcMidnight, utcDay } from "./budget";
+import {
+  dailyBudgetUsd,
+  FileBudgetStore,
+  ipDailyBudgetUsd,
+  MemoryIpBudgetStore,
+  secondsUntilUtcMidnight,
+  unansweredQuoteCostUsd,
+  utcDay,
+} from "./budget";
 
 const MORNING = Date.parse("2026-10-04T08:00:00Z");
 const LAST_SECOND = Date.parse("2026-10-04T23:59:59Z");
@@ -135,5 +143,76 @@ describe("dailyBudgetUsd", () => {
     if (value === undefined) vi.stubEnv("DAILY_BUDGET_USD", undefined as unknown as string);
     else vi.stubEnv("DAILY_BUDGET_USD", value);
     expect(dailyBudgetUsd()).toBe(expected);
+  });
+});
+
+describe("MemoryIpBudgetStore", () => {
+  it("adds what an address spent today, in millionths, and starts again at midnight UTC", async () => {
+    let now = LAST_SECOND;
+    const store = new MemoryIpBudgetStore(() => now);
+    for (let i = 0; i < 10; i++) await store.add("203.0.113.7", 0.1);
+
+    expect(await store.spentToday("203.0.113.7")).toBe(1);
+    expect(await store.spentToday("198.51.100.9")).toBe(0);
+
+    now = NEXT_DAY;
+    expect(await store.spentToday("203.0.113.7")).toBe(0);
+    await store.add("203.0.113.7", 0.5);
+    expect(await store.spentToday("203.0.113.7")).toBe(0.5);
+  });
+
+  it("ignores what is not a cost", async () => {
+    const store = new MemoryIpBudgetStore(() => MORNING);
+    for (const cost of [0, -1, NaN, Infinity]) await store.add("a", cost);
+
+    expect(await store.spentToday("a")).toBe(0);
+  });
+
+  it("holds a bounded number of addresses, the least recently used going first", async () => {
+    const store = new MemoryIpBudgetStore(() => MORNING, 2);
+    await store.add("a", 1);
+    await store.add("b", 1);
+    await store.add("a", 1); // a is used again: b is the oldest
+    await store.add("c", 1);
+
+    expect(await store.spentToday("b")).toBe(0);
+    expect(await store.spentToday("a")).toBe(2);
+    expect(await store.spentToday("c")).toBe(1);
+  });
+});
+
+describe("ipDailyBudgetUsd", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([
+    ["8", undefined, 2], // a quarter of the day's budget
+    ["8", "", 2],
+    ["8", "0", 0], // off
+    ["8", "3", 3],
+    ["8", "-1", 2],
+    ["8", "lots", 2],
+    [undefined, undefined, 0], // no budget, no share
+    ["0", undefined, 0],
+    [undefined, "3", 3], // an explicit cap stands alone
+  ])("with DAILY_BUDGET_USD=%s and IP_DAILY_BUDGET_USD=%s, an address has %s", (daily, ip, expected) => {
+    vi.stubEnv("DAILY_BUDGET_USD", daily as string);
+    vi.stubEnv("IP_DAILY_BUDGET_USD", ip as string);
+    expect(ipDailyBudgetUsd()).toBe(expected);
+  });
+});
+
+describe("unansweredQuoteCostUsd", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([
+    [undefined, 0.002],
+    ["", 0.002],
+    ["0", 0],
+    ["0.01", 0.01],
+    ["-1", 0.002],
+    ["lots", 0.002],
+  ])("reads %s as %s", (value, expected) => {
+    vi.stubEnv("UNANSWERED_QUOTE_COST_USD", value as string);
+    expect(unansweredQuoteCostUsd()).toBe(expected);
   });
 });

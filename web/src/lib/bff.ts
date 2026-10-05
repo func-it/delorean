@@ -43,6 +43,9 @@ const TITLES: Partial<Record<ProblemCode, string>> = {
   too_many_refusals: "Too many refusals",
   quote_in_progress: "Quote in progress",
   daily_budget_exhausted: "Daily budget exhausted",
+  payload_too_large: "Payload too large",
+  rate_limited: "Too many requests",
+  ip_budget_exhausted: "Address budget exhausted",
   quoter_unavailable: "Quoter unavailable",
 };
 

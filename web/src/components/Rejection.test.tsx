@@ -33,6 +33,8 @@ const MESSAGES: Record<ProblemCode, [number, string]> = {
   internal: [500, OUR_SIDE],
   too_many_refusals: [429, "Trop de paniers refusés comme des ordres au système : vos demandes sont suspendues. Réessayez plus tard."],
   quantity_unverified: [503, "Nous n'avons pas pu vérifier les quantités à cet instant : réessayez dans un instant."],
+  rate_limited: [429, "Trop de demandes en peu de temps : réessayez dans un instant."],
+  ip_budget_exhausted: [429, "Vous avez utilisé votre part du budget du jour, revenez demain."],
   quote_in_progress: [429, "Un devis est déjà en cours pour vous : patientez un instant, puis réessayez."],
   daily_budget_exhausted: [503, "Le vidéoclub a épuisé son budget du jour, revenez demain."],
   quoter_unavailable: [502, OUR_SIDE],
@@ -52,6 +54,16 @@ describe("Rejection", () => {
       expect(screen.queryByText("détails")).not.toBeInTheDocument();
     },
   );
+
+  it.each([
+    [30, "Trop de demandes en peu de temps : réessayez dans 30 secondes."],
+    [1, "Trop de demandes en peu de temps : réessayez dans 1 seconde."],
+    [undefined, "Trop de demandes en peu de temps : réessayez dans un instant."],
+  ])("gives the wait of a rate limit in seconds: %s", (retryAfter, sentence) => {
+    const { container } = render(<Rejection problem={problem({ code: "rate_limited", status: 429, retry_after_s: retryAfter })} />);
+
+    expect(text(container)).toBe(sentence);
+  });
 
   it("says the budget is spent, and nothing else", () => {
     const { container } = render(<Rejection problem={problem({ code: "daily_budget_exhausted", status: 503, retry_after_s: 3600 })} />);

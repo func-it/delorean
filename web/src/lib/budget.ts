@@ -136,6 +136,95 @@ export function dailyBudgetUsd(): number {
   return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
+/**
+ * What a call counts for when its answer says nothing of its cost: the quoter
+ * did not answer (the BFF's own `quoter_unavailable`: too slow, unreachable,
+ * out of contract) or failed without a usage. The call may have spent all the
+ * same, so the budget takes a flat estimate, `UNANSWERED_QUOTE_COST_USD`
+ * (0.002 by default, a few typical quotes; 0 counts nothing, an invalid value
+ * is the default).
+ */
+export function unansweredQuoteCostUsd(): number {
+  const raw = process.env.UNANSWERED_QUOTE_COST_USD;
+  if (raw === undefined || raw === "") return DEFAULT_UNANSWERED_COST_USD;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : DEFAULT_UNANSWERED_COST_USD;
+}
+
+const DEFAULT_UNANSWERED_COST_USD = 0.002;
+
+/**
+ * A client address's share of the day's budget, `IP_DAILY_BUDGET_USD`: one
+ * address cannot spend the whole of it. Absent, a quarter of
+ * `DAILY_BUDGET_USD` (and none when that is not set either); `0` turns it
+ * off; an invalid value is the default. 0 means no cap per address.
+ */
+export function ipDailyBudgetUsd(): number {
+  const raw = process.env.IP_DAILY_BUDGET_USD;
+  const fallback = dailyBudgetUsd() * IP_SHARE;
+  if (raw === undefined || raw === "") return fallback;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+const IP_SHARE = 0.25;
+
+/** What one address's quotes cost today (UTC). In memory: it starts again at a restart, the global ledger being the one kept. */
+export interface IpBudgetStore {
+  spentToday(key: string): Promise<number>;
+  add(key: string, costUsd: number): Promise<void>;
+}
+
+/** How many addresses are kept at most; past that, the least recently used go first. */
+const IP_CAPACITY = 50_000;
+
+interface IpLedger {
+  day: string;
+  micro: number;
+}
+
+export class MemoryIpBudgetStore implements IpBudgetStore {
+  private readonly ledgers = new Map<string, IpLedger>();
+  private readonly now: () => number;
+  private readonly capacity: number;
+
+  constructor(now: () => number = Date.now, capacity: number = IP_CAPACITY) {
+    this.now = now;
+    this.capacity = capacity;
+  }
+
+  async spentToday(key: string): Promise<number> {
+    const entry = this.ledgers.get(key);
+    return entry && entry.day === utcDay(this.now()) ? entry.micro / MICRO : 0;
+  }
+
+  async add(key: string, costUsd: number): Promise<void> {
+    if (!Number.isFinite(costUsd) || costUsd <= 0) return;
+    const day = utcDay(this.now());
+    const before = this.ledgers.get(key);
+    const micro = (before?.day === day ? before.micro : 0) + Math.round(costUsd * MICRO);
+    this.ledgers.delete(key);
+    this.ledgers.set(key, { day, micro });
+    for (const old of this.ledgers.keys()) {
+      if (this.ledgers.size <= this.capacity) break;
+      this.ledgers.delete(old);
+    }
+  }
+}
+
+let ipStore: IpBudgetStore | undefined;
+
+/** The process's per-address store, built at its first use. */
+export function ipBudgetStore(): IpBudgetStore {
+  ipStore ??= new MemoryIpBudgetStore();
+  return ipStore;
+}
+
+/** For tests: replaces the per-address store; without one, the next use builds it again. */
+export function setIpBudgetStore(replacement?: IpBudgetStore): void {
+  ipStore = replacement;
+}
+
 let store: BudgetStore | undefined;
 
 /** The process's store, on `BUDGET_FILE` (`.data/budget.json` by default), built at its first use. */

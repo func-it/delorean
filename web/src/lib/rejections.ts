@@ -55,6 +55,10 @@ export function explainProblem(problem: Problem): Rejection {
       return refusal("Un devis est déjà en cours pour vous : patientez un instant, puis réessayez.");
     case "daily_budget_exhausted":
       return refusal("Le vidéoclub a épuisé son budget du jour, revenez demain.");
+    case "ip_budget_exhausted":
+      return refusal("Vous avez utilisé votre part du budget du jour, revenez demain.");
+    case "rate_limited":
+      return refusal(`Trop de demandes en peu de temps : ${secondsAdvice(problem)}`);
     case "too_many_refusals":
       return refusal(`Trop de paniers refusés comme des ordres au système : vos demandes sont suspendues. ${retryAdvice(problem)}`);
     case "engine_unavailable":
@@ -63,6 +67,11 @@ export function explainProblem(problem: Problem): Rejection {
     default:
       return ours(OUR_SIDE);
   }
+}
+
+function secondsAdvice({ retry_after_s }: Problem): string {
+  if (!retry_after_s) return "réessayez dans un instant.";
+  return `réessayez dans ${formatCount(retry_after_s)}\u00a0seconde${retry_after_s > 1 ? "s" : ""}.`;
 }
 
 function retryAdvice({ retry_after_s }: Problem): string {
