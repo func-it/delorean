@@ -79,7 +79,6 @@ visitor starts an anonymous session with a generated name
 | Route | Quoter | Notes |
 |---|---|---|
 | `POST /api/quotes` | `POST /v1/quotes` | starts the anonymous session if there is none; body `{cart}`; the quoter's status and JSON are passed through unchanged, after the [strike rule](#strike-rule) |
-| `GET /api/catalog` | `GET /v1/catalog` | revalidated every 60 s; no session needed; the page does not call it |
 
 On top of the contract's codes, the BFF adds its own, in the same format
 (RFC 9457):
