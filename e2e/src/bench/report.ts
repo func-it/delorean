@@ -15,7 +15,7 @@ export interface Spread {
   max: number | null;
 }
 
-export interface StageSummary {
+interface StageSummary {
   stage: Stage;
   /** How many answers ran this stage. */
   runs: number;
@@ -109,7 +109,7 @@ export function rate(flags: boolean[]): Rate {
   return { hits, total: flags.length, rate: flags.length > 0 ? hits / flags.length : null };
 }
 
-export function spread(values: number[]): Spread {
+function spread(values: number[]): Spread {
   return { p50: percentile(values, 50), p90: percentile(values, 90), max: percentile(values, 100) };
 }
 

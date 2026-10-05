@@ -3,18 +3,18 @@ import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ajv, schemaRef, type Film, type Health, type ProblemCode } from './contract.ts';
 
-export const CASES_DIR = fileURLToPath(new URL('../../cases/quote', import.meta.url));
+const CASES_DIR = fileURLToPath(new URL('../../cases/quote', import.meta.url));
 
 export type FilmCounts = Partial<Record<Film, number>>;
 
-export interface PricedExpectation {
+interface PricedExpectation {
   status: 200;
   total_cents: number;
   /** Total quantity per film; `other` adds up every film outside the saga. */
   films?: FilmCounts;
 }
 
-export interface RejectedExpectation {
+interface RejectedExpectation {
   status: number;
   code: ProblemCode;
 }

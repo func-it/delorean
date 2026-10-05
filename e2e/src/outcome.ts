@@ -68,7 +68,7 @@ function describeStatus(outcome: { status: number; code?: string }): string {
 }
 
 /** A canonical rendering: equal counts render equal. */
-export function formatFilms(films: FilmCounts): string {
+function formatFilms(films: FilmCounts): string {
   const entries = Object.entries(films)
     .filter(([, quantity]) => quantity > 0)
     .sort(([x], [y]) => x.localeCompare(y));

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import type { Health } from './contract.ts';
 
 /** The repository's prompts: every word the implementations put to a model. */
-export const PROMPTS_DIR = new URL('../../prompts/', import.meta.url);
+const PROMPTS_DIR = new URL('../../prompts/', import.meta.url);
 
 /** The version of each prompt file: the first 8 hex digits of the SHA-256 of its bytes. */
 export function promptVersions(dir: URL = PROMPTS_DIR): Health['prompts'] {

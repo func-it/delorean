@@ -6,7 +6,7 @@
  */
 
 /** An attribute value, typed as OTLP types it. */
-export type Value =
+type Value =
   | { string: string }
   | { bool: boolean }
   | { int: string }
