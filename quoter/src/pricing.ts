@@ -1,4 +1,4 @@
-import { inSaga, volumeOf, type Film, type Line } from './cart.ts';
+import { SAGA, inSaga, volumeOf, type Film, type Line } from './cart.ts';
 
 /**
  * Prices identified lines in integer cents: what each film costs, and the
@@ -29,13 +29,16 @@ interface Tier {
   percent: number;
 }
 
+/** What the shop calls and charges each saga volume: the one place of titles and prices (the volumes themselves are cart.ts's SAGA). */
+const SAGA_SHELF: Record<(typeof SAGA)[number], { title: string; unitCents: number }> = {
+  bttf_1: { title: 'Back to the Future', unitCents: 1500 },
+  bttf_2: { title: 'Back to the Future Part II', unitCents: 1500 },
+  bttf_3: { title: 'Back to the Future Part III', unitCents: 1500 },
+};
+
 /** The shop's catalog: 15 EUR a volume, 20 EUR any other film, 10 % off the saga with two distinct volumes, 20 % with three. */
 export const DEFAULT_CATALOG: Catalog = {
-  volumes: [
-    { film: 'bttf_1', title: 'Back to the Future', unitCents: 1500 },
-    { film: 'bttf_2', title: 'Back to the Future Part II', unitCents: 1500 },
-    { film: 'bttf_3', title: 'Back to the Future Part III', unitCents: 1500 },
-  ],
+  volumes: SAGA.map((film) => ({ film, ...SAGA_SHELF[film] })),
   otherUnitCents: 2000,
   tiers: [
     { distinctVolumes: 2, percent: 10 },

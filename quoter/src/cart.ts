@@ -4,21 +4,22 @@
  * itself.
  */
 
-/** What a title is identified as: a saga volume, or any other film. The ids of the API contract. */
-export type Film = 'bttf_1' | 'bttf_2' | 'bttf_3' | 'other';
+/** The saga's volumes, in order, once: the position of a film here is its volume number. The ids of the API contract. */
+export const SAGA = ['bttf_1', 'bttf_2', 'bttf_3'] as const;
+
+/** What a title is identified as: a saga volume, or any other film. */
+export type Film = (typeof SAGA)[number] | 'other';
 
 /** Every possible identification, the saga volumes first, in order. */
-export const FILMS: readonly Film[] = ['bttf_1', 'bttf_2', 'bttf_3', 'other'];
+export const FILMS: readonly Film[] = [...SAGA, 'other'];
 
 export function isFilm(value: unknown): value is Film {
   return FILMS.includes(value as Film);
 }
 
-const VOLUMES: Record<Film, number> = { bttf_1: 1, bttf_2: 2, bttf_3: 3, other: 0 };
-
 /** The saga volume of a film, 1 to 3, and 0 for any other film. */
 export function volumeOf(film: Film): number {
-  return VOLUMES[film];
+  return (SAGA as readonly Film[]).indexOf(film) + 1;
 }
 
 /** Whether a film is a Back to the Future volume. */
