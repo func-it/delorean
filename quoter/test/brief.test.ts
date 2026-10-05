@@ -30,4 +30,16 @@ describe('the brief', () => {
 
     expect(euros(priced.price.totalCents)).toBe(expected);
   });
+
+  it('reads the simple forms of the brief: Arabic or Roman numerals, with or without "Part", any case, free spacing', async () => {
+    const forms = [
+      ['back to the future I', 'BACK TO THE FUTURE   II', 'Back to the Future\tPart III'],
+      ['  Back to the Future Part 1', 'back  to the future 2', 'BACK TO THE FUTURE PART 3  '],
+    ];
+    for (const lines of forms) {
+      const priced = await quote(newPipeline(), lines.join('\n'));
+
+      expect(euros(priced.price.totalCents)).toBe(36);
+    }
+  });
 });
