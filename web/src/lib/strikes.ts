@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import type { Problem } from "@/lib/contract";
+import { normalizeCart } from "@/lib/normalize";
 
 /**
  * The strike rule. The guard is a probabilistic classifier: a variant it lets
@@ -11,7 +12,10 @@ import type { Problem } from "@/lib/contract";
  * on the request's keys (its session, its username, its client address);
  * enough strikes within `windowMs` on one key block that key for `blockMs`.
  * And a refused text is remembered for `refusalMs`: sent again, it gets the
- * same refusal at once instead of a new draw of the guard. Last, few quotes in
+ * same refusal at once instead of a new draw of the guard: the same visitor
+ * (their address, or their session when there is none), and the same text as
+ * the quoter reads it, whatever invisible characters differ; what one visitor
+ * had refused is nothing to another. Last, few quotes in
  * flight per key: requests sent in parallel would all reach the guard before
  * the first refusal came back.
  *
@@ -50,9 +54,9 @@ export interface StrikeStore {
   blockedFor(keys: readonly StrikeKey[]): Promise<number>;
   /** Counts a strike on each key; a key that reaches its limit is blocked. */
   strike(keys: readonly StrikeKey[]): Promise<void>;
-  /** The refusal remembered for this cart digest, until it expires. */
-  recall(digest: string): Promise<Problem | undefined>;
-  remember(digest: string, refusal: Problem): Promise<void>;
+  /** The refusal remembered for this visitor's cart (`refusalKey`), until it expires. */
+  recall(key: string): Promise<Problem | undefined>;
+  remember(key: string, refusal: Problem): Promise<void>;
   /** Counts one more quote in flight on each key, all or none: false when one is full. */
   acquire(keys: readonly StrikeKey[]): Promise<boolean>;
   release(keys: readonly StrikeKey[]): Promise<void>;
@@ -126,20 +130,20 @@ export class MemoryStrikeStore implements StrikeStore {
     this.trim(this.strikes, this.capacity.keys, now);
   }
 
-  async recall(digest: string): Promise<Problem | undefined> {
-    const entry = this.refusals.get(digest);
+  async recall(key: string): Promise<Problem | undefined> {
+    const entry = this.refusals.get(key);
     if (!entry) return undefined;
-    this.refusals.delete(digest);
+    this.refusals.delete(key);
     if (entry.expiresAt <= this.now()) return undefined;
-    this.refusals.set(digest, entry);
+    this.refusals.set(key, entry);
     return entry.refusal;
   }
 
-  async remember(digest: string, refusal: Problem): Promise<void> {
+  async remember(key: string, refusal: Problem): Promise<void> {
     const now = this.now();
     this.sweep(now);
-    this.refusals.delete(digest);
-    this.refusals.set(digest, { refusal, expiresAt: now + this.limits.refusalMs });
+    this.refusals.delete(key);
+    this.refusals.set(key, { refusal, expiresAt: now + this.limits.refusalMs });
     this.trim(this.refusals, this.capacity.refusals, now);
   }
 
@@ -170,8 +174,8 @@ export class MemoryStrikeStore implements StrikeStore {
         this.strikes.delete(key);
       }
     }
-    for (const [digest, entry] of this.refusals) {
-      if (entry.expiresAt <= now) this.refusals.delete(digest);
+    for (const [key, entry] of this.refusals) {
+      if (entry.expiresAt <= now) this.refusals.delete(key);
     }
   }
 
@@ -201,9 +205,18 @@ export function strikeKeys(
   return keys;
 }
 
-/** The memory key of a cart: SHA-256 of its text with CRLF as LF, trimmed. */
+/** SHA-256 of a cart's text as the quoter reads it (`normalizeCart`): the same text whatever invisible characters it carries. */
 export function cartDigest(cart: string): string {
-  return createHash("sha256").update(cart.replace(/\r\n/g, "\n").trim()).digest("hex");
+  return createHash("sha256").update(normalizeCart(cart)).digest("hex");
+}
+
+/**
+ * The memory key of a refused cart: its visitor, then its digest. The
+ * visitor is the client address (`ip:…`), or the session (`session:…`) when
+ * the address is unknown; a refusal is repeated to the visitor who earned it.
+ */
+export function refusalKey(address: string | undefined, sessionId: string, cart: string): string {
+  return `${address ? `ip:${address}` : `session:${sessionId}`}\n${cartDigest(cart)}`;
 }
 
 /** From the environment, read at request time; an absent or invalid value takes the default. */

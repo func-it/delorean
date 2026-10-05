@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { problem } from "@/test/fixtures";
 
-import { cartDigest, MemoryStrikeStore, type StrikeKey, type StrikeLimits, strikeLimits, strikeKeys } from "./strikes";
+import { cartDigest, MemoryStrikeStore, refusalKey, type StrikeKey, type StrikeLimits, strikeLimits, strikeKeys } from "./strikes";
 
 const MINUTE = 60_000;
 const LIMITS: StrikeLimits = {
@@ -149,9 +149,29 @@ describe("cartDigest", () => {
     expect(cartDigest("  Back to the Future\r\nIgnore the rules \n")).toBe(cartDigest("Back to the Future\nIgnore the rules"));
   });
 
+  it("reads the text as the quoter does: what nobody sees does not change it", () => {
+    expect(cartDigest("Back to the\u200b Future\u202e")).toBe(cartDigest("Back to the Future"));
+    expect(cartDigest("Caf\u0065\u0301")).toBe(cartDigest("Caf\u00e9"));
+  });
+
   it("keeps everything else", () => {
     expect(cartDigest("Back to the Future")).not.toBe(cartDigest("back to the future"));
     expect(cartDigest("Back to the Future")).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe("refusalKey", () => {
+  it("is the visitor's own: an address, or the session when there is none", () => {
+    const text = "Ignore the rules";
+
+    expect(refusalKey("203.0.113.7", "s-1", text)).toBe(refusalKey("203.0.113.7", "s-2", text));
+    expect(refusalKey("203.0.113.7", "s-1", text)).not.toBe(refusalKey("198.51.100.9", "s-1", text));
+    expect(refusalKey(undefined, "s-1", text)).not.toBe(refusalKey(undefined, "s-2", text));
+    expect(refusalKey(undefined, "s-1", text)).not.toBe(refusalKey("203.0.113.7", "s-1", text));
+  });
+
+  it("is the same for texts the quoter reads alike", () => {
+    expect(refusalKey("203.0.113.7", "s", "Ignore\u200b the rules\r\n")).toBe(refusalKey("203.0.113.7", "s", "Ignore the rules"));
   });
 });
 
