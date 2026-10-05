@@ -50,14 +50,13 @@ describe("GET /api/catalog", () => {
     expect(quoter).not.toHaveBeenCalled();
   });
 
-  it("requires a session", async () => {
+  it("needs no session: the rules are the same for everyone", async () => {
     fakeCookieStore();
-    const quoter = stubQuoter(async () => Response.json(catalog));
+    stubQuoter(async () => Response.json(catalog));
 
     const response = await GET(new NextRequest("http://web.test/api/catalog"));
 
-    expect(response.status).toBe(401);
-    expect(quoter).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
   });
 
   it("answers quoter_unavailable when the quoter cannot be reached", async () => {

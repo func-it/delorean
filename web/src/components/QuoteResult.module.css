@@ -1,148 +1,67 @@
 .result {
   display: grid;
-  gap: 20px;
+  gap: 16px;
 }
 
-.title {
-  font-size: 1.5rem;
+.total {
+  font-family: var(--font-display);
+  font-size: clamp(2.75rem, 12vw, 4rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .lines {
-  width: 100%;
-  border-collapse: collapse;
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  list-style: none;
 }
 
-.lines th,
-.lines td {
-  padding: 10px 6px;
+.lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 6px;
   border-bottom: 1px solid var(--line);
-  text-align: start;
-  vertical-align: top;
 }
 
-.lines th:first-child,
-.lines td:first-child {
-  padding-inline-start: 0;
+.lines li > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
-.lines th:last-child,
-.lines td:last-child {
-  padding-inline-end: 0;
-}
-
-.lines thead th {
-  font-size: 0.8125rem;
-  font-weight: 500;
+.quantity {
   color: var(--ink-muted);
-  vertical-align: bottom;
 }
 
-.lines abbr {
-  text-decoration: none;
-}
-
-.lines tbody th,
-.lines tfoot th {
-  font-weight: 400;
-}
-
-.lines tfoot tr:last-child th,
-.lines tfoot tr:last-child td {
-  border-bottom: 0;
-}
-
-.number {
-  font-family: var(--font-display);
+.amount,
+.score {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.lines .number {
-  text-align: end;
-}
-
-.written {
-  display: block;
-  font-weight: 500;
-  overflow-wrap: anywhere;
-}
-
-.secondary {
-  display: block;
-  margin-top: 2px;
-  font-size: 0.8125rem;
+.details {
+  font-size: 0.875rem;
   color: var(--ink-muted);
 }
 
-.badge {
+.details summary {
   display: inline-block;
-  margin-inline-start: 6px;
-  padding: 0 6px;
-  border-radius: 4px;
-  background: var(--warning-surface);
-  color: var(--warning-ink);
-  font-weight: 600;
-}
-
-.circuit {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4px 16px;
-  padding: 16px 20px;
-  border: 3px solid light-dark(#b9bfc5, #3a3f44);
-  border-radius: 8px;
-  background: var(--circuit);
-  box-shadow: inset 0 2px 14px rgb(0 0 0 / 0.8);
-}
-
-.circuit dt {
-  color: var(--circuit-label);
-  font-weight: 500;
-}
-
-.circuit dd {
-  font-family: var(--font-display);
-  font-size: clamp(2.5rem, 10vw, 3.5rem);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  color: var(--circuit-digits);
-  text-shadow:
-    0 0 6px rgb(255 160 40 / 0.55),
-    0 0 20px rgb(255 140 20 / 0.3);
-}
-
-.why {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-field);
-  background: var(--surface);
-}
-
-.why summary {
-  padding: 10px 14px;
-  font-weight: 500;
+  min-height: 44px;
+  line-height: 44px;
   cursor: pointer;
 }
 
-.reread {
-  margin-left: 8px;
-  font-size: 0.8125rem;
-  font-weight: 400;
-  color: var(--ink-muted);
-}
-
-.whyBody {
+.detailsBody {
   display: grid;
   gap: 12px;
-  padding: 0 14px 14px;
-  font-size: 0.9375rem;
 }
 
+.readings,
 .checks {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   padding: 0;
   list-style: none;
 }
@@ -153,13 +72,11 @@
   gap: 16px;
 }
 
-.checks li > span:first-child {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.score {
-  font-family: var(--font-display);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+.badge {
+  margin-inline-start: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--warning-surface);
+  color: var(--warning-ink);
+  font-weight: 600;
 }

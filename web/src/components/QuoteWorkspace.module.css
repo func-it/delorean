@@ -1,15 +1,22 @@
-.main {
-  display: grid;
-  gap: 40px;
-  max-width: 72rem;
-  margin: 0 auto;
-  padding: 24px var(--gutter) 40px;
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
 }
 
-.primary {
+.main {
   display: grid;
-  gap: 32px;
-  min-width: 0;
+  flex: 1;
+  align-content: start;
+  gap: 24px;
+  width: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 40px var(--gutter) 32px;
+}
+
+.title {
+  font-size: 2rem;
 }
 
 .outcome {
@@ -21,24 +28,10 @@
 }
 
 .footer {
-  max-width: 72rem;
+  width: 100%;
+  max-width: 40rem;
   margin: 0 auto;
-  padding: 16px var(--gutter) 32px;
-  border-top: 1px solid var(--line);
-  font-size: 0.875rem;
+  padding: 16px var(--gutter) 24px;
+  font-size: 0.8125rem;
   color: var(--ink-muted);
-}
-
-@media (min-width: 960px) {
-  .main {
-    grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
-    align-items: start;
-    gap: 48px;
-    padding-top: 40px;
-  }
-
-  .main > aside {
-    position: sticky;
-    top: 24px;
-  }
 }

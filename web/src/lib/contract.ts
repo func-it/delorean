@@ -14,9 +14,8 @@ export type Usage = Schemas["Usage"];
 
 /**
  * Problem codes the browser can receive from the BFF: every code of the
- * quoter contract, plus five the BFF raises itself.
+ * quoter contract, plus four the BFF raises itself.
  *
- * - `no_session` (401): no valid session cookie; log in again.
  * - `too_many_refusals` (429): the session, the username or the client
  *   address had `STRIKE_LIMIT` carts refused as injections within
  *   `STRIKE_WINDOW_S`; it is blocked for `retry_after_s` more seconds.
@@ -30,7 +29,6 @@ export type Usage = Schemas["Usage"];
  */
 export type ProblemCode =
   | Schemas["ProblemCode"]
-  | "no_session"
   | "too_many_refusals"
   | "quote_in_progress"
   | "daily_budget_exhausted"
