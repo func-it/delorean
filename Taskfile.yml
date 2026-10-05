@@ -3,30 +3,21 @@
 version: "3"
 
 includes:
-  go:
-    taskfile: ./quoters/go/Taskfile.yml
-    dir: ./quoters/go
   ts:
     taskfile: ./quoters/typescript/Taskfile.yml
     dir: ./quoters/typescript
-  py:
-    taskfile: ./quoters/python/Taskfile.yml
-    dir: ./quoters/python
 
 tasks:
   setup:
-    desc: Dependencies of every part (the three quoters, web, e2e)
+    desc: Dependencies of every part (the quoter, web, e2e)
     cmds:
-      - task: go:setup
       - task: ts:setup
-      - task: py:setup
       - cd web && npm ci
       - cd e2e && npm ci
 
   generate:
     desc: Code generated from api/openapi.yaml, in every part
     cmds:
-      - task: go:generate
       - task: ts:generate
       - cd web && npm run generate
       - cd e2e && npm run generate
@@ -34,64 +25,34 @@ tasks:
   lint:
     desc: Linters and type checks of every part
     cmds:
-      - task: go:lint
       - task: ts:lint
-      - task: py:lint
       - cd web && npm run lint && npm run typecheck
       - cd e2e && npm run lint && npm run typecheck && npm run format:check
 
   test:
     desc: Unit tests of every part — no model is called
     cmds:
-      - task: go:test
       - task: ts:test
-      - task: py:test
       - cd web && npm test
       - cd e2e && npm test
 
-  cases:check:
-    desc: Validate every shared case in cases/, offline
-    dir: quoters/go
-    cmds: [go run ./cmd/bench check]
-
   e2e:
-    desc: The end-to-end suite against the Go quoter on its fake engines
+    desc: The end-to-end suite against the quoter on its fake engines (:24799)
     cmds: [scripts/e2e-fake.sh]
-
-  e2e:all:
-    desc: The end-to-end suite against the three quoters on their fake engines, one after the other
-    cmds:
-      - task: e2e
-      - task: e2e:typescript
-      - task: e2e:python
-
-  e2e:typescript:
-    desc: The end-to-end suite against the TypeScript quoter on its fake engines (:24798)
-    cmds: [quoters/typescript/scripts/e2e-fake.sh]
-
-  e2e:python:
-    desc: The end-to-end suite against the Python quoter on its fake engines (:24797)
-    cmds: [quoters/python/scripts/e2e-fake.sh]
 
   web:e2e:
     desc: The web app in a browser (Playwright, desktop and mobile) against the whole stack on fake engines, in Docker
     cmds: ["scripts/web-e2e.sh {{.CLI_ARGS}}"]
-
-  e2e:parity:
-    desc: "The three quoters against each other on their fake engines: same answers, logs and commands, byte for byte"
-    cmds: [scripts/e2e-parity.sh]
 
   ci:
     desc: What CI runs
     cmds:
       - task: lint
       - task: test
-      - task: cases:check
-      - task: e2e:all
-      - task: e2e:parity
+      - task: e2e
 
   up:
-    desc: "The stack in Docker: web :24790, quoters Go :24791, Python :24792, TypeScript :24793; ENGINES=fake for no key"
+    desc: "The stack in Docker: web :24790, quoter :24793, docs :24795; fake engines unless ENGINES=live"
     cmds: [docker compose up --build]
 
   down:
@@ -107,7 +68,7 @@ tasks:
     cmds: [scripts/langfuse-secrets.sh]
 
   langfuse:up:
-    desc: The local Langfuse, http://localhost:24794 (project delorean)
+    desc: The local Langfuse (optional), http://localhost:24794 (project delorean)
     deps: [langfuse:secrets]
     cmds: [docker compose -f deploy/langfuse/compose.yml --env-file .env up -d --wait]
 
@@ -116,7 +77,7 @@ tasks:
     cmds: [docker compose -f deploy/langfuse/compose.yml --env-file .env down]
 
   langfuse:report:
-    desc: "Per quoter: quotes, cost and latency (mean, median, p90), outcomes; task langfuse:report -- --from 2026-10-01"
+    desc: "Quotes, cost and latency (mean, median, p90), outcomes; task langfuse:report -- --from 2026-10-01"
     dir: e2e
     dotenv: [../.env]
     cmds: ['npm run --silent langfuse:report -- {{.CLI_ARGS}}']
@@ -128,25 +89,6 @@ tasks:
     cmds: ['npm run --silent langfuse:dashboard -- {{.CLI_ARGS}}']
 
   bench:
-    desc: "Component benches of the Go quoter: task bench -- run guard --runs 1 (RUN_LIVE=1 to spend)"
-    dir: quoters/go
-    dotenv: [../../.env]
-    cmds: ['go run ./cmd/bench {{.CLI_ARGS}}']
-
-  bench:system:
-    desc: "System bench of one quoter: task bench:system -- --base-url http://localhost:24791 --runs 3"
+    desc: "System bench of the quoter: task bench -- --base-url http://localhost:24793 --runs 3"
     dir: e2e
     cmds: ['npm run bench -- {{.CLI_ARGS}}']
-
-  bench:compare:
-    desc: "Compare bench reports: task bench:compare -- ../reports/a.json ../reports/b.json"
-    dir: e2e
-    cmds: ['npm run bench:compare -- {{.CLI_ARGS}}']
-
-  bench:load:
-    desc: "Load bench of the three images on fake engines that take a model's time, no model called: task bench:load -- --cpus 1 --steps 1,10"
-    cmds:
-      - docker build -q -f quoters/go/Dockerfile -t delorean-go:load .
-      - docker build -q -f quoters/typescript/Dockerfile -t delorean-typescript:load .
-      - docker build -q -f quoters/python/Dockerfile -t delorean-python:load .
-      - cd e2e && npm run --silent bench:load -- {{.CLI_ARGS}}

@@ -3,15 +3,7 @@
 # that it never meets a stack already running there. Playwright reaches the
 # web app on the project's network.
 services:
-  quoter-go:
-    environment:
-      OPENROUTER_API_KEY: ""
-    ports: !reset []
   quoter-typescript:
-    environment:
-      OPENROUTER_API_KEY: ""
-    ports: !reset []
-  quoter-python:
     environment:
       OPENROUTER_API_KEY: ""
     ports: !reset []

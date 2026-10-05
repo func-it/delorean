@@ -8,10 +8,6 @@
 .env.*
 !.env.example
 
-# Go
-quoters/go/bin/
-quoters/go/coverage.out
-
 # Node
 node_modules/
 .next/

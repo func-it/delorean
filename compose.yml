@@ -3,56 +3,18 @@
 #   ENGINES=live DAILY_BUDGET_USD=5 docker compose up --build
 #                                              # real models: OPENROUTER_API_KEY in .env, and a daily
 #                                              # spending cap, without which the web app does not start
-# Web app on http://localhost:24790, Go quoter on http://localhost:24791,
-# documentation on http://localhost:24795.
+# Web app on http://localhost:24790, quoter on http://localhost:24793,
+# documentation on http://localhost:24795. Langfuse (traces) is optional:
+# `task langfuse:up`, then LANGFUSE_* in .env.
 #
 # Each service is limited in memory and CPU, says when it is healthy (the web app
-# waits for the quoters), and has time to finish its requests when stopped: a
+# waits for the quoter), and has time to finish its requests when stopped: a
 # request is cut at 15 s (REQUEST_TIMEOUT) and the drain adds 5 s.
 name: delorean
 
 services:
-  quoter-go:
-    build:
-      context: .
-      dockerfile: quoters/go/Dockerfile
-    environment:
-      ENGINES: ${ENGINES:-fake}
-      # the limits of a cart, one figure from the browser to the quoter (the same variables in the web app)
-      MAX_BODY_BYTES: ${MAX_BODY_BYTES:-8192}
-      MAX_INPUT_TOKENS: ${MAX_INPUT_TOKENS:-256}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      PARSE_MODEL: ${PARSE_MODEL:-openai/gpt-6-luna}
-      PARSE_EFFORT: ${PARSE_EFFORT:-minimal}
-      RECOUNT_MODEL: ${RECOUNT_MODEL:-openai/gpt-6-luna}
-      RECOUNT_EFFORT: ${RECOUNT_EFFORT:-none}
-      READ_ATTEMPTS: ${READ_ATTEMPTS:-3}
-      JEV_MODEL: ${JEV_MODEL:-typesafe/jev-1.13}
-      # traces go to the local Langfuse (deploy/langfuse), seen from the container
-      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
-      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
-      LANGFUSE_BASE_URL: ${LANGFUSE_DOCKER_BASE_URL:-}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "127.0.0.1:24791:24791"
-    mem_limit: 512m
-    cpus: 1.5
-    stop_grace_period: 25s
-    healthcheck:
-      test: ["CMD", "/usr/local/bin/delorean", "healthcheck"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-    # the least a process needs: no capability, no way to gain one, an image it cannot write to
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
-    read_only: true
-    restart: unless-stopped
-
-  # The TypeScript implementation, the same contract on :24793. Built from the
-  # repository's root: the image carries the shared prompts/.
+  # The quoter, on :24793. Built from the repository's root: the image carries
+  # the shared prompts/.
   quoter-typescript:
     build:
       context: .
@@ -92,52 +54,11 @@ services:
     tmpfs: ["/tmp"]
     restart: unless-stopped
 
-  # The Python implementation, the same contract on :24792. Built from the
-  # repository's root: the image carries the shared prompts/.
-  quoter-python:
-    build:
-      context: .
-      dockerfile: quoters/python/Dockerfile
-    environment:
-      ENGINES: ${ENGINES:-fake}
-      # the limits of a cart, one figure from the browser to the quoter (the same variables in the web app)
-      MAX_BODY_BYTES: ${MAX_BODY_BYTES:-8192}
-      MAX_INPUT_TOKENS: ${MAX_INPUT_TOKENS:-256}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      PARSE_MODEL: ${PARSE_MODEL:-openai/gpt-6-luna}
-      PARSE_EFFORT: ${PARSE_EFFORT:-minimal}
-      RECOUNT_MODEL: ${RECOUNT_MODEL:-openai/gpt-6-luna}
-      RECOUNT_EFFORT: ${RECOUNT_EFFORT:-none}
-      READ_ATTEMPTS: ${READ_ATTEMPTS:-3}
-      JEV_MODEL: ${JEV_MODEL:-typesafe/jev-1.13}
-      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
-      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
-      LANGFUSE_BASE_URL: ${LANGFUSE_DOCKER_BASE_URL:-}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "127.0.0.1:24792:24792"
-    mem_limit: 512m
-    cpus: 1.5
-    stop_grace_period: 25s
-    healthcheck:
-      test: ["CMD", "delorean", "healthcheck"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-    # the least a process needs: no capability, no way to gain one, an image it cannot write to
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
-    read_only: true
-    tmpfs: ["/tmp"]
-    restart: unless-stopped
-
   web:
     build:
       context: ./web
     environment:
-      QUOTERS: '{"go":"http://quoter-go:24791","typescript":"http://quoter-typescript:24793","python":"http://quoter-python:24792"}'
+      QUOTER_URL: http://quoter-typescript:24793
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET (32+ characters) in .env}
       # served over plain HTTP on localhost: a Secure cookie would be dropped by some browsers
       SESSION_COOKIE_SECURE: "false"
@@ -174,11 +95,7 @@ services:
       retries: 3
       start_period: 20s
     depends_on:
-      quoter-go:
-        condition: service_healthy
       quoter-typescript:
-        condition: service_healthy
-      quoter-python:
         condition: service_healthy
     # the least a process needs: no capability, no way to gain one, an image it cannot write to
     cap_drop: [ALL]

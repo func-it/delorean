@@ -26,6 +26,6 @@ run() {
   docker run --rm --network "${project}_default" --user "$(id -u):$(id -g)" -e HOME=/tmp -e CI \
     -e BASE_URL=http://web:24790 -v "$root/web:/web" -w /web "$playwright" "$@"
 }
-# the stack answers once the web app and its quoters are up
+# the stack answers once the web app and its quoter are up
 run sh -c 'for i in $(seq 1 120); do node -e "fetch(process.env.BASE_URL + \"/\").then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))" && exit 0; sleep 1; done; echo "the stack did not answer" >&2; exit 1'
 run sh -c 'npm ci --no-audit --no-fund --loglevel=error && npx playwright test "$@"' playwright "$@"
