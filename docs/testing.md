@@ -164,7 +164,10 @@ everything down. It checks a priced cart (the total, the lines, the saga
 discount, the announcement to screen readers), the reading behind
 « détails », an example cart, Ctrl+Enter, the refusals in one sentence (an
 injection, a text that orders no film, a cart over the token limit), a
-recount off its schema left out, and `?quoter=python`.
+recount off its schema left out, `?quoter=python`, the size of a cart in
+three cases with a picture each (near the limit, over the token limit, over 8
+KB: `web/test-results/screenshots`), a proxy's own 413 page, and the security
+headers with the page working under them.
 
 ### Parity suite
 

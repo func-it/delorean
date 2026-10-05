@@ -145,7 +145,12 @@ any call:
    characters are what a reader cannot see but a model reads: zero-width
    spaces that split a word, bidirectional overrides that show text in another
    order, tag characters (`U+E0000` block) that spell ASCII no one sees. An
-   instruction hidden there would reach the models and no reviewer;
+   instruction hidden there would reach the models and no reviewer. Also
+   removed, as they draw nothing without being format characters: `U+034F`,
+   `U+115F`–`U+1160`, `U+17B4`–`U+17B5`, `U+180B`–`U+180F`, `U+2800` (the blank
+   braille pattern), `U+3164`, `U+FE00`–`U+FE0F` (variation selectors, so an
+   emoji loses its presentation), `U+FFA0` and `U+E0100`–`U+E01EF`: an explicit
+   table in each quoter, because runtimes disagree on a Unicode version;
 2. empty or blank → `empty_cart`;
 3. count the tokens with a real BPE tokenizer (`o200k_base`, embedded, no
    network); above `MAX_INPUT_TOKENS` (default 256) → `too_long`, with
@@ -244,7 +249,17 @@ Each reader is an OpenAI-compatible endpoint (`PARSE_BASE_URL`,
 `RECOUNT_BASE_URL`, OpenRouter by default): a local server such as Ollama
 can be benched. Its effort (`PARSE_EFFORT`, `RECOUNT_EFFORT`) is `none`,
 `minimal`, `low`, `medium` or `high`; with `none` the request carries no
-reasoning field, which a model without reasoning refuses.
+reasoning field, which a model without reasoning refuses. The models' key
+goes with every request: a base URL in `http` is refused at startup, on live
+engines, unless its host is `localhost`, `127.0.0.1` or `::1`
+(`PARSE_BASE_URL is "http://x/v1", not https: a key is sent with it (http is
+for localhost only)`).
+
+The customer's text goes between `<customer_message>` tags (`prompts/parse.json`)
+and is data: a `</customer_message` in it, in any case, is written `<\/customer_message`
+so that it cannot close its own fence, and in the retry turn the label of a
+finding (a title from the reading) is collapsed to one line of single spaces
+and given the same escape, so that it cannot add lines or close the fence.
 
 ### 3′. recount: a second reading
 
@@ -417,15 +432,20 @@ wrong reading it refuses two times in three would pass 70 % of the time
 - The first reading that passes is priced. After the last attempt the cart
   is refused, `422 unfaithful_reading`, with the last judgement;
   `judge.attempts` says how many readings were made, in the quote too.
-- On the first attempt, no film gives `no_film`, as before. On a later
-  attempt, a reading with no film is a failed attempt, not a refusal (the
-  customer's text has not changed, the model has): it is not put to Jev, and
-  its judgement is a single `missing` finding, label `the whole reading`,
-  score 0, which feeds the next attempt or the final refusal like any other.
+- A first reading with no film is read once more before it is refused: the
+  guard let the text through as an order, so an empty list is more likely a
+  slip of the model than the customer's answer. It is a failed attempt, not a
+  refusal (the customer's text has not changed, the model has): it is not put
+  to Jev, and its judgement is a single `missing` finding, label `the whole
+  reading`, score 0, which feeds the next attempt. A second reading with no
+  film either is `no_film`, final (`parse` has 2 calls in its usage); with
+  `READ_ATTEMPTS=1`, the first is enough. A later reading with no film (after
+  one with films) is a failed attempt as well and ends, like any, in
+  `unfaithful_reading`.
 - Too many copies of one title gives `quantity_too_large` on any attempt: it
   is a safety limit, whichever reading crosses it.
 - On every attempt the order is the same: a parse that fails is a `502`;
-  then a reading refusal (`no_film` on the first attempt,
+  then a reading refusal (`no_film` after two readings with none,
   `quantity_too_large` on any). A recount that fails, on any attempt, is
   left out of that reading (degraded), never a `502` unless the request is
   over.
@@ -563,7 +583,7 @@ production.
 - **parse**: each non-empty line is a mention, except lines that start with
   `#fake:`. Quantity: prefix `N x ` / `N × ` or suffix ` x N` / ` × N` (N
   integer ≥ 1), otherwise 1. Title: the rest, with leading and trailing
-  whitespace removed. No mention → the pipeline answers `no_film`; N > 1000 →
+  whitespace removed. No mention → the pipeline reads once more, then answers `no_film`; N > 1000 →
   `quantity_too_large`.
 - **recount**: the same reading as parse; if a line of the text is exactly
   `#fake:miscount`, one more copy of the first mention, so `count` fails for
