@@ -114,6 +114,25 @@ describe('Jev.decide', () => {
     );
   });
 
+  it('refuses a noul question answered without its probability, and takes a probability of 0', async () => {
+    const missing = stub([200, '{"answers":{"yes":{}}}']);
+    const error = await new Jev({ key: 'k', fetch: missing.fetch })
+      .decide({ state: {}, questions: [yes] }, never)
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(JevError);
+    expect((error as JevError).message).toBe('jev-1.13: "yes" has no noul probability');
+
+    const zero = stub([200, '{"answers":{"yes":{"noul":0}}}']);
+    const decision = await new Jev({ key: 'k', fetch: zero.fetch }).decide({ state: {}, questions: [yes] }, never);
+    expect(decision.answers.yes?.noul).toBe(0);
+
+    // a choice question has no noul to say
+    const choice = stub([200, '{"answers":{"film":{"choice":"other","confidence":0.9}}}']);
+    await expect(
+      new Jev({ key: 'k', fetch: choice.fetch }).decide({ state: {}, questions: [film] }, never),
+    ).resolves.toBeDefined();
+  });
+
   it.each([
     [429, '{"error":{"message":"slow down"}}', 'jev-1.13: status 429: slow down', true],
     [402, '{"error":{"message":"insufficient credits"}}', 'jev-1.13: status 402: insufficient credits', false],

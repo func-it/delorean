@@ -266,8 +266,10 @@ interface Wire {
 /**
  * The answers, checked against the questions: an answer missing, a choice
  * outside the question's options, a probability outside [0, 1] is an engine
- * that drifts — an error, not a verdict. A probability left out reads as 0,
- * as the other implementations read it.
+ * that drifts — an error, not a verdict. So is a noul question answered
+ * without its `noul` probability: an answer that does not say is no answer,
+ * and `noul: 0` is one. (The other keys left out read as 0 or empty, as in
+ * the other implementations.)
  */
 function answersOf(wire: Wire['answers'], request: Request, engine: string): Record<string, Answer> {
   const answers: Record<string, Answer> = {};
@@ -275,6 +277,9 @@ function answersOf(wire: Wire['answers'], request: Request, engine: string): Rec
     const given = wire?.[q.key];
     if (!isObject(given)) throw new JevError(`${engine}: no answer for ${JSON.stringify(q.key)}`, false);
     const a = given as Partial<Answer>;
+    if (q.kind === 'noul' && a.noul === undefined) {
+      throw new JevError(`${engine}: ${JSON.stringify(q.key)} has no noul probability`, false);
+    }
     const answer: Answer = { noul: a.noul ?? 0, choice: a.choice ?? '', confidence: a.confidence ?? 0 };
     if (a.probabilities) answer.probabilities = a.probabilities;
     if (q.kind === 'choice' && !(typeof answer.choice === 'string' && Object.hasOwn(q.criteria, answer.choice))) {
