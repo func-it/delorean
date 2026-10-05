@@ -150,12 +150,3 @@ test("explains a proxy's own 413 page as a cart too large", async ({ page }) => 
 
   await expect(refusal(page)).toContainText("Votre panier est trop volumineux");
 });
-
-test("picks a quoter by its name in the URL", async ({ page }) => {
-  await page.goto("/?quoter=python");
-  await price(page, "Back to the Future 1");
-  await expect(result(page)).toContainText(amount("15,00 €"));
-
-  await page.getByText("détails", { exact: true }).click();
-  await expect(page.getByText(/Réponse de l'implémentation python/)).toBeVisible();
-});

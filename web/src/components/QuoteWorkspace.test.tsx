@@ -27,7 +27,7 @@ describe("QuoteWorkspace", () => {
   });
 
   it("is one page: a title, a text area, a button, and the rules in a footer", () => {
-    render(<QuoteWorkspace quoter="go" />);
+    render(<QuoteWorkspace />);
 
     expect(screen.getByRole("heading", { level: 1, name: "Delorean" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Votre panier" })).toBeInTheDocument();
@@ -38,9 +38,9 @@ describe("QuoteWorkspace", () => {
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
   });
 
-  it("prices a cart through the BFF with the quoter it was given, and announces the total", async () => {
+  it("prices a cart through the BFF and announces the total", async () => {
     const bff = stubBff(() => Response.json(quote));
-    render(<QuoteWorkspace quoter="python" />);
+    render(<QuoteWorkspace />);
 
     await userEvent.type(screen.getByRole("textbox", { name: "Votre panier" }), "Back to the Future 1");
     await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
@@ -50,12 +50,12 @@ describe("QuoteWorkspace", () => {
     expect(bff).toHaveBeenCalledTimes(1);
     const [path, init] = bff.mock.calls[0];
     expect(path).toBe("/api/quotes");
-    expect(JSON.parse(String(init!.body))).toEqual({ cart: "Back to the Future 1", quoter: "python" });
+    expect(JSON.parse(String(init!.body))).toEqual({ cart: "Back to the Future 1" });
   });
 
   it("says a refusal in one sentence and lets the visitor try again", async () => {
     stubBff(() => problemAnswer("empty_cart", 422));
-    render(<QuoteWorkspace quoter="go" />);
+    render(<QuoteWorkspace />);
 
     await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
 
@@ -67,7 +67,7 @@ describe("QuoteWorkspace", () => {
 
   it("tells the visitor to come back tomorrow when the budget is spent", async () => {
     stubBff(() => problemAnswer("daily_budget_exhausted", 503));
-    render(<QuoteWorkspace quoter="go" />);
+    render(<QuoteWorkspace />);
 
     await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
 
@@ -76,7 +76,7 @@ describe("QuoteWorkspace", () => {
 
   it("does not send a cart over the size the BFF reads, and says so", async () => {
     const bff = stubBff(() => Response.json(quote));
-    render(<QuoteWorkspace quoter="go" limits={{ maxBodyBytes: 200, maxInputTokens: 256 }} />);
+    render(<QuoteWorkspace limits={{ maxBodyBytes: 200, maxInputTokens: 256 }} />);
 
     await userEvent.click(screen.getByRole("textbox", { name: "Votre panier" }));
     await userEvent.paste("é".repeat(120));
@@ -88,7 +88,7 @@ describe("QuoteWorkspace", () => {
 
   it("sends a cart that is exactly the size the quoters read", async () => {
     const bff = stubBff(() => Response.json(quote));
-    render(<QuoteWorkspace quoter="go" limits={{ maxBodyBytes: cartBytes("Back to the Future 1"), maxInputTokens: 256 }} />);
+    render(<QuoteWorkspace limits={{ maxBodyBytes: cartBytes("Back to the Future 1"), maxInputTokens: 256 }} />);
 
     await userEvent.type(screen.getByRole("textbox", { name: "Votre panier" }), "Back to the Future 1");
     await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
@@ -99,7 +99,7 @@ describe("QuoteWorkspace", () => {
 
   it("explains a 413 that is not a problem, a proxy's page, as a cart too large", async () => {
     stubBff(() => new Response("<html><h1>413 Request Entity Too Large</h1></html>", { status: 413, headers: { "Content-Type": "text/html" } }));
-    render(<QuoteWorkspace quoter="go" />);
+    render(<QuoteWorkspace />);
 
     await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
 
@@ -113,7 +113,7 @@ describe("QuoteWorkspace", () => {
         throw new TypeError("Failed to fetch");
       }),
     );
-    render(<QuoteWorkspace quoter="go" />);
+    render(<QuoteWorkspace />);
 
     await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
 

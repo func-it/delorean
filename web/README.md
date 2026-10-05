@@ -17,7 +17,7 @@ npm run dev                  # http://localhost:24790
 ```
 
 You need a quoter that responds (`http://localhost:24791` by default), for
-example the Go quoter with `ENGINES=fake`.
+example the TypeScript quoter with `ENGINES=fake`.
 
 Docker image (`standalone` output, non-root user, port 24790):
 
@@ -31,8 +31,7 @@ docker run -p 24790:24790 -e SESSION_SECRET=… -e QUOTER_URL=http://go:24791 de
 | Variable | Default | Purpose |
 |---|---|---|
 | `SESSION_SECRET` | development secret, with a warning | seals the session cookie; at least 32 characters, **required in production** |
-| `QUOTERS` | — | quoters as JSON, name → URL: `{"go":"http://localhost:24791","python":"http://localhost:24792"}`; the first one is the default; the page uses it, or the one named by `?quoter=python` in the URL (no selector on screen) |
-| `QUOTER_URL` | `http://localhost:24791` | a single quoter, when `QUOTERS` is not set |
+| `QUOTER_URL` | `http://localhost:24793` | the quoter the BFF calls, from the environment only: the browser names nothing about where a request goes |
 | `SESSION_COOKIE_SECURE` | `true` in production | `false` when the app is served over plain HTTP (`docker compose` locally): some browsers reject a `Secure` cookie received over HTTP, even from localhost |
 | `QUOTER_TIMEOUT_MS` | `20000` | maximum wait for a quoter (a little more than its 15 s) |
 | `STRIKE_LIMIT` | `3` | injection refusals that block a session or a username ([strike rule](#strike-rule)) |
@@ -41,15 +40,15 @@ docker run -p 24790:24790 -e SESSION_SECRET=… -e QUOTER_URL=http://go:24791 de
 | `STRIKE_WINDOW_S` | `900` | the window those refusals are counted in, in seconds |
 | `STRIKE_BLOCK_S` | `900` | how long a block lasts, in seconds |
 | `REFUSAL_MEMORY_S` | `21600` | how long a text refused as an injection is answered from memory, in seconds |
-| `DAILY_BUDGET_USD` | `0` (no cap) | daily spending cap in USD, UTC day, over the quoters' `usage.cost_usd` ([daily budget](#daily-budget)) |
+| `DAILY_BUDGET_USD` | `0` (no cap) | daily spending cap in USD, UTC day, over the quoter's `usage.cost_usd` ([daily budget](#daily-budget)) |
 | `BUDGET_FILE` | `.data/budget.json` | where the day's total is kept; `/data/budget.json` in `docker compose`, on the `web-data` volume |
 | `UNANSWERED_QUOTE_COST_USD` | `0.002` | what a quote that got no usable answer counts for in the budgets (the quoter too slow, unreachable, or failing without a usage), since it may have spent; `0` counts nothing |
 | `IP_DAILY_BUDGET_USD` | a quarter of `DAILY_BUDGET_USD` | one client address's share of the day's budget; `0` for no share ([per-address share](#per-address-share)) |
 | `IP_RATE_LIMIT` | `20` | quotes one client address may send within `IP_RATE_WINDOW_S`; `0` for no limit ([rate](#rate-per-address)) |
 | `IP_RATE_WINDOW_S` | `60` | the window of that rate, in seconds |
-| `MAX_BODY_BYTES` | `8192` | the quoters' own limit on the body `{"cart": …}`, one figure from the browser to the quoter (compose gives it to all four): the page sends no cart over it, the BFF reads that much and 256 bytes more for its envelope, then `413 payload_too_large` |
-| `MAX_INPUT_TOKENS` | `256` | the quoters' limit on a cart in tokens: the page only uses it to say, in characters (about three to a token), when a cart nears it |
-| `ENGINES` | — | `live` or `fake`, what the quoters run on (compose passes it along): with `live` and no `DAILY_BUDGET_USD` the app **refuses to start** ([daily budget](#daily-budget)); absent, nothing is checked |
+| `MAX_BODY_BYTES` | `8192` | the quoter's own limit on the body `{"cart": …}`, one figure from the browser to the quoter (compose gives it to both): the page sends no cart over it, the BFF reads that much, then `413 payload_too_large` |
+| `MAX_INPUT_TOKENS` | `256` | the quoter's limit on a cart in tokens: the page only uses it to say, in characters (about three to a token), when a cart nears it |
+| `ENGINES` | — | `live` or `fake`, what the quoter runs on (compose passes it along): with `live` and no `DAILY_BUDGET_USD` the app **refuses to start** ([daily budget](#daily-budget)); absent, nothing is checked |
 | `TRUST_PROXY_HOPS` | `0` | how many proxies of ours stand in front of the app, each appending to `X-Forwarded-For` ([client address](#client-address)) |
 
 The browser picks a quoter by its **name**, checked against this list, never
@@ -79,8 +78,8 @@ visitor starts an anonymous session with a generated name
 
 | Route | Quoter | Notes |
 |---|---|---|
-| `POST /api/quotes` | `POST /v1/quotes` | starts the anonymous session if there is none; body `{cart, quoter?}`; the quoter's status and JSON are passed through unchanged, after the [strike rule](#strike-rule) |
-| `GET /api/catalog?quoter=` | `GET /v1/catalog` | revalidated every 60 s; no session needed; the page no longer calls it |
+| `POST /api/quotes` | `POST /v1/quotes` | starts the anonymous session if there is none; body `{cart}`; the quoter's status and JSON are passed through unchanged, after the [strike rule](#strike-rule) |
+| `GET /api/catalog` | `GET /v1/catalog` | revalidated every 60 s; no session needed; the page does not call it |
 
 On top of the contract's codes, the BFF adds its own, in the same format
 (RFC 9457):
@@ -99,7 +98,7 @@ On top of the contract's codes, the BFF adds its own, in the same format
 - `rate_limited` (429): the client address sent more than `IP_RATE_LIMIT`
   quotes within `IP_RATE_WINDOW_S` ([rate](#rate-per-address)); `Retry-After`
   and `retry_after_s` say how many seconds to wait;
-- `payload_too_large` (413): the body is over `MAX_BODY_BYTES` (and its envelope); it is never
+- `payload_too_large` (413): the body is over `MAX_BODY_BYTES`; it is never
   read past it, and `Content-Length` over it is refused before reading;
 - `quoter_unavailable` (502): the quoter is unreachable, too slow, or
   answers outside the contract.
@@ -119,7 +118,7 @@ costs model calls. So the BFF limits the tries (`src/lib/strikes.ts`):
 - the refused text is remembered for `REFUSAL_MEMORY_S`, per visitor (the
   client address, or the session when there is none) and under the SHA-256 of
   the text **as the quoter reads it** (`src/lib/normalize.ts`: the same rule as
-  the quoters' `prepare`: LF line ends, nothing invisible but `\n`, `\t` and the
+  the quoter's `prepare`: LF line ends, nothing invisible but `\n`, `\t` and the
   joiners, NFC, trimmed): sent again by that visitor, whatever invisible
   characters differ, it gets the same `422` at once, with `"remembered": true`
   and without the original call's `usage`. It counts as a strike all the same.
@@ -162,7 +161,7 @@ same interface, whose methods already return promises.
 Nothing else bounds what a public demo costs in model calls, so the BFF keeps
 a daily total (`src/lib/budget.ts`). Every Quote and every quoter Problem
 carries `usage.cost_usd`; the BFF adds it to the day's total after relaying
-the answer. A failure counts too: the quoters put the usage of the stages that
+the answer. A failure counts too: the quoter puts the usage of the stages that
 ran on a `502` and a `500`, a call that went out being counted answered or not.
 What carries no usage costs nothing (a refusal of the BFF's own, a remembered
 refusal), but for a failure that says nothing of its cost: the quoter too slow

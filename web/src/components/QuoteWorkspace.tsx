@@ -13,7 +13,7 @@ import { QuoteResult } from "./QuoteResult";
 import styles from "./QuoteWorkspace.module.css";
 import { Rejection } from "./Rejection";
 
-export function QuoteWorkspace({ quoter, limits }: { quoter: string; limits?: Limits }) {
+export function QuoteWorkspace({ limits }: { limits?: Limits }) {
   const [cart, setCart] = useState("");
   const [outcome, setOutcome] = useState<BffResult<Quote>>();
   const [pending, startTransition] = useTransition();
@@ -21,7 +21,7 @@ export function QuoteWorkspace({ quoter, limits }: { quoter: string; limits?: Li
   function submit() {
     if (pending) return;
     startTransition(async () => {
-      const result = await requestQuote(cart, quoter, limits?.maxBodyBytes);
+      const result = await requestQuote(cart, limits?.maxBodyBytes);
       startTransition(() => setOutcome(result));
     });
   }

@@ -8,8 +8,8 @@ export type BffResult<T> = { ok: true; data: T } | { ok: false; problem: Problem
  * Asks for a quote. A cart over `maxBodyBytes` (the quoters' own figure, passed down by the page) is not
  * sent: a proxy in front would cut it with a page of its own, and the visitor can be told at once.
  */
-export function requestQuote(cart: string, quoter: string, maxBodyBytes?: number): Promise<BffResult<Quote>> {
-  const body = JSON.stringify({ cart, quoter });
+export function requestQuote(cart: string, maxBodyBytes?: number): Promise<BffResult<Quote>> {
+  const body = JSON.stringify({ cart });
   if (maxBodyBytes !== undefined && cartBytes(cart) > maxBodyBytes) {
     return Promise.resolve({ ok: false, problem: localProblem("payload_too_large", 413) });
   }

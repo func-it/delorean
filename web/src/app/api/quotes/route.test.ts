@@ -12,8 +12,6 @@ import { MemoryStrikeStore, setStrikeStore, strikeLimits } from "@/lib/strikes";
 import { fakeCookieStore } from "@/test/cookies";
 import { problem, quote } from "@/test/fixtures";
 
-import { BODY_ENVELOPE_BYTES } from "@/lib/limits";
-
 import { POST } from "./route";
 
 vi.mock("next/headers", () => ({ cookies: vi.fn() }));
@@ -50,7 +48,7 @@ async function newSession(username: string) {
 describe("POST /api/quotes", () => {
   beforeEach(async () => {
     vi.stubEnv("SESSION_SECRET", "a-test-secret-that-is-long-enough-to-seal");
-    vi.stubEnv("QUOTERS", '{"go":"http://go.test","python":"http://python.test"}');
+    vi.stubEnv("QUOTER_URL", "http://quoter.test");
     fakeCookieStore();
     await createSession("marty");
     setStrikeStore(new MemoryStrikeStore(strikeLimits()));
@@ -70,20 +68,12 @@ describe("POST /api/quotes", () => {
 
     const [request] = quoter.mock.calls[0];
     expect(request.method).toBe("POST");
-    expect(request.url).toBe("http://go.test/v1/quotes");
+    expect(request.url).toBe("http://quoter.test/v1/quotes");
     expect(await request.json()).toEqual({ cart: "Back to the Future 1" });
     expect(request.headers.get("X-User-Id")).toBe("marty");
     expect(request.headers.get("X-Session-Id")).toMatch(UUID);
     expect(request.headers.get("X-Request-Id")).toMatch(UUID);
     expect(response.headers.get("X-Request-Id")).toBe(request.headers.get("X-Request-Id"));
-  });
-
-  it("calls the quoter picked by name", async () => {
-    const quoter = stubQuoter(async () => Response.json(quote));
-
-    await postQuote({ cart: "Back to the Future 1", quoter: "python" });
-
-    expect(quoter.mock.calls[0][0].url).toBe("http://python.test/v1/quotes");
   });
 
   it.each([
@@ -114,24 +104,13 @@ describe("POST /api/quotes", () => {
     expect(store.values.has("delorean_session")).toBe(true);
   });
 
-  it.each(["typescript", "http://169.254.169.254/latest/meta-data"])(
-    "refuses a quoter outside the allowlist: %s",
-    async (name) => {
-      const quoter = stubQuoter(async () => Response.json(quote));
-
-      const response = await postQuote({ cart: "Back to the Future 1", quoter: name });
-
-      expect(response.status).toBe(400);
-      expect(await response.json()).toMatchObject({ code: "malformed_request" });
-      expect(quoter).not.toHaveBeenCalled();
-    },
-  );
-
   it.each([
     ["not JSON", "cart=Back to the Future 1"],
     ["without a cart", { films: ["Back to the Future 1"] }],
     ["with a cart that is not text", { cart: 42 }],
-    ["with a quoter that is not a name", { cart: "Back to the Future 1", quoter: { url: "http://evil.test" } }],
+    // where a request goes is the environment's business: the browser names nothing
+    ["with a quoter to call", { cart: "Back to the Future 1", quoter: "http://169.254.169.254/latest/meta-data" }],
+    ["with a field of its own", { cart: "Back to the Future 1", price: 0 }],
   ])("refuses a body %s", async (_, body) => {
     const quoter = stubQuoter(async () => Response.json(quote));
 
@@ -684,7 +663,7 @@ describe("POST /api/quotes", () => {
 describe("POST /api/quotes: the size of the body", () => {
   beforeEach(async () => {
     vi.stubEnv("SESSION_SECRET", "a-test-secret-that-is-long-enough-to-seal");
-    vi.stubEnv("QUOTERS", '{"go":"http://go.test"}');
+    vi.stubEnv("QUOTER_URL", "http://quoter.test");
     vi.stubEnv("IP_RATE_LIMIT", "0");
     fakeCookieStore();
     await createSession("marty");
@@ -710,13 +689,13 @@ describe("POST /api/quotes: the size of the body", () => {
     );
   }
 
-  it("passes a body of exactly MAX_BODY_BYTES plus its envelope, and refuses one byte more with 413 payload_too_large, quoter not called", async () => {
+  it("passes a body of exactly MAX_BODY_BYTES, and refuses one byte more with 413 payload_too_large, quoter not called", async () => {
     vi.stubEnv("MAX_BODY_BYTES", "1000");
     const quoter = stubQuoter(async () => Response.json(quote));
 
-    expect((await post(bodyOf(1000 + BODY_ENVELOPE_BYTES))).status).toBe(200);
+    expect((await post(bodyOf(1000))).status).toBe(200);
 
-    const over = await post(bodyOf(1001 + BODY_ENVELOPE_BYTES));
+    const over = await post(bodyOf(1001));
     expect(over.status).toBe(413);
     expect(over.headers.get("Content-Type")).toBe("application/problem+json");
     expect(await over.json()).toMatchObject({ code: "payload_too_large", status: 413, title: "Payload too large" });
@@ -769,8 +748,8 @@ describe("POST /api/quotes: the size of the body", () => {
     vi.stubEnv("MAX_BODY_BYTES", value as string);
     stubQuoter(async () => Response.json(quote));
 
-    expect((await post(bodyOf(8192 + BODY_ENVELOPE_BYTES))).status).toBe(200);
-    expect((await post(bodyOf(8193 + BODY_ENVELOPE_BYTES))).status).toBe(413);
+    expect((await post(bodyOf(8192))).status).toBe(200);
+    expect((await post(bodyOf(8193))).status).toBe(413);
   });
 });
 
@@ -781,7 +760,7 @@ describe("POST /api/quotes: the rate and the budget of a client address", () => 
 
   beforeEach(async () => {
     vi.stubEnv("SESSION_SECRET", "a-test-secret-that-is-long-enough-to-seal");
-    vi.stubEnv("QUOTERS", '{"go":"http://go.test"}');
+    vi.stubEnv("QUOTER_URL", "http://quoter.test");
     fakeCookieStore();
     await createSession("marty");
     now = NOON;

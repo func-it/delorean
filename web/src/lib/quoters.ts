@@ -5,47 +5,22 @@ import createClient from "openapi-fetch";
 import type { paths } from "@/generated/api";
 
 /**
- * The quoters this BFF may call, from the environment:
- *
- * - `QUOTERS`: a JSON map of name → base URL, e.g.
- *   `{"go":"http://localhost:24791","python":"http://localhost:24792"}`;
- *   the first entry is the default;
- * - otherwise `QUOTER_URL`, a single quoter named `default`
- *   (`http://localhost:24791` when unset).
- *
- * The browser picks a quoter by name only, checked against this list: it can
- * never make the BFF call a URL of its choosing.
+ * The quoter this BFF calls: `QUOTER_URL` (`http://localhost:24793` when unset), from the environment
+ * only. The browser says nothing about where a request goes: it can never make the BFF call a URL of
+ * its choosing.
  */
 export interface Quoter {
   name: string;
   url: string;
 }
 
-const DEFAULT_QUOTER_URL = "http://localhost:24791";
+const DEFAULT_QUOTER_URL = "http://localhost:24793";
 
 /** A little above the quoter's own `REQUEST_TIMEOUT` (15 s), so its answer wins the race. */
 const DEFAULT_TIMEOUT_MS = 20_000;
 
-export function configuredQuoters(): Quoter[] {
-  const map = process.env.QUOTERS;
-  if (!map) return [{ name: "default", url: checkedUrl("QUOTER_URL", process.env.QUOTER_URL || DEFAULT_QUOTER_URL) }];
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(map);
-  } catch {
-    throw new Error("QUOTERS must be a JSON object of name → URL.");
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed) || Object.keys(parsed).length === 0) {
-    throw new Error("QUOTERS must be a non-empty JSON object of name → URL.");
-  }
-  return Object.entries(parsed).map(([name, url]) => ({ name, url: checkedUrl(`QUOTERS.${name}`, url) }));
-}
-
-/** The quoter with this name, the default one when no name is given, or undefined if unknown. */
-export function resolveQuoter(name?: string): Quoter | undefined {
-  const quoters = configuredQuoters();
-  return name === undefined ? quoters[0] : quoters.find((quoter) => quoter.name === name);
+export function configuredQuoter(): Quoter {
+  return { name: "quoter", url: checkedUrl("QUOTER_URL", process.env.QUOTER_URL || DEFAULT_QUOTER_URL) };
 }
 
 export function quoterClient(quoter: Quoter) {

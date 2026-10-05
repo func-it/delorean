@@ -1,5 +1,5 @@
 import { readBodyText } from "@/lib/body";
-import { BODY_ENVELOPE_BYTES, maxBodyBytes } from "@/lib/limits";
+import { maxBodyBytes } from "@/lib/limits";
 import {
   budgetStore,
   dailyBudgetUsd,
@@ -9,7 +9,7 @@ import {
   unansweredQuoteCostUsd,
 } from "@/lib/budget";
 import { rateLimit, rateLimiter } from "@/lib/rate";
-import { resolveQuoter } from "@/lib/quoters";
+import { configuredQuoter } from "@/lib/quoters";
 import { problemJson, problemResponse, relay } from "@/lib/bff";
 import { clientIp } from "@/lib/client-ip";
 import { isProblem, type Problem } from "@/lib/contract";
@@ -21,8 +21,6 @@ const UNKNOWN_ADDRESS = "unknown";
 
 interface QuoteBody {
   cart: string;
-  /** A configured quoter name; the default quoter when absent. */
-  quoter?: string;
 }
 
 /**
@@ -40,7 +38,7 @@ interface QuoteBody {
  * `429 too_many_refusals`, and a text refused as an injection before gets the
  * same refusal again; none of them reaches the quoter. Never a retry of the
  * guard on our side either: each draw of a probabilistic classifier is one
- * more chance to slip past it. The body is read up to `MAX_BODY_BYTES` (the quoters') and a little more for its envelope, no
+ * more chance to slip past it. The body is read up to `MAX_BODY_BYTES` (the quoter's), no
  * further (`413 payload_too_large`).
  *
  * Then the budgets (lib/budget.ts), before the quoter is called: the client
@@ -111,12 +109,11 @@ async function quote(
     return problemResponse(413, "payload_too_large", "The request body is too large.", requestId);
   }
   if (!read) {
-    return problemResponse(400, "malformed_request", 'Expected a JSON body {"cart": string, "quoter"?: string}.', requestId);
+    return problemResponse(400, "malformed_request", 'Expected a JSON body {"cart": string}.', requestId);
   }
   const body = read;
 
-  const quoter = resolveQuoter(body.quoter);
-  if (!quoter) return problemResponse(400, "malformed_request", `Unknown quoter "${body.quoter}".`, requestId);
+  const quoter = configuredQuoter();
 
   const memory = refusalKey(address, session.sessionId, body.cart);
   const remembered = await strikes.recall(memory);
@@ -202,9 +199,9 @@ async function injectionRefusal(response: Response): Promise<Problem | undefined
   return refusal;
 }
 
-/** The body as `{cart, quoter?}`: `null` when malformed, `"too_large"` when over `MAX_BODY_BYTES` (never read past it). */
+/** The body as `{cart}`, and nothing else: `null` when malformed, `"too_large"` when over `MAX_BODY_BYTES` (never read past it). */
 async function readBody(request: Request): Promise<QuoteBody | null | "too_large"> {
-  const text = await readBodyText(request, maxBodyBytes() + BODY_ENVELOPE_BYTES);
+  const text = await readBodyText(request, maxBodyBytes());
   if (!text.ok) return "too_large";
   let body: unknown;
   try {
@@ -213,8 +210,7 @@ async function readBody(request: Request): Promise<QuoteBody | null | "too_large
     return null;
   }
   if (typeof body !== "object" || body === null) return null;
-  const { cart, quoter } = body as Record<string, unknown>;
-  if (typeof cart !== "string") return null;
-  if (quoter !== undefined && typeof quoter !== "string") return null;
-  return { cart, quoter };
+  const { cart, ...others } = body as Record<string, unknown>;
+  if (typeof cart !== "string" || Object.keys(others).length > 0) return null;
+  return { cart };
 }

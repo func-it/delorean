@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSession } from "@/lib/session";
@@ -18,43 +17,34 @@ function stubQuoter(answer: (request: Request) => Promise<Response>) {
 describe("GET /api/catalog", () => {
   beforeEach(async () => {
     vi.stubEnv("SESSION_SECRET", "a-test-secret-that-is-long-enough-to-seal");
-    vi.stubEnv("QUOTERS", '{"go":"http://go.test","python":"http://python.test"}');
+    vi.stubEnv("QUOTER_URL", "http://quoter.test");
     fakeCookieStore();
     await createSession("marty");
   });
 
-  it("passes the default quoter's catalog through", async () => {
+  it("passes the quoter's catalog through", async () => {
     const quoter = stubQuoter(async () => Response.json(catalog));
 
-    const response = await GET(new NextRequest("http://web.test/api/catalog"));
+    const response = await GET();
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(catalog);
-    expect(quoter.mock.calls[0][0].url).toBe("http://go.test/v1/catalog");
+    expect(quoter.mock.calls[0][0].url).toBe("http://quoter.test/v1/catalog");
   });
 
-  it("reads the catalog of the quoter picked by name", async () => {
+  it("takes no say of the browser in where it goes", async () => {
     const quoter = stubQuoter(async () => Response.json(catalog));
 
-    await GET(new NextRequest("http://web.test/api/catalog?quoter=python"));
+    await (GET as (request: Request) => Promise<Response>)(new Request("http://web.test/api/catalog?quoter=http://evil.test"));
 
-    expect(quoter.mock.calls[0][0].url).toBe("http://python.test/v1/catalog");
-  });
-
-  it("refuses a quoter outside the allowlist", async () => {
-    const quoter = stubQuoter(async () => Response.json(catalog));
-
-    const response = await GET(new NextRequest("http://web.test/api/catalog?quoter=http://evil.test"));
-
-    expect(response.status).toBe(400);
-    expect(quoter).not.toHaveBeenCalled();
+    expect(quoter.mock.calls[0][0].url).toBe("http://quoter.test/v1/catalog");
   });
 
   it("needs no session: the rules are the same for everyone", async () => {
     fakeCookieStore();
     stubQuoter(async () => Response.json(catalog));
 
-    const response = await GET(new NextRequest("http://web.test/api/catalog"));
+    const response = await GET();
 
     expect(response.status).toBe(200);
   });
@@ -65,7 +55,7 @@ describe("GET /api/catalog", () => {
       throw new TypeError("fetch failed");
     });
 
-    const response = await GET(new NextRequest("http://web.test/api/catalog"));
+    const response = await GET();
 
     expect(response.status).toBe(502);
     expect(await response.json()).toMatchObject({ code: "quoter_unavailable" });

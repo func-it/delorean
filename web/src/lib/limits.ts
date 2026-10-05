@@ -13,9 +13,6 @@ export function maxInputTokens(): number {
   return positiveInteger("MAX_INPUT_TOKENS", 256);
 }
 
-/** What the browser's body adds to the quoter's (`,"quoter":"python"`): the BFF reads that much more. */
-export const BODY_ENVELOPE_BYTES = 256;
-
 function positiveInteger(variable: string, fallback: number): number {
   const value = Number(process.env[variable]);
   return Number.isInteger(value) && value > 0 ? value : fallback;

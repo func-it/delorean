@@ -1,62 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { configuredQuoters, quoterTimeoutMs, resolveQuoter } from "./quoters";
+import { configuredQuoter, quoterTimeoutMs } from "./quoters";
 
-describe("configured quoters", () => {
+describe("the configured quoter", () => {
   beforeEach(() => {
-    vi.stubEnv("QUOTERS", "");
     vi.stubEnv("QUOTER_URL", "");
   });
 
-  it("defaults to the Go quoter on its local port", () => {
-    expect(configuredQuoters()).toEqual([{ name: "default", url: "http://localhost:24791" }]);
+  it("defaults to the quoter on its local port", () => {
+    expect(configuredQuoter()).toEqual({ name: "quoter", url: "http://localhost:24793" });
   });
 
-  it("takes a single QUOTER_URL", () => {
-    vi.stubEnv("QUOTER_URL", "http://go:24791");
-    expect(configuredQuoters()).toEqual([{ name: "default", url: "http://go:24791" }]);
+  it("takes QUOTER_URL", () => {
+    vi.stubEnv("QUOTER_URL", "http://quoter-typescript:24793");
+    expect(configuredQuoter()).toEqual({ name: "quoter", url: "http://quoter-typescript:24793" });
   });
 
-  it("takes a QUOTERS map, in order, over QUOTER_URL", () => {
-    vi.stubEnv("QUOTER_URL", "http://ignored:24791");
-    vi.stubEnv("QUOTERS", '{"go":"http://go:24791","python":"http://python:24792"}');
-    expect(configuredQuoters()).toEqual([
-      { name: "go", url: "http://go:24791" },
-      { name: "python", url: "http://python:24792" },
-    ]);
+  it.each(["file:///etc/passwd", "not a url", "ftp://quoter:21"])("fails loudly when QUOTER_URL is %s", (value) => {
+    vi.stubEnv("QUOTER_URL", value);
+    expect(() => configuredQuoter()).toThrow(/QUOTER_URL/);
   });
-
-  it.each([
-    ["not JSON", "go=http://go:24791"],
-    ["an array", '["http://go:24791"]'],
-    ["an empty map", "{}"],
-    ["a non-http URL", '{"go":"file:///etc/passwd"}'],
-    ["a URL that is not a string", '{"go":24791}'],
-  ])("fails loudly when QUOTERS is %s", (_, value) => {
-    vi.stubEnv("QUOTERS", value);
-    expect(() => configuredQuoters()).toThrow(/QUOTERS/);
-  });
-});
-
-describe("resolveQuoter", () => {
-  beforeEach(() => {
-    vi.stubEnv("QUOTERS", '{"go":"http://go:24791","python":"http://python:24792"}');
-  });
-
-  it("picks the first quoter by default", () => {
-    expect(resolveQuoter()).toEqual({ name: "go", url: "http://go:24791" });
-  });
-
-  it("picks a quoter by name", () => {
-    expect(resolveQuoter("python")).toEqual({ name: "python", url: "http://python:24792" });
-  });
-
-  it.each(["typescript", "http://169.254.169.254/latest", "http://python:24792", ""])(
-    "knows nothing of %j: only configured names resolve",
-    (name) => {
-      expect(resolveQuoter(name)).toBeUndefined();
-    },
-  );
 });
 
 describe("quoterTimeoutMs", () => {
