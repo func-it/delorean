@@ -352,6 +352,11 @@ func TestCreateQuoteMalformed(t *testing.T) {
 		{"null", `null`, nil, "body: a QuoteRequest object is expected, not a JSON null"},
 		{"a cart that is not a string", `{"cart": 2}`, nil, `body: field "cart" must be a string, not a JSON number`},
 		{"an unknown field", `{"cart": "Heat", "discount": 100}`, nil, `body: unknown field "discount"`},
+		// the keys are exact: encoding/json would take these for the cart
+		{"a key in another case", `{"Cart": "Heat"}`, nil, `body: unknown field "Cart"`},
+		{"a key in capitals", `{"CART": "Heat"}`, nil, `body: unknown field "CART"`},
+		{"the first unknown field, in document order", `{"b": 1, "1": 2, "cart": "Heat"}`, nil, `body: unknown field "b"`},
+		{"an unknown field quoted as JSON", "{\"cart\": \"Heat\", \"a\\\"b\u2028\\té\": 1}", nil, "body: unknown field \"a\\\"b\u2028\\té\""},
 		{"two values", `{"cart": "Heat"} {"cart": "Heat"}`, nil, "body: unexpected data after the QuoteRequest object"},
 		{"a byte that is not UTF-8", "{\"cart\": \"Back to the Future \xff\"}", nil, "body: not valid UTF-8"},
 		{"a surrogate encoded in UTF-8", "{\"cart\": \"Heat \xed\xa0\x80\"}", nil, "body: not valid UTF-8"},
@@ -467,11 +472,6 @@ func TestCreateQuoteEngineUnavailable(t *testing.T) {
 	if strings.Contains(*p.Detail, "fake") {
 		t.Errorf("detail = %q: the engine's error is logged, not shown", *p.Detail)
 	}
-}
-
-func TestCreateQuoteTimeout(t *testing.T) {
-	h := newServer(t, func(c *Config) {
-		c.RequestTimeout = 10 * time.Millisecond
 	// a failure costs what it cost: the stages that ran, the one that failed included
 	if got := stageNames(p); !slices.Equal(got, []string{"prepare", "guard", "parse", "recount"}) {
 		t.Errorf("usage stages = %v, want those that ran, the failed parse included", got)
@@ -513,6 +513,11 @@ func TestCreateQuoteEngineUnavailableCountsTheCallSent(t *testing.T) {
 	if p.Usage.CostUsd != 0.0004 {
 		t.Errorf("usage cost = %v, want the sum of the stages", p.Usage.CostUsd)
 	}
+}
+
+func TestCreateQuoteTimeout(t *testing.T) {
+	h := newServer(t, func(c *Config) {
+		c.RequestTimeout = 10 * time.Millisecond
 		c.Pipeline.Engines.Parser = parserFunc(func(ctx context.Context, _ string, _ *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
 			<-ctx.Done()
 			return nil, pipeline.Usage{}, ctx.Err()
@@ -533,14 +538,14 @@ func TestCreateQuoteInternal(t *testing.T) {
 	if strings.Contains(*p.Detail, "bug") {
 		t.Errorf("detail = %q: the cause is logged, not shown", *p.Detail)
 	}
+	if got := stageNames(p); !slices.Equal(got, []string{"prepare", "guard"}) {
+		t.Errorf("usage stages = %v, want what was known when it failed", got)
+	}
 	if !strings.Contains(logs.String(), "a bug, not an engine") || !strings.Contains(logs.String(), `"level":"ERROR"`) {
 		t.Errorf("log = %s, want the cause at ERROR", logs.String())
 	}
 }
 
-	if got := stageNames(p); !slices.Equal(got, []string{"prepare", "guard"}) {
-		t.Errorf("usage stages = %v, want what was known when it failed", got)
-	}
 func TestPanic(t *testing.T) {
 	var logs bytes.Buffer
 	s := &server{Config: Config{Log: slog.New(slog.NewJSONHandler(&logs, nil))}}

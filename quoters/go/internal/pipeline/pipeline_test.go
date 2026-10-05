@@ -1569,3 +1569,39 @@ func TestQuoteQuantityUnverified(t *testing.T) {
 		}
 	})
 }
+
+// The key of a title is the same in the three quoters, to the code point:
+// Unicode's simple lower-casing of each code point on its own, no context
+// rule (a final sigma stays σ) and no special casing (İ is i). The same
+// table is in the TypeScript and Python tests.
+func TestTitleKey(t *testing.T) {
+	for in, want := range map[string]string{
+		"  Back   TO\tthe Future  ": "back to the future",
+		"İSTANBUL":                  "istanbul",
+		"ΟΔΟΣ":                      "οδοσ",
+		"ΑΣ Σ":                      "ασ σ",
+		"Ὀδυσσεύς ΟΔΥΣΣΕΎΣ":         "ὀδυσσεύς οδυσσεύσ",
+		"ẞ":                         "ß",
+		"\u212a":                    "k",
+		"ǅ ǈ":                       "ǆ ǉ",
+		"ᾈ":                         "ᾀ",
+		"Ⅷ":                         "ⅷ",
+		"I":                         "i",
+		"日本語 ＡＢＣ":                   "日本語 ａｂｃ",
+	} {
+		if got := pipeline.TitleKey(in); got != want {
+			t.Errorf("TitleKey(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// A detail quotes a title as JSON.stringify does, as the other quoters do:
+// the quote, the backslash and the control characters escaped, nothing else.
+func TestLimitDetailQuotesTheTitleAsJSON(t *testing.T) {
+	err := pipeline.Limit([]cart.Mention{{Title: "Bac\u2028k \"to\" é\tFuture", Quantity: cart.MaxQuantity + 1}})
+	rej := rejection(t, err)
+	want := "\"Bac\u2028k \\\"to\\\" é\\tFuture\" is asked in 1001 copies; a cart holds at most 1000 of a title."
+	if rej.Detail != want {
+		t.Errorf("detail = %q, want %q", rej.Detail, want)
+	}
+}

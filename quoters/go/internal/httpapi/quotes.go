@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"regexp"
 	"slices"
-	"strings"
 	"unicode/utf8"
 
+	"github.com/func-it/delorean/quoters/go/internal/jsonx"
 	"github.com/func-it/delorean/quoters/go/internal/pipeline"
 )
 
@@ -122,14 +122,21 @@ func readCart(w http.ResponseWriter, r *http.Request, limit int64) (string, erro
 	if kind := jsonKind(whole); kind != "object" {
 		return "", fmt.Errorf("body: a QuoteRequest object is expected, not a JSON %s", kind)
 	}
-	fields := json.NewDecoder(bytes.NewReader(whole))
-	fields.DisallowUnknownFields()
+	// encoding/json matches a key to a field whatever its case, and the contract
+	// does not: the keys are read as they are written, the first one that is not
+	// "cart", in the order of the document, is the unknown one.
+	keys, err := objectKeys(whole)
+	if err != nil {
+		return "", bodyError(err)
+	}
+	if i := slices.IndexFunc(keys, func(k objectKey) bool { return k.name != "cart" }); i >= 0 {
+		return "", fmt.Errorf("body: unknown field %s", jsonx.Quote(keys[i].name))
+	}
 	var req struct {
 		Cart json.RawMessage `json:"cart"`
 	}
-	if err := fields.Decode(&req); err != nil {
-		// unknown fields have no error type of their own
-		return "", fmt.Errorf("body: %s", strings.TrimPrefix(err.Error(), "json: "))
+	for _, k := range keys { // every key is "cart": the last one wins, as in the other quoters
+		req.Cart = k.value
 	}
 	if req.Cart == nil {
 		return "", errors.New(`body: field "cart" is required`)
@@ -139,6 +146,34 @@ func readCart(w http.ResponseWriter, r *http.Request, limit int64) (string, erro
 		return "", fmt.Errorf(`body: field "cart" must be a string, not a JSON %s`, kind)
 	}
 	return cart, nil
+}
+
+// objectKey is one member of a JSON object, as written.
+type objectKey struct {
+	name  string
+	value json.RawMessage
+}
+
+// objectKeys are the members of a JSON object, in the order of the document,
+// duplicates included.
+func objectKeys(object json.RawMessage) ([]objectKey, error) {
+	dec := json.NewDecoder(bytes.NewReader(object))
+	if _, err := dec.Token(); err != nil { // the opening brace
+		return nil, err
+	}
+	var keys []objectKey
+	for dec.More() {
+		name, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		var value json.RawMessage
+		if err := dec.Decode(&value); err != nil {
+			return nil, err
+		}
+		keys = append(keys, objectKey{name: name.(string), value: value})
+	}
+	return keys, nil
 }
 
 // bodyError says what is wrong with a body that is not one JSON value, in

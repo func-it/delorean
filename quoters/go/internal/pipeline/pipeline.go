@@ -10,8 +10,10 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/func-it/delorean/quoters/go/internal/cart"
+	"github.com/func-it/delorean/quoters/go/internal/jsonx"
 	"github.com/func-it/delorean/quoters/go/internal/prepare"
 	"github.com/func-it/delorean/quoters/go/internal/pricing"
 )
@@ -339,8 +341,9 @@ func Limit(merged []cart.Mention) error {
 	for _, m := range merged {
 		if m.Quantity > cart.MaxQuantity {
 			return &Rejection{
-				Code:   CodeQuantityTooLarge,
-				Detail: fmt.Sprintf("%q is asked in %d copies; a cart holds at most %d of a title.", m.Title, m.Quantity, cart.MaxQuantity),
+				Code: CodeQuantityTooLarge,
+				// the title as JSON.stringify writes it, as the other quoters do: %q would escape more
+				Detail: fmt.Sprintf("%s is asked in %d copies; a cart holds at most %d of a title.", jsonx.Quote(m.Title), m.Quantity, cart.MaxQuantity),
 				Copies: &Copies{Title: m.Title, Count: m.Quantity, Max: cart.MaxQuantity},
 			}
 		}
@@ -350,8 +353,14 @@ func Limit(merged []cart.Mention) error {
 
 // TitleKey is what two spellings of one title share: its words, lowercased.
 // Mentions of one title merge under it; a title is identified once under it.
+//
+// The lower-casing is Unicode's simple mapping, one code point at a time
+// (unicode.ToLower): no context rule and no special casing, so that İ (U+0130)
+// is "i", Σ is always σ (never a final ς), ẞ is ß, and the Kelvin sign is k.
+// The three quoters key titles the same way, to the code point
+// (docs/architecture.md, Identical quoters).
 func TitleKey(title string) string {
-	return strings.ToLower(strings.Join(strings.Fields(title), " "))
+	return strings.Map(unicode.ToLower, strings.Join(strings.Fields(title), " "))
 }
 
 // add is a + b, saturating: a sum that large is refused or compared, and

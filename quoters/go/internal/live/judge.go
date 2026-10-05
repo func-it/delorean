@@ -8,6 +8,7 @@ import (
 
 	"github.com/func-it/delorean/quoters/go/internal/cart"
 	"github.com/func-it/delorean/quoters/go/internal/decide"
+	"github.com/func-it/delorean/quoters/go/internal/jsonx"
 	"github.com/func-it/delorean/quoters/go/internal/pipeline"
 )
 
@@ -58,37 +59,8 @@ func probes(text string, lines []cart.Line) []probe {
 		state: map[string]any{customerMessage: text, "order_lines": strings.Join(listed, "\n")}, invert: true})
 }
 
-// quoted is s as a JSON string — what JSON.stringify writes, and Python's
-// json.dumps with ensure_ascii off: only the quote, the backslash and the
-// control characters are escaped. encoding/json escapes more (<, >, &, U+2028,
-// U+2029), and the three implementations must send the same state.
-func quoted(s string) string {
-	var b strings.Builder
-	b.WriteByte('"')
-	for _, r := range s {
-		switch {
-		case r == '"' || r == '\\':
-			b.WriteByte('\\')
-			b.WriteRune(r)
-		case r == '\b':
-			b.WriteString(`\b`)
-		case r == '\f':
-			b.WriteString(`\f`)
-		case r == '\n':
-			b.WriteString(`\n`)
-		case r == '\r':
-			b.WriteString(`\r`)
-		case r == '\t':
-			b.WriteString(`\t`)
-		case r < 0x20:
-			fmt.Fprintf(&b, `\u%04x`, r)
-		default:
-			b.WriteRune(r)
-		}
-	}
-	b.WriteByte('"')
-	return b.String()
-}
+// quoted is s as a JSON string, for what Jev reads (jsonx.Quote).
+func quoted(s string) string { return jsonx.Quote(s) }
 
 func (j Judge) Judge(ctx context.Context, text string, lines []cart.Line) (pipeline.Judgement, pipeline.Usage, error) {
 	start := time.Now()

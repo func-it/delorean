@@ -140,7 +140,7 @@ func read(text string) ([]cart.Mention, error) {
 func hasLine(text, line string) bool { return slices.Contains(strings.Split(text, "\n"), line) }
 
 // key is what two spellings of one title share, as the pipeline merges them.
-func key(title string) string { return strings.Join(strings.Fields(strings.ToLower(title)), " ") }
+func key(title string) string { return pipeline.TitleKey(title) }
 
 func mention(line string) cart.Mention {
 	if m := quantityFirst.FindStringSubmatch(line); m != nil {
