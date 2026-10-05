@@ -33,7 +33,11 @@ healthcheck runs in the image.
 
 ## Test
 
-`task py:test` runs about 500 tests in a few seconds and calls no model.
+`task py:test` runs about 550 tests in a few seconds and calls no model. It
+needs no network either: a guard in `conftest.py` refuses any name or address
+beyond the machine, the vocabulary is fetched apart (`delorean tokenizer`,
+`task py:setup`), and the retry waits and the recount's clock are injected,
+so no test sleeps for them.
 
 - **Ported from Go:** the prepare and pricing tests, case for case, with the
   same normal forms, token counts and cents.
@@ -161,6 +165,15 @@ scripts/e2e-fake.sh    the end-to-end suite against this quoter on fake engines
   stages that ran, the failed one included, as a refusal does; a request counts
   as a call as it leaves (a Jev set, a reader's call), answered, failed or cut
   from outside, whose usage the cancellation then carries to the stage.
+- **What the models read.** `prepare` also drops the characters that draw
+  nothing without being format characters (an explicit table: fillers,
+  variation selectors, the blank braille pattern…), the same as the other
+  quoters. The customer's text goes between the fence's tags with any closing
+  tag written `<\/…`, and a finding's label in the retry turn is collapsed to
+  one line and given the same escape (`prompts.py`). A first reading with no
+  film is read once more, told so, before the cart is refused `no_film`.
+  With `ENGINES=live`, `PARSE_BASE_URL` and `RECOUNT_BASE_URL` may be http only
+  for `localhost`, `127.0.0.1` and `::1`: a key goes with every call.
 - **Traces.** The Langfuse SDK (v4, OpenTelemetry) runs on a `TracerProvider`
   of its own (`service.name=delorean`), so the global OpenTelemetry state is
   untouched.
