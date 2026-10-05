@@ -1,14 +1,9 @@
-import { refuseToStart } from "@/lib/startup";
-
 /**
- * Runs once when the server starts: a setting the app refuses to run with
- * stops it here, with a clear line and a non-zero exit (a throw would leave
- * the server running).
+ * Runs once when the server starts. What needs Node (`process.exit`) is in its own file, loaded only
+ * under the Node.js runtime: this file is also compiled for the Edge runtime, which has no such API.
  */
-export function register() {
+export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  refuseToStart(process.env, (message) => {
-    console.error(message);
-    process.exit(1);
-  });
+  const { checkStartup } = await import("./instrumentation-node");
+  checkStartup(process.env);
 }
