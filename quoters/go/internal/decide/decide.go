@@ -12,6 +12,7 @@ package decide
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 )
 
@@ -57,6 +58,30 @@ type Answer struct {
 	Choice        string             `json:"choice,omitempty"`
 	Confidence    float64            `json:"confidence"`
 	Probabilities map[string]float64 `json:"probabilities,omitempty"`
+
+	// noulMissing: the answer is an object without a `noul` key. Not 0: an
+	// answer that does not say is no answer, and check refuses it for a noul
+	// question.
+	noulMissing bool
+}
+
+// UnmarshalJSON reads an answer, and remembers whether it said its `noul`:
+// a missing key and a probability of 0 are not the same answer.
+func (a *Answer) UnmarshalJSON(b []byte) error {
+	type plain Answer
+	var p struct {
+		plain
+		Noul *float64 `json:"noul"`
+	}
+	if err := json.Unmarshal(b, &p); err != nil {
+		return err
+	}
+	*a = Answer(p.plain)
+	if p.Noul != nil {
+		a.Noul = *p.Noul
+	}
+	a.noulMissing = p.Noul == nil
+	return nil
 }
 
 // Decision is every answer of one request, and what it took.
@@ -93,6 +118,9 @@ func check(r Request, d Decision) error {
 		a, ok := d.Answers[q.Key]
 		if !ok {
 			return fmt.Errorf("%s: no answer for %q", d.Engine, q.Key)
+		}
+		if q.Kind == Noul && a.noulMissing {
+			return fmt.Errorf("%s: %q has no noul probability", d.Engine, q.Key)
 		}
 		if q.Kind == Choice {
 			if _, ok := q.Criteria[a.Choice]; !ok {

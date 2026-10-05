@@ -99,6 +99,29 @@ func TestAnswersOutsideTheQuestionAreRefused(t *testing.T) {
 	}
 }
 
+// A noul question answered without its probability is not answered with 0: a
+// missing `noul` is an answer outside the question, as in the other quoters; a
+// probability that is 0 is one.
+func TestANoulAnswerNeedsItsProbability(t *testing.T) {
+	yes := YesNo("yes", "Is it?", "it is", "it is not")
+	for body, ok := range map[string]bool{
+		`{"answers":{"yes":{}}}`:                         false,
+		`{"answers":{"yes":{"confidence":0.9}}}`:         false,
+		`{"answers":{"yes":null}}`:                       false,
+		`{"answers":{"yes":{"noul":0}}}`:                 true,
+		`{"answers":{"yes":{"noul":1}}}`:                 true,
+		`{"answers":{"yes":{"noul":0.25,"extra":true}}}`: true,
+	} {
+		d, err := jevAt(server(t, 200, body, nil).URL).Decide(context.Background(), Request{Questions: []Question{yes}})
+		if (err == nil) != ok {
+			t.Errorf("%s: err = %v, want accepted = %v", body, err, ok)
+		}
+		if ok && d.Answers["yes"].noulMissing {
+			t.Errorf("%s: the answer says its noul is missing", body)
+		}
+	}
+}
+
 // Errors carry the status, which is what Transient reads, and the message.
 func TestErrorsCarryStatusAndMessage(t *testing.T) {
 	d := jevAt(server(t, 429, `{"error":{"message":"slow down"}}`, nil).URL)
