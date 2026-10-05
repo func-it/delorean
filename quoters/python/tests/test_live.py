@@ -457,12 +457,12 @@ async def test_a_recount_reaching_model_timeout_is_left_out_and_the_quote_goes_o
     recounter = Llm({}, handler=slow).reader(prompts, timeout=0.05)
     p = replace(pipeline, engines=replace(pipeline.engines, recounter=recounter), recount_timeout=2.0)
     started = time.perf_counter()
-    outcome = await p.quote(Request(cart="2 x Heat"))
+    outcome = await p.quote(Request(cart="Heat"))
     assert isinstance(outcome, Quote), outcome
     assert time.perf_counter() - started < 1.5, "bounded by MODEL_TIMEOUT twice, not by the request's budget"
     (usage,) = [u for u in outcome.report.stages if u.stage == Stage.RECOUNT]
     assert (usage.engine, usage.calls, usage.degraded) == ("openai/gpt-6-luna", 2, True), "tried, then once more"
-    assert outcome.price.total_cents == 4000, "priced on the parse"
+    assert outcome.price.total_cents == 2000, "priced on the parse"
 
 
 async def test_the_live_engines_hand_model_timeout_to_each_call(prompts: Prompts) -> None:

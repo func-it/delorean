@@ -601,3 +601,27 @@ async def test_strings_are_written_as_json_stringify_writes_them(api: httpx.Asyn
     assert b'"title":"Fast <&> Furious"' in response.content, "no HTML escaping"
     response = await post_cart(api, "Heat   II")
     assert '"title":"Heat   II"'.encode() in response.content, "U+2028 as it is"
+
+
+async def test_a_line_of_several_copies_nobody_could_count_is_refused_to_retry(
+    api: httpx.AsyncClient, logs: io.StringIO
+) -> None:
+    response = await post_cart(api, f"2 x Back to the Future 1\n{fake.RECOUNT_OFFSCHEMA}")
+    p = problem_of(response, 503, "quantity_unverified")
+    assert response.headers["content-type"].split(";")[0] == "application/problem+json"
+    assert p["title"] == "Quantities not verified"
+    assert p["detail"] == "The quantities could not be cross-checked and a line asks for more than one copy: try again."
+    assert [k for k in p if k in ("guard", "judge", "tokens", "quantity")] == [], "no facts of a cart refused"
+    stages = [s["stage"] for s in p["usage"]["stages"]]
+    assert stages == ["prepare", "guard", "parse", "recount", "identify", "judge"], "up to the judge, not the price"
+    (recount,) = [s for s in p["usage"]["stages"] if s["stage"] == "recount"]
+    assert recount["degraded"] is True
+    assert list(p)[:5] == ["type", "title", "status", "code", "detail"], "in the contract's order"
+    line = json.loads(logs.getvalue())
+    assert (line["code"], line["degraded"], line["status"]) == ("quantity_unverified", "recount", 503)
+
+
+async def test_single_copies_without_a_recount_are_still_priced(api: httpx.AsyncClient) -> None:
+    response = await post_cart(api, f"Back to the Future 1\nHeat\n{fake.RECOUNT_OFFSCHEMA}")
+    assert response.status_code == 200, response.text
+    assert conforms(response, "Quote", "application/json")["total_cents"] == 3500

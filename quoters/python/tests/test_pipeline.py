@@ -1014,8 +1014,8 @@ def recount_usage(outcome: Quote | Rejection) -> StageUsage:
     ],
 )
 async def test_a_recount_that_fails_degrades(pipeline: Pipeline, recounter: Says) -> None:
-    q = await quote(engines(pipeline, recounter=recounter), "2 x Heat")
-    assert q.price.total_cents == 4000, "priced on the parse"
+    q = await quote(engines(pipeline, recounter=recounter), "Heat")
+    assert q.price.total_cents == 2000, "priced on the parse"
     assert not [f for f in q.judgement.findings if f.check == Check.COUNT], "nothing to count against"
     assert stages(q) == [
         Stage.PREPARE,
@@ -1103,7 +1103,7 @@ async def test_a_recount_that_fails_fast_is_asked_once_more(pipeline: Pipeline) 
     assert Finding(Check.COUNT, "other: 2 read, 2 recounted", 1.0) in q.judgement.findings
 
     flaky = Flaky(failures=99)
-    q = await quote(engines(replace(pipeline, recount_timeout=60.0), recounter=flaky), "2 x Heat")
+    q = await quote(engines(replace(pipeline, recount_timeout=60.0), recounter=flaky), "Heat")
     assert (recount_usage(q).calls, recount_usage(q).degraded) == (2, True)
     assert flaky.reads == 2, "at most one retry"
 
@@ -1312,3 +1312,84 @@ async def test_a_degraded_recount_reports_its_own_time(pipeline: Pipeline) -> No
     assert usage.degraded
     assert usage.ms < 100, f"{usage.ms} ms: the recount's own time"
     assert next(u.ms for u in q.report.stages if u.stage == Stage.PARSE) >= 200
+
+
+# A quote made without a recount: nothing counts its quantities, so a line of
+# several copies is not priced (503 quantity_unverified, to retry), a cart of
+# single copies is.
+
+UNVERIFIED = "The quantities could not be cross-checked and a line asks for more than one copy: try again."
+
+
+def down() -> Says:
+    return Says(EngineError("down", usage=Usage(engine="test", calls=1)))
+
+
+async def test_without_a_recount_single_copies_are_priced(pipeline: Pipeline) -> None:
+    q = await quote(engines(pipeline, recounter=down()), "Heat\nRonin")
+    assert q.price.total_cents == 4000
+    assert recount_usage(q).degraded
+
+
+@pytest.mark.parametrize(
+    "cart",
+    [
+        pytest.param("2 x Heat", id="two copies"),
+        pytest.param("Heat\nHeat", id="a title written twice, one line of two"),
+        pytest.param("Heat\n2 x Ronin", id="a line of two among single ones"),
+    ],
+)
+async def test_without_a_recount_a_line_of_several_copies_is_not_priced(pipeline: Pipeline, cart: str) -> None:
+    rej = await rejection(engines(pipeline, recounter=down()), cart)
+    assert rej.code == Code.QUANTITY_UNVERIFIED
+    assert rej.detail == UNVERIFIED
+    assert (rej.guard, rej.judgement, rej.tokens, rej.copies) == (None, None, None, None)
+    assert stages(rej) == [Stage.PREPARE, Stage.GUARD, Stage.PARSE, Stage.RECOUNT, Stage.IDENTIFY, Stage.JUDGE], (
+        "every stage up to the judge ran, and not the price"
+    )
+    assert recount_usage(rej).degraded
+
+
+async def test_a_recount_that_succeeded_is_kept_and_lifts_the_rule(pipeline: Pipeline) -> None:
+    q = await quote(engines(pipeline, recounter=Flaky(failures=0)), "2 x Heat")
+    assert q.price.total_cents == 4000
+    assert not recount_usage(q).degraded
+
+
+async def test_a_recount_that_succeeds_at_a_later_reading_lifts_the_rule(pipeline: Pipeline) -> None:
+    """Left out at the first reading (the judge refuses it), it succeeds at the second: counted, and priced."""
+    heat, ronin = Mention("Heat", 2), Mention("Ronin", 1)
+
+    class Recovers:
+        reads = 0
+
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            Recovers.reads += 1
+            if Recovers.reads == 1:
+                raise EngineError("down", usage=fake.USAGE)
+            return [heat, ronin], fake.USAGE
+
+    q = await quote(engines(pipeline, recounter=Recovers()), f"2 x Heat\nRonin\n{fake.REREAD}")
+    assert q.judgement.attempts == 2
+    assert q.price.total_cents == 6000, "a line of two, priced: the second reading was counted"
+    assert Finding(Check.COUNT, "other: 3 read, 3 recounted", 1.0) in q.judgement.findings
+    assert recount_usage(q).degraded, "left out at least once"
+
+
+async def test_the_judge_refuses_before_the_quantities_are_looked_at(pipeline: Pipeline) -> None:
+    rej = await rejection(engines(pipeline, recounter=down()), f"2 x Heat\n{fake.UNFAITHFUL}")
+    assert rej.code == Code.UNFAITHFUL_READING
+    assert rej.judgement is not None
+    assert rej.judgement.attempts == 3
+
+
+async def test_the_trace_of_a_quote_left_unpriced(traced: Pipeline, spans: Spans) -> None:
+    await rejection(engines(traced, recounter=down()), "2 x Heat")
+    assert "price" not in [s.name for s in spans.ended()], "the price stage did not run"
+    root = spans.attributes("quote")
+    assert root["langfuse.trace.metadata.outcome"] == "quantity_unverified"
+    assert root["langfuse.trace.metadata.degraded"] == "recount"
+    assert json.loads(root["langfuse.trace.output"])["code"] == "quantity_unverified"
+    assert not [
+        s.name for s in spans.ended() if dict(s.attributes or {}).get("langfuse.observation.level") == "ERROR"
+    ], "a refusal is no error"
