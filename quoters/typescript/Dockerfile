@@ -8,12 +8,12 @@
 #   docker run delorean-typescript version
 
 # Dependencies, cached apart from the sources.
-FROM node:26-alpine AS deps
+FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS deps
 WORKDIR /app
 COPY quoters/typescript/package.json quoters/typescript/package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts
 
-FROM node:26-alpine
+FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80
 WORKDIR /app
 ENV NODE_ENV=production PORT=24793 ENGINES=live PROMPTS_DIR=/app/prompts
 COPY --from=deps /app/node_modules ./node_modules

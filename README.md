@@ -68,6 +68,12 @@ ENGINES=live DAILY_BUDGET_USD=5 docker compose up --build
 Each service is limited in memory and CPU, says when it is healthy (the web
 app waits for the quoters; `delorean healthcheck` is the command inside the
 quoters' images) and has 25 s to finish its requests when stopped.
+Each container runs with no capability, no way to gain one, and a read-only
+image (a tmpfs for what it writes; nginx keeps the four capabilities it needs to
+start). Base images are pinned by digest in the Dockerfiles and the compose file:
+to move to a newer one, pull it, read its digest (`docker image inspect`) and
+replace it where it stands.
+
 The compose network's MTU follows the host's uplink (`DOCKER_NETWORK_MTU`,
 1450 by default): left at Docker's 1500 on a host whose uplink is at 1450, a
 TLS handshake to the models stalled for 3.6 s on about one cold connection in
