@@ -26,12 +26,13 @@ browser ──► web (Next.js: UI + BFF, session) ──► quoter (go | python
   authentication), hides the quoter
   URL from the browser and forwards `X-User-Id` / `X-Session-Id` for the
   traces.
-- The BFF adds four codes to the contract's, in the same problem format:
+- The BFF adds six codes to the contract's, in the same problem format:
   `429 too_many_refusals` (blocked by the
   strike rule, below), `429 quote_in_progress` (too many quotes in flight on
-  one key, below), `503 daily_budget_exhausted` (the day's spending cap is
-  reached, below) and `502 quoter_unavailable` (quoter unreachable or too
-  slow).
+  one key, below), `429 rate_limited` and `429 ip_budget_exhausted` (an
+  address's rate or share of the budget, below), `503 daily_budget_exhausted`
+  (the day's spending cap is reached, below) and `502 quoter_unavailable`
+  (quoter unreachable or too slow).
 - **The quoters** are stateless and interchangeable: same contract, same E2E
   suite, same system bench.
 - **The models never compute a price.** They read; the code counts.
@@ -94,6 +95,21 @@ rename) on the `web-data` volume, so it survives a restart of the container.
 It is one process's counter, like the strike store; several instances would
 need a shared one (Redis). The cap is soft by the quotes in flight, which end
 after the total crossed the limit. Details: [`web/README.md`](../web/README.md#daily-budget).
+
+What a failure costs is counted too. A failure spends what it spent: the
+quoters put `usage` on a 502 and a 500 as on a 422, a model call counts when
+it is sent (answered or not), and when nothing came back (the BFF gave up on
+the quoter, or a 5xx without usage) the BFF counts a flat estimate,
+`UNANSWERED_QUOTE_COST_USD`. On live engines the web app does not start
+without a cap (`ENGINES=live` with no `DAILY_BUDGET_USD`).
+
+One address cannot use the whole day either: `IP_RATE_LIMIT` quotes per
+`IP_RATE_WINDOW_S` (`429 rate_limited`), and a share of the daily budget,
+`IP_DAILY_BUDGET_USD` (a quarter of it by default, `429 ip_budget_exhausted`),
+both checked before any quoter is called; the body is read up to
+`MAX_BODY_BYTES` and not further. The memory of refused texts is kept per
+visitor (the address, or the session when it is unknown), on the text as the
+quoters normalize it, so one visitor's refusal is not served to another.
 
 ## The stages of `POST /v1/quotes`
 
@@ -703,6 +719,19 @@ difference the audit of 2026-10-03 found ([`parity.md`](parity.md));
   "<name>"`, `body: field "cart" is required` (absent), `body: field "cart"
   must be a string, not a JSON <type>` (`null` included), where a type is
   `null`, `boolean`, `number`, `string`, `array` or `object`.
+- A key is read exactly as the contract spells it (`Cart` is an unknown
+  field); the unknown field named is the first of the document that is not
+  `cart`, quoted as JSON writes a string, and a `cart` given twice is the
+  last one.
+- A title's key (what makes two spellings one title) is the title's words,
+  split on the blanks of `unicode.IsSpace` (and no others: not U+FEFF), each
+  code point lower-cased on its own with Unicode's simple mapping: `İ` gives
+  `i`, a capital sigma `σ` whatever its place, never `ς`.
+- A detail that quotes a title quotes it as JSON writes a string.
+- A Jev answer without the probability of a question is an engine error,
+  not a 0; a client that disconnects stops the request's model calls.
+- `delorean healthcheck` asks `/healthz` on `PORT` (3 s) and exits 0 or 1:
+  the compose healthchecks run it in the images.
 - A header given twice: `header <Name>: expected one value, got <n>`.
 - A path that is not in the contract is a 404, a trailing slash included:
   no redirect.

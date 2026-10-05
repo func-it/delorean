@@ -48,7 +48,7 @@ Requirements: Docker, or Go 1.26, Node 26 and Python 3.14 with
 
 ```sh
 task langfuse:secrets                      # creates .env with SESSION_SECRET and Langfuse keys
-ENGINES=fake docker compose up --build
+docker compose up --build                  # ENGINES=fake is the default
 ```
 
 The fake engines are deterministic: they recognise "Back to the Future 1/2/3"
@@ -57,12 +57,17 @@ written as is, and exist for tests. See
 
 ### With the real models
 
-Put `OPENROUTER_API_KEY` in your shell or in `.env`, then:
+Put `OPENROUTER_API_KEY` in your shell or in `.env`, and a daily spending cap
+(the web app does not start on live engines without one), then:
 
 ```sh
 task langfuse:up                           # optional: traces at http://localhost:24794
-docker compose up --build
+ENGINES=live DAILY_BUDGET_USD=5 docker compose up --build
 ```
+
+Each service is limited in memory and CPU, says when it is healthy (the web
+app waits for the quoters; `delorean healthcheck` is the command inside the
+quoters' images) and has 25 s to finish its requests when stopped.
 
 A four-film cart takes 17 model calls: 15 Jev (2 guard, 4 identify, 9
 judge) and 2 LLM (the reading and the recount). Before the recount, when the
