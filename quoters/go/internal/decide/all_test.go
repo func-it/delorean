@@ -53,7 +53,7 @@ func TestDecideAllKeepsTheOrderOfRequests(t *testing.T) {
 		titles = append(titles, "x")
 	}
 	e := &echo{}
-	ds, err := DecideAll(context.Background(), e, requests(titles...))
+	ds, _, err := DecideAll(context.Background(), e, requests(titles...))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,8 +69,56 @@ func TestDecideAllKeepsTheOrderOfRequests(t *testing.T) {
 
 // One failed request fails the set: a missing answer is no answer.
 func TestDecideAllFailsWithOneFailure(t *testing.T) {
-	ds, err := DecideAll(context.Background(), &echo{}, requests("a", "fail", "b"))
-	if err == nil || ds != nil {
-		t.Errorf("decisions %v, err %v", ds, err)
+	_, _, err := DecideAll(context.Background(), &echo{}, requests("a", "fail", "b"))
+	if err == nil {
+		t.Error("err = nil, want the failure")
+	}
+}
+
+// gate lets every request of a set start before any answers: so that what
+// is counted does not depend on which goroutine the scheduler runs first.
+type gate struct {
+	started sync.WaitGroup
+}
+
+func (g *gate) Engine() string { return "gate" }
+
+func (g *gate) Decide(ctx context.Context, r Request) (Decision, error) {
+	g.started.Done()
+	g.started.Wait()
+	if r.State["title"].(string) == "fail" {
+		return Decision{}, errors.New("gate: status 502")
+	}
+	return Decision{ID: r.State["title"].(string), Cost: 0.25, Model: "gate-model"}, nil
+}
+
+// A set that fails still says what it spent: the requests that went out
+// count, and the answers that came in time bring their cost.
+func TestDecideAllCountsTheRequestsSent(t *testing.T) {
+	g := &gate{}
+	g.started.Add(3)
+	ds, sent, err := DecideAll(context.Background(), g, requests("a", "fail", "b"))
+	if err == nil {
+		t.Fatal("err = nil, want the failure")
+	}
+	if sent != 3 {
+		t.Errorf("sent = %d, want the 3 requests that went out", sent)
+	}
+	var cost float64
+	for _, d := range ds {
+		cost += d.Cost
+	}
+	if cost != 0.5 {
+		t.Errorf("cost of the answers = %v, want 0.5", cost)
+	}
+}
+
+// A request is not sent once the set is cancelled.
+func TestDecideAllDoesNotCountWhatWasNotSent(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, sent, err := DecideAll(ctx, &echo{}, requests("a", "b"))
+	if err == nil || sent != 0 {
+		t.Errorf("sent = %d, err = %v, want no request sent", sent, err)
 	}
 }

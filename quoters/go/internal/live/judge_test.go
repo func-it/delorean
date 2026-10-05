@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/func-it/delorean/quoters/go/internal/cart"
 	"github.com/func-it/delorean/quoters/go/internal/pipeline"
@@ -96,6 +98,29 @@ func TestJudgeFailuresAreEngineErrors(t *testing.T) {
 	})
 	_, _, err := Judge{Jev: jev}.Judge(context.Background(), "BTTF 2", []cart.Line{{Title: "BTTF 2", Quantity: 1, Film: cart.BTTF2}})
 	isEngineErr(t, err)
+}
+
+// A set of requests that fails still says what it sent: each request counts as
+// it leaves, and what the answers that came cost is not lost.
+func TestJudgeFailureCountsTheRequestsSent(t *testing.T) {
+	var received atomic.Int32
+	jev, _ := jevServer(t, func(a asked) (int, string) {
+		key, _ := a.question(t)
+		received.Add(1)
+		if key == "missing" {
+			// the last to be answered, once all three requests are in
+			for received.Load() < 3 {
+				time.Sleep(time.Millisecond)
+			}
+			return 500, `{"error":{"message":"reset"}}`
+		}
+		return 200, fmt.Sprintf(`{"answers":{%q:{"noul":1}},"usage":{"cost":0.00001}}`, key)
+	})
+	_, u, err := Judge{Jev: jev}.Judge(context.Background(), "BTTF 2", []cart.Line{{Title: "BTTF 2", Quantity: 1, Film: cart.BTTF2}})
+	isEngineErr(t, err)
+	if u.Calls != 3 || u.Stage != "" || u.Engine == "" || u.CostUSD > 0.00002+1e-12 {
+		t.Errorf("usage %+v, want the 3 requests that went out", u)
+	}
 }
 
 // A title goes to Jev as JSON.stringify writes it: quotes and backslashes

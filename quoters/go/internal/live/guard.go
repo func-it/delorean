@@ -22,13 +22,13 @@ const customerMessage = "customer_message"
 func (g Guard) Check(ctx context.Context, text string) (pipeline.GuardVerdict, pipeline.Usage, error) {
 	start := time.Now()
 	order, steer := prompts.guard.Order, prompts.guard.Steer
-	ds, err := decide.DecideAll(ctx, g.Jev, []decide.Request{
+	ds, sent, err := decide.DecideAll(ctx, g.Jev, []decide.Request{
 		{State: map[string]any{customerMessage: text}, Questions: []decide.Question{order}},
 		{State: map[string]any{customerMessage: text}, Questions: []decide.Question{steer}},
 	})
 	if err != nil {
-		return pipeline.GuardVerdict{}, jevUsage(g.Jev, start), failed(pipeline.StageGuard, err)
+		return pipeline.GuardVerdict{}, jevUsage(g.Jev, start, sent, ds), failed(pipeline.StageGuard, err)
 	}
 	return pipeline.Weigh(pipeline.GuardQuestions{Order: ds[0].Answers[order.Key].Noul, Steer: ds[1].Answers[steer.Key].Noul}),
-		jevUsage(g.Jev, start, ds...), nil
+		jevUsage(g.Jev, start, sent, ds), nil
 }

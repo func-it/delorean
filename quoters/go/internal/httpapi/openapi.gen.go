@@ -504,7 +504,14 @@ type Problem struct {
 
 	// Quantity The title asked in too many copies (`quantity_too_large`).
 	Quantity *Problem_Quantity `json:"quantity,omitempty"`
-	Usage    *Usage            `json:"usage,omitempty"`
+
+	// Usage What the stages that ran took (calls, time, cost), on every
+	// problem that comes after the pipeline started: a refusal (422), an
+	// engine failure (502, the stage that failed included: a call that
+	// went out counts, answered or not) and an unexpected failure (500).
+	// What a failure cost is spent all the same: the BFF adds it to its
+	// daily budget.
+	Usage *Usage `json:"usage,omitempty"`
 }
 
 // Problem_Tokens defines model for Problem.Tokens.

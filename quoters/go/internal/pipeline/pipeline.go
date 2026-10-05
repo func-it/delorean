@@ -113,7 +113,8 @@ func (p *Pipeline) Quote(ctx context.Context, req Request) (Quote, error) {
 	switch {
 	case errors.As(err, &rej):
 		rej.Report = report
-	case err == nil:
+	default:
+		// a success, and an engine failure or a bug too: what the stages that ran took is spent all the same
 		q.Report = report
 	}
 	m := Measures{TraceID: report.TraceID, CostUSD: report.CostUSD, Ms: report.Ms, Attempts: r.attempts, Outcome: outcome(err),

@@ -140,11 +140,12 @@ func failed(s pipeline.Stage, err error) error {
 	return fmt.Errorf("%s: %w: %w", s, pipeline.ErrEngine, err)
 }
 
-// jevUsage is what a set of Jev decisions took, since start.
-func jevUsage(jev decide.Decider, start time.Time, ds ...decide.Decision) pipeline.Usage {
-	u := pipeline.Usage{Engine: jev.Engine(), Calls: len(ds), Ms: time.Since(start).Milliseconds()}
+// jevUsage is what a set of Jev requests took, since start: the requests
+// sent, whether they answered or not, and the cost of those that did.
+func jevUsage(jev decide.Decider, start time.Time, sent int, ds []decide.Decision) pipeline.Usage {
+	u := pipeline.Usage{Engine: jev.Engine(), Calls: sent, Ms: time.Since(start).Milliseconds()}
 	for _, d := range ds {
-		u.Model = d.Model
+		u.Model = cmp.Or(d.Model, u.Model)
 		u.CostUSD += d.Cost
 	}
 	return u

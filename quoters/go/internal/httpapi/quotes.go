@@ -66,10 +66,11 @@ func (s *server) answer(r *http.Request, q pipeline.Quote, err error) *response 
 		exchangeOf(r).degraded = degraded(rej.Report)
 		return problemResponse(r, s.rejected(rej), nil)
 	case errors.Is(err, pipeline.ErrEngine):
-		return problemResponse(r, newProblem(http.StatusBadGateway, ProblemCodeEngineUnavailable,
-			"A model engine could not be reached, or answered out of contract."), err)
+		p := newProblem(http.StatusBadGateway, ProblemCodeEngineUnavailable,
+			"A model engine could not be reached, or answered out of contract.")
+		return problemResponse(r, s.withUsage(p, q.Report), err)
 	case err != nil:
-		return problemResponse(r, internalProblem(), err)
+		return problemResponse(r, s.withUsage(internalProblem(), q.Report), err)
 	}
 	exchangeOf(r).degraded = degraded(q.Report)
 	return jsonResponse(http.StatusOK, "application/json", s.quote(q))

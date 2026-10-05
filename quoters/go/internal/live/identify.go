@@ -21,9 +21,9 @@ func (id Identifier) Identify(ctx context.Context, titles []string) ([]pipeline.
 	for i, t := range titles {
 		reqs[i] = decide.Request{State: map[string]any{"film_title": t}, Questions: []decide.Question{film}}
 	}
-	ds, err := decide.DecideAll(ctx, id.Jev, reqs)
+	ds, sent, err := decide.DecideAll(ctx, id.Jev, reqs)
 	if err != nil {
-		return nil, jevUsage(id.Jev, start), failed(pipeline.StageIdentify, err)
+		return nil, jevUsage(id.Jev, start, sent, ds), failed(pipeline.StageIdentify, err)
 	}
 	out := make([]pipeline.Identification, len(ds))
 	for i, d := range ds {
@@ -34,5 +34,5 @@ func (id Identifier) Identify(ctx context.Context, titles []string) ([]pipeline.
 		}
 		out[i] = pipeline.Identification{Film: cart.Film(a.Choice), Confidence: a.Confidence, Probabilities: probs}
 	}
-	return out, jevUsage(id.Jev, start, ds...), nil
+	return out, jevUsage(id.Jev, start, sent, ds), nil
 }

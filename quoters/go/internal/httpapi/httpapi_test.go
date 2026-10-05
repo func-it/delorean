@@ -472,6 +472,47 @@ func TestCreateQuoteEngineUnavailable(t *testing.T) {
 func TestCreateQuoteTimeout(t *testing.T) {
 	h := newServer(t, func(c *Config) {
 		c.RequestTimeout = 10 * time.Millisecond
+	// a failure costs what it cost: the stages that ran, the one that failed included
+	if got := stageNames(p); !slices.Equal(got, []string{"prepare", "guard", "parse", "recount"}) {
+		t.Errorf("usage stages = %v, want those that ran, the failed parse included", got)
+	}
+}
+
+func stageNames(p Problem) []string {
+	if p.Usage == nil {
+		return nil
+	}
+	var out []string
+	for _, s := range p.Usage.Stages {
+		out = append(out, string(s.Stage))
+	}
+	return out
+}
+
+// An engine that did not answer in time still has its call counted, and what
+// the stages before it took is there.
+func TestCreateQuoteEngineUnavailableCountsTheCallSent(t *testing.T) {
+	h := newServer(t, func(c *Config) {
+		c.Pipeline.Engines.Parser = parserFunc(func(context.Context, string, *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
+			return nil, pipeline.Usage{Engine: "slow", Calls: 1, CostUSD: 0.0004}, fmt.Errorf("parse: %w: no answer", pipeline.ErrEngine)
+		})
+	})
+	p := problemOf(t, postCart(t, h, "Heat"), http.StatusBadGateway, ProblemCodeEngineUnavailable)
+	if p.Usage == nil {
+		t.Fatal("a 502 carries no usage")
+	}
+	var parse *StageUsage
+	for i, s := range p.Usage.Stages {
+		if s.Stage == StageUsageStageParse {
+			parse = &p.Usage.Stages[i]
+		}
+	}
+	if parse == nil || parse.Calls != 1 || parse.CostUsd != 0.0004 {
+		t.Errorf("parse usage = %+v, want the call that went out and what it cost", parse)
+	}
+	if p.Usage.CostUsd != 0.0004 {
+		t.Errorf("usage cost = %v, want the sum of the stages", p.Usage.CostUsd)
+	}
 		c.Pipeline.Engines.Parser = parserFunc(func(ctx context.Context, _ string, _ *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
 			<-ctx.Done()
 			return nil, pipeline.Usage{}, ctx.Err()
@@ -497,13 +538,18 @@ func TestCreateQuoteInternal(t *testing.T) {
 	}
 }
 
+	if got := stageNames(p); !slices.Equal(got, []string{"prepare", "guard"}) {
+		t.Errorf("usage stages = %v, want what was known when it failed", got)
+	}
 func TestPanic(t *testing.T) {
 	var logs bytes.Buffer
 	s := &server{Config: Config{Log: slog.New(slog.NewJSONHandler(&logs, nil))}}
 	h := withRequestID(s.withLogging(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("flux capacitor")
 	})))
-	problemOf(t, serve(t, h, http.MethodGet, "/", "", nil), http.StatusInternalServerError, ProblemCodeInternal)
+	if p := problemOf(t, serve(t, h, http.MethodGet, "/", "", nil), http.StatusInternalServerError, ProblemCodeInternal); p.Usage != nil {
+		t.Errorf("usage = %+v: nothing ran, there is nothing to say", p.Usage)
+	}
 	if !strings.Contains(logs.String(), "panic: flux capacitor") {
 		t.Errorf("log = %s, want the panic", logs.String())
 	}

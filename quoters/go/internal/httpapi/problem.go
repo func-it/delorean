@@ -59,6 +59,15 @@ func (s *server) rejected(rej *pipeline.Rejection) Problem {
 	return p
 }
 
+// withUsage is p with what the stages that ran took, when any ran: a
+// failure costs what it cost, and whoever counts a budget needs to know.
+func (s *server) withUsage(p Problem, r pipeline.Report) Problem {
+	if len(r.Stages) > 0 {
+		p.Usage = new(s.usage(r))
+	}
+	return p
+}
+
 // writeProblem answers with p. cause is what went wrong behind it: logged,
 // never shown.
 func writeProblem(w http.ResponseWriter, r *http.Request, p Problem, cause error) {

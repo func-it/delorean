@@ -97,9 +97,9 @@ func (j Judge) Judge(ctx context.Context, text string, lines []cart.Line) (pipel
 	for i, p := range ps {
 		reqs[i] = decide.Request{State: p.state, Questions: []decide.Question{p.question}}
 	}
-	ds, err := decide.DecideAll(ctx, j.Jev, reqs)
+	ds, sent, err := decide.DecideAll(ctx, j.Jev, reqs)
 	if err != nil {
-		return pipeline.Judgement{}, jevUsage(j.Jev, start), failed(pipeline.StageJudge, err)
+		return pipeline.Judgement{}, jevUsage(j.Jev, start, sent, ds), failed(pipeline.StageJudge, err)
 	}
 	out := pipeline.Judgement{Score: 1, Findings: make([]pipeline.Finding, len(ps))}
 	for i, p := range ps {
@@ -110,5 +110,5 @@ func (j Judge) Judge(ctx context.Context, text string, lines []cart.Line) (pipel
 		out.Findings[i] = pipeline.Finding{Check: p.check, Label: p.label, Score: score}
 		out.Score = min(out.Score, score)
 	}
-	return out, jevUsage(j.Jev, start, ds...), nil
+	return out, jevUsage(j.Jev, start, sent, ds), nil
 }

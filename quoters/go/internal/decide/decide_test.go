@@ -206,7 +206,7 @@ func TestJevReusesItsConnections(t *testing.T) {
 		reqs[i] = Request{Questions: []Question{film}}
 	}
 	for range 2 {
-		if _, err := DecideAll(context.Background(), jev, reqs); err != nil {
+		if _, _, err := DecideAll(context.Background(), jev, reqs); err != nil {
 			t.Fatal(err)
 		}
 	}
