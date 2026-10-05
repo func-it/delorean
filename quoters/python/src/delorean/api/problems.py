@@ -24,6 +24,7 @@ TITLES: Final = {
     ProblemCode.quantity_too_large: "Cart rejected",
     ProblemCode.unfaithful_reading: "Cart rejected",
     ProblemCode.engine_unavailable: "Engine unavailable",
+    ProblemCode.quantity_unverified: "Quantities not verified",
     ProblemCode.not_found: "Not found",
     ProblemCode.method_not_allowed: "Method not allowed",
     ProblemCode.internal: "Internal error",

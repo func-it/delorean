@@ -42,7 +42,9 @@ def rejection(rej: pipeline.Rejection, *, engines: Literal["live", "fake"], thre
     """The problem of a cart a stage refused, with the facts that decided and
     what the reading cost."""
     tokens, copies = rej.tokens, rej.copies
-    return problem(422, contract.ProblemCode(rej.code), rej.detail).model_copy(
+    # nothing is wrong with the cart when its quantities could not be verified: the same one may be priced on a retry
+    status = 503 if rej.code == pipeline.Code.QUANTITY_UNVERIFIED else 422
+    return problem(status, contract.ProblemCode(rej.code), rej.detail).model_copy(
         update={
             "guard": guard(rej.guard) if rej.guard else None,
             "judge": judge(rej.judgement, threshold=threshold) if rej.judgement else None,

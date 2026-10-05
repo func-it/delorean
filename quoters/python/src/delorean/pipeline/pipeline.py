@@ -171,6 +171,15 @@ class Pipeline:
                 reading, recount = await self._identify(run, memory, parsed.reading, recounted)
                 judgement = await self._judge(run, memory, text, reading, recount)
                 if judgement.score >= self.judge_threshold:
+                    # No recount succeeded in the request (degraded): nothing counts the quantities. A cart
+                    # of single copies is priced; a line of several is not, and the same cart may be priced
+                    # on a retry.
+                    if memory.recount is None and any(line.quantity > 1 for line in reading):
+                        return run.reject(
+                            Code.QUANTITY_UNVERIFIED,
+                            "The quantities could not be cross-checked and a line asks for more than one copy: "
+                            "try again.",
+                        )
                     return self._price(run, reading, replace(judgement, attempts=attempt))
             else:
                 # no film, past the first attempt: the text has not changed, the

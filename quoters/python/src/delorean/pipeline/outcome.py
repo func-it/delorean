@@ -96,6 +96,7 @@ class Code(StrEnum):
     NO_FILM = "no_film"  # parse
     QUANTITY_TOO_LARGE = "quantity_too_large"  # parse
     UNFAITHFUL_READING = "unfaithful_reading"  # judge
+    QUANTITY_UNVERIFIED = "quantity_unverified"  # price: no recount to count against; retryable
 
 
 @dataclass(frozen=True, slots=True)

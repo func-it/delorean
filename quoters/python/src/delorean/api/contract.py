@@ -220,6 +220,8 @@ class ProblemCode(StrEnum):
       spaces aside) are merged first; two spellings of one volume are two titles.
     - `unfaithful_reading` (422): the judge does not hold the reading faithful.
     - `engine_unavailable` (502): a model engine failed.
+    - `quantity_unverified` (503): the quantities could not be cross-checked
+      (the recount failed) and a line asks for more than one copy; retry.
     - `not_found` (404), `method_not_allowed` (405), `internal` (500).
 
     """
@@ -234,6 +236,7 @@ class ProblemCode(StrEnum):
     quantity_too_large = "quantity_too_large"
     unfaithful_reading = "unfaithful_reading"
     engine_unavailable = "engine_unavailable"
+    quantity_unverified = "quantity_unverified"
     not_found = "not_found"
     method_not_allowed = "method_not_allowed"
     internal = "internal"
