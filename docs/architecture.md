@@ -1,14 +1,16 @@
 # Architecture
 
-This document is the shared reference for the three implementations (Go,
-Python, TypeScript). The HTTP contract is `api/openapi.yaml`; what follows
-describes what the contract cannot say: the order of the stages, the
-thresholds, the engines, the fake test engines and the shared cases.
+This document is the reference for the quoter (TypeScript, `quoters/typescript`)
+and the web app in front of it. The HTTP contract is `api/openapi.yaml`; what
+follows describes what the contract cannot say: the order of the stages, the
+thresholds, the engines, the fake test engines, the shared cases and the
+conventions of its answers. How the project got here is told in
+[History](#history).
 
 ## Overview
 
 ```
-browser ──► web (Next.js: UI + BFF, session) ──► quoter (go | python | typescript)
+browser ──► web (Next.js: UI + BFF, session) ──► quoter (TypeScript)
                                                     │
                                                     ├─ prepare   code     size, tokens
                                                     ├─ guard     Jev      is it an order? does it speak to the system? → valid | injection | invalid
@@ -33,8 +35,8 @@ browser ──► web (Next.js: UI + BFF, session) ──► quoter (go | python
   address's rate or share of the budget, below), `503 daily_budget_exhausted`
   (the day's spending cap is reached, below) and `502 quoter_unavailable`
   (quoter unreachable or too slow).
-- **The quoters** are stateless and interchangeable: same contract, same E2E
-  suite, same system bench.
+- **The quoter** is stateless: its only interface is the contract, and the
+  end-to-end suite and the system bench speak to it through that contract only.
 - **The models never compute a price.** They read; the code counts.
 
 ### The BFF's strike rule: three injections, then a block
@@ -475,8 +477,7 @@ In integer cents, from the catalog:
 
 ## Shared prompts (`prompts/`)
 
-Every word put to a model lives in `prompts/`, read by the three
-implementations, so they are compared on their code and not on their prompts:
+Every word put to a model lives in `prompts/`, apart from the code:
 
 | File | Stage | Content |
 |---|---|---|
@@ -486,11 +487,8 @@ implementations, so they are compared on their code and not on their prompts:
 | `identify.json` | identify | the `film` question |
 | `judge.json` | judge | the `asked`, `identity` and `missing` questions, and each film's name |
 
-The files are the only place their text lives. `prompts/` is also a small Go
-module (`github.com/func-it/delorean/prompts`) that embeds them, which the Go
-quoter requires through a `replace` to its path; TypeScript and Python read
-the same files at startup. Every image is built from the repository's root
-for that.
+The files are the only place their text lives. The quoter reads them at
+startup; its image is built from the repository's root for that.
 
 `GET /healthz` serves the versions the service runs (`prompts`), and the
 end-to-end suite checks them against the repository's files: a quoter that
@@ -499,8 +497,7 @@ runs other prompts fails it.
 A question is `{key, kind: "noul" | "choice", instructions, criteria}`, as
 Jev takes it: `criteria` has `true` and `false` for a `noul`, one entry per
 option for a `choice`. A stage's version is the first 8 hex digits of the
-SHA-256 of its file's bytes: a bench run names the versions it tested, and
-two implementations on the same versions ask the same questions.
+SHA-256 of its file's bytes: a bench run names the versions it tested.
 
 ## Usage, cost and traces
 
@@ -508,13 +505,11 @@ Each stage returns a `StageUsage`: engine, model, number of calls, duration,
 cost in USD (as OpenRouter bills it). The quote and the `422` problems carry
 the cumulative `usage`, so the cost of a rejection is visible.
 
-When Langfuse is configured, every request is traced the same way by the
-three quoters, so a dashboard reads them alike. Without configuration, the
-tracer is a no-op.
+When Langfuse is configured, every request is traced, one trace per quote.
+Without configuration, the tracer is a no-op.
 
 **The trace.** Name `quote`, always (never the request id: a name groups).
-`userId` = `X-User-Id`, `sessionId` = `X-Session-Id`; tags `quoter:go` |
-`quoter:typescript` | `quoter:python` and `engines:live` | `engines:fake`;
+`userId` = `X-User-Id`, `sessionId` = `X-Session-Id`; tags `quoter:typescript` and `engines:live` | `engines:fake`;
 metadata `request_id`, `outcome` (`priced` or the problem's code),
 `attempts`, `quote_id` and `total_cents` (both only when priced: a refusal
 has no quote) and `prompts` (the four versions).
@@ -570,8 +565,8 @@ and the share of each outcome, from the metrics API.
 
 ## Fake engines (`ENGINES=fake`)
 
-For E2E tests without OpenRouter. They are deterministic and identical in the
-three implementations, because they are part of the test contract. Never in
+For E2E tests without OpenRouter. They are deterministic, and their rules are
+part of the test contract: the shared cases rely on them. Never in
 production.
 
 - **guard**: `steer` = 0.99 if the text contains, case-insensitively, any of
@@ -610,8 +605,8 @@ production.
 
 ### Fake latency (`FAKE_LATENCY`, `FAKE_CPU_MS`)
 
-For the load bench, the fakes can take a model's time, the same in the three
-quoters, so that the bench measures the runtimes and not the models.
+The fakes can take a model's time (the earlier load bench of the three
+runtimes used it, so that it measured the runtimes and not the models).
 
 - `FAKE_LATENCY=off` (the default: the suites stay instant) or `real`. With
   `real`, each fake call waits without holding a thread (a timer, an
@@ -626,7 +621,7 @@ quoters, so that the bench measures the runtimes and not the models.
   the first 4 bytes, big-endian, of SHA-256(`s` + `"\n"` + `input`). The
   input is the normalized cart for guard, parse, recount and judge, and the
   titles asked, one per line, for identify. The same cart takes the same
-  time in every quoter and every run. Vectors: guard `Heat` 385 ms; parse
+  time in every run. Vectors: guard `Heat` 385 ms; parse
   `Back to the Future 1\nHeat` 1186 ms; recount the same 2770 ms; identify
   `Heat` 316 ms; judge `` (empty) 377 ms.
 - A wait ends with the request: a cancelled call fails as an engine that did
@@ -639,7 +634,7 @@ quoters, so that the bench measures the runtimes and not the models.
 ## Shared cases (`cases/`)
 
 One case per JSON file. The file name is the `id`.
-The three implementations and the system bench read the same cases.
+The end-to-end suite and the system bench read the same cases.
 
 ```json
 {
@@ -662,30 +657,30 @@ The three implementations and the system bench read the same cases.
 - `films` compares the total quantities per film (`other` adds up all the
   other films).
 - The `fake` tag marks a case that the fake engines must pass: the E2E suite
-  runs it in CI. The other cases only run against live engines.
+  runs it. The other cases only run against live engines.
 
 ## Benches
 
-- **Component benches** (per implementation): `guard`,
-  `identify`, `reading`, `judge`. The cases become a Langfuse dataset and each
-  run an experiment; several runs per case give a rate, not a lucky hit. The
-  judge also serves as the evaluator there.
 - **System bench** (`e2e/`, black box): the `quote/` cases run N times against
-  any quoter; correct price rate, correct rejection rate, p50 / p90 latency,
-  cost per cart and per stage. This is the bench that compares the three
-  implementations.
+  the quoter; correct price rate, correct rejection rate, p50 / p90 latency,
+  cost per cart and per stage.
+- **Component benches** (guard, identify, reading, judge, a matrix of parser
+  models) were run by a tool of the earlier Go tree, on the `guard/`,
+  `identify/`, `reading/` and `judge/` cases, which stay in `cases/`. Their
+  results, and what they decided, are kept in
+  [testing](testing.md#results-kept-from-the-earlier-benches).
 
 No bench runs without `RUN_LIVE=1` and an OpenRouter key.
 
 ## Configuration
 
-Every port of the project sits in 24790–24799: web 24790, Go 24791, Python
-24792, TypeScript 24793, Langfuse 24794, documentation 24795, and the
-end-to-end run on fake engines 24799.
+Every port of the project sits in 24790–24799: web 24790, quoter 24793,
+Langfuse 24794, documentation 24795, and the end-to-end run on fake engines
+24798.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `PORT` | `24791` (go), `24792` (python), `24793` (typescript) | HTTP listen port |
+| `PORT` | `24793` | HTTP listen port |
 | `ENGINES` | `live` | `live` or `fake` |
 | `OPENROUTER_API_KEY` | — | required with `live` |
 | `PARSE_MODEL` | `openai/gpt-6-luna` | LLM for parse |
@@ -709,13 +704,11 @@ end-to-end run on fake engines 24799.
 | `FAKE_CPU_MS` | `0` | milliseconds of busy CPU per fake call |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` | — | traces, when set (local Langfuse: `task langfuse:up`, http://localhost:24794) |
 
-## Identical quoters
+## Conventions of the answers
 
-The three quoters are one product written three times: a client, an operator
-or a Langfuse user cannot tell which one answered, except by the field that
-names it (`implementation`, the `quoter:` tag). The rules below settle every
-difference the audit of 2026-10-03 found ([`parity.md`](parity.md));
-`task e2e:parity` holds the three to them on the fake engines, byte for byte.
+A client, an operator or a Langfuse user finds the same things in every answer,
+log line and trace of the quoter; `task e2e` holds it to the rules below on the
+fake engines.
 
 **HTTP.**
 
@@ -765,7 +758,7 @@ difference the audit of 2026-10-03 found ([`parity.md`](parity.md));
 | When | Level | `msg` | Fields |
 |---|---|---|---|
 | startup, fake engines | `WARN` | `fake engines: deterministic stand-ins for tests, never in production` | `latency`, `cpu_ms` |
-| startup, once the port takes connections | `INFO` | `listening` | `addr` (`:24791`), `version`, `engines`, `tracing`, `prompts` (as `/healthz`) |
+| startup, once the port takes connections | `INFO` | `listening` | `addr` (`:24793`), `version`, `engines`, `tracing`, `prompts` (as `/healthz`) |
 | every response | `INFO`, `ERROR` for a 5xx | `request` | `request_id`, `method`, `path`, `status`, `ms`, `bytes`, then `code` for a problem and `err` for a 5xx |
 | scores not sent, dropped, traces or scores not flushed | `WARN` | `langfuse scores not sent`, `langfuse scores dropped, the queue is full`, `traces not flushed`, `scores not flushed` | `trace_id`, `err` |
 | SIGINT, SIGTERM | `INFO` | `shutting down` | `signal` |
@@ -792,14 +785,12 @@ the Langfuse SDKs read it; `LANGFUSE_TRACING_ENVIRONMENT` and
 **Commands.** `delorean [serve]`, `delorean version` (prints the version),
 `delorean tokenizer` (makes the o200k_base vocabulary available offline and
 prints `o200k_base: <n> ranks`). Anything else is a usage error, exit code 2:
-`delorean: unknown command "<x>": want serve, version or tokenizer`, or
-`delorean: unexpected argument "<x>"`. Each quoter's Taskfile has the same
-tasks: `setup`, `generate`, `lint`, `format`, `test`, `run`, `run:fake`,
-`docker`.
+`delorean: unknown command "<x>": want serve, healthcheck, version or tokenizer`, or
+`delorean: unexpected argument "<x>"`.
 
-**Images.** Built from the repository's root; the user is numeric,
+**Image.** Built from the repository's root; the user is numeric,
 `65532:65532`; `ENTRYPOINT` is the program and `CMD` is `["serve"]`, so
-`docker run <image> version` works; no `HEALTHCHECK`.
+`docker run <image> version` works; the compose healthcheck runs `healthcheck`.
 
 **Traces.** As [Usage, cost and traces](#usage-cost-and-traces) says, and:
 
@@ -835,6 +826,15 @@ tasks: `setup`, `generate`, `lint`, `format`, `test`, `run`, `run:fake`,
   `timestamp` is UTC with milliseconds.
 - Strings in a trace are written as the bodies are (JSON.stringify's way).
 
-**READMEs.** `quoters/<name>/README.md` has `Run`, `Test`, `Configure`,
-`Layout`, `Choices` and `Benches`. Behaviour lives in `docs/`; a README says
-how the code achieves it.
+## History
+
+The project started as three implementations of one contract, in Go,
+TypeScript and Python, with the same prompts, the same shared cases and the
+same end-to-end suite, so that they could be compared on accuracy, latency,
+cost and runtime rather than on opinion. A parity suite held them to the same
+bytes, logs and traces; the measures they produced are kept in
+[testing](testing.md#results-kept-from-the-earlier-benches). One was kept:
+TypeScript, because the web app and the quoter then share a language, and
+Node is what the brief names. The Go and Python quoters, the parity suite, the
+Go component benches and the load bench of the three images were removed from
+the tree; `git log --diff-filter=D -- quoters/go quoters/python` finds them.
