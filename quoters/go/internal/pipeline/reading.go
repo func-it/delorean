@@ -24,8 +24,8 @@ type Reading struct {
 }
 
 // Read reads a normalized text as Quote does once the guard let it through:
-// the parse beside the recount, identify, judge, and again while the judge
-// refuses, up to ReadAttempts readings. It returns what each stage took. A
+// the parse beside the recount (asked until one succeeded), identify, judge,
+// and again while the judge refuses, up to ReadAttempts readings. It returns what each stage took. A
 // reading the judge still refuses after the last attempt is no error: its
 // judgement says so. The benches play it.
 func (p *Pipeline) Read(ctx context.Context, text string) (Reading, []Usage, error) {
@@ -36,22 +36,31 @@ func (p *Pipeline) Read(ctx context.Context, text string) (Reading, []Usage, err
 
 // readAgain reads text up to ReadAttempts times (docs/architecture.md, 5′),
 // until the judge holds a reading. Each new attempt parses again told what
-// failed, recounts blind, identifies only the titles not seen yet, and puts
-// to Jev only a reading it has not judged: a wrong reading Jev refuses two
-// times in three would pass if judged three times.
+// failed, identifies only the titles not seen yet, and puts to Jev only a
+// reading it has not judged: a wrong reading Jev refuses two times in three
+// would pass if judged three times. The recount reads blind — its input never
+// changes between readings — so the first one that succeeded is kept for the
+// whole request: later readings are counted against it, and it is not asked
+// again. A reading whose recount failed is followed by one that asks it anew.
 func (p *Pipeline) readAgain(ctx context.Context, r *run, text string) (Reading, error) {
 	var (
 		out    Reading
 		again  *Retry
 		known  = map[string]Identification{}
 		judged = map[string]Judgement{}
+		// the first recount that succeeded, for every reading after it
+		kept   []cart.Mention
+		isKept bool
 	)
 	attempts := max(p.ReadAttempts, 1)
 	for n := 1; n <= attempts; n++ {
 		r.attempts = n
-		raw, reading, recount, counted, err := p.readTwice(ctx, r, text, n, again)
+		raw, reading, recount, counted, err := p.readTwice(ctx, r, text, n, again, kept, isKept)
 		if err != nil {
 			return Reading{}, err
+		}
+		if counted && !isKept {
+			kept, isKept = recount, true
 		}
 		// a later reading with no film fails: it is not put to Jev
 		j := Judgement{Findings: []Finding{{Check: CheckMissing, Label: WholeReading}}}
@@ -128,8 +137,10 @@ func (p *Pipeline) judge(ctx context.Context, r *run, n int, text string, judged
 
 // readTwice reads text with the parser — told what failed, again not nil —
 // and the recounter, blind, side by side, and accounts for both, the parse
-// first. It returns the parse's reading as read and merged, and the recount
-// merged; counted is false when there is no recount. On every attempt a parse
+// first. Once a recount succeeded (isKept, with its reading in kept) it is
+// not asked again: only the parse runs, and kept comes back as the recount. It
+// returns the parse's reading as read and merged, and the recount merged;
+// counted is false when there is no recount. On every attempt a parse
 // that fails decides first, and cancels the recount; then a reading refused —
 // too many copies, or no film on the first attempt. A later reading with no
 // film is no refusal: it comes back empty.
@@ -138,7 +149,7 @@ func (p *Pipeline) judge(ctx context.Context, r *run, n int, text string, judged
 // is too slow (recount) does not fail the quote. The reading goes on without
 // it — no recount, no count check, the stage's usage Degraded — and the judge
 // stays the guard. Only a request that is over fails on the recount.
-func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt int, again *Retry) (raw, reading, recount []cart.Mention, counted bool, err error) {
+func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt int, again *Retry, kept []cart.Mention, isKept bool) (raw, reading, recount []cart.Mention, counted bool, err error) {
 	type read struct {
 		raw, mentions []cart.Mention
 		usage         Usage
@@ -168,22 +179,29 @@ func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt i
 		}
 		parsed = read{raw, m, u, err}
 	})
-	wg.Go(func() {
-		sctx, done := timed(rctx, StageRecount, attempt)
-		start := time.Now()
-		m, u, err := p.recount(sctx, text)
-		if u.Ms == 0 { // its own time, not the parse's it then waits for
-			u.Ms = time.Since(start).Milliseconds()
-		}
-		endRecount, recounted = done, read{nil, m, u, err}
-	})
+	if !isKept {
+		wg.Go(func() {
+			sctx, done := timed(rctx, StageRecount, attempt)
+			start := time.Now()
+			m, u, err := p.recount(sctx, text)
+			if u.Ms == 0 { // its own time, not the parse's it then waits for
+				u.Ms = time.Since(start).Milliseconds()
+			}
+			endRecount, recounted = done, read{nil, m, u, err}
+		})
+	}
 	wg.Wait()
 	var rej *Rejection
 	parseFailed := parsed.err != nil && !errors.As(parsed.err, &rej)
-	// a failure of the recount itself, not of the request nor of a parse that failed beside it
-	recounted.usage.Degraded = recounted.err != nil && !parseFailed && ctx.Err() == nil
-	recounted.usage = endRecount(recounted.usage, recounted.mentions, recounted.err)
-	r.account(parsed.usage, recounted.usage)
+	if isKept {
+		// no recount call, span or usage: the kept one stands for this reading too
+		r.account(parsed.usage)
+	} else {
+		// a failure of the recount itself, not of the request nor of a parse that failed beside it
+		recounted.usage.Degraded = recounted.err != nil && !parseFailed && ctx.Err() == nil
+		recounted.usage = endRecount(recounted.usage, recounted.mentions, recounted.err)
+		r.account(parsed.usage, recounted.usage)
+	}
 
 	switch {
 	case parseFailed:
@@ -192,6 +210,8 @@ func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt i
 		return nil, nil, nil, false, rej
 	case len(parsed.mentions) == 0 && attempt == 1:
 		return nil, nil, nil, false, &Rejection{Code: CodeNoFilm, Detail: "The text names no film to buy."}
+	case isKept:
+		return parsed.raw, parsed.mentions, kept, true, nil
 	case recounted.err != nil && ctx.Err() != nil:
 		return nil, nil, nil, false, failed(ctx, StageRecount, recounted.err)
 	}

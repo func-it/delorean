@@ -820,7 +820,7 @@ func TestQuoteReadsAgain(t *testing.T) {
 	if q.Price.TotalCents != 2700 || q.Judgement.Attempts != 2 || q.Judgement.Score != 1 {
 		t.Errorf("total %d after %d readings, score %v; want 2700 after 2, score 1", q.Price.TotalCents, q.Judgement.Attempts, q.Judgement.Score)
 	}
-	want := []string{"prepare 0", "guard 1", "parse 2", "recount 2", "identify 1", "judge 2", "price 0"}
+	want := []string{"prepare 0", "guard 1", "parse 2", "recount 1", "identify 1", "judge 2", "price 0"}
 	if got := calls(q.Report.Stages); !reflect.DeepEqual(got, want) {
 		t.Errorf("calls %v, want %v", got, want)
 	}
@@ -828,7 +828,8 @@ func TestQuoteReadsAgain(t *testing.T) {
 
 // After the last attempt the cart is refused with the last judgement and the
 // number of readings made. A reading Jev has judged is not judged again: the
-// fake reads the same lines each time, and the judge is called once.
+// fake reads the same lines each time, and the judge is called once. The
+// recount, which reads blind, is asked once: its first answer is kept.
 func TestQuoteRefusesAfterTheLastReading(t *testing.T) {
 	for attempts, judge := range map[int]int{3: 1, 1: 1, 0: 1} {
 		_, err := newPipeline(t, func(p *pipeline.Pipeline) { p.ReadAttempts = attempts }).
@@ -838,7 +839,7 @@ func TestQuoteRefusesAfterTheLastReading(t *testing.T) {
 		if rej.Code != pipeline.CodeUnfaithfulReading || rej.Judgement.Attempts != readings {
 			t.Errorf("ReadAttempts %d: %s after %d readings, want unfaithful_reading after %d", attempts, rej.Code, rej.Judgement.Attempts, readings)
 		}
-		want := []string{"prepare 0", "guard 1", fmt.Sprintf("parse %d", readings), fmt.Sprintf("recount %d", readings),
+		want := []string{"prepare 0", "guard 1", fmt.Sprintf("parse %d", readings), "recount 1",
 			"identify 1", fmt.Sprintf("judge %d", judge)}
 		if got := calls(rej.Report.Stages); !reflect.DeepEqual(got, want) {
 			t.Errorf("ReadAttempts %d: calls %v, want %v", attempts, got, want)
@@ -848,7 +849,7 @@ func TestQuoteRefusesAfterTheLastReading(t *testing.T) {
 
 // The parse reads again told what failed: the reading the judge refused, as
 // the parse read it, and its failing checks, in the judgement's order. The
-// recount stays blind.
+// recount stays blind: it is asked once, and nothing is told it.
 func TestQuoteTellsTheParseWhatFailed(t *testing.T) {
 	var told []*pipeline.Retry
 	var recountTold []*pipeline.Retry
@@ -878,7 +879,7 @@ func TestQuoteTellsTheParseWhatFailed(t *testing.T) {
 	if len(told) != 2 || told[0] != nil || !reflect.DeepEqual(told[1], want) {
 		t.Errorf("the parse was told %+v, want nothing then %+v", told, want)
 	}
-	if len(recountTold) != 2 || recountTold[0] != nil || recountTold[1] != nil {
+	if len(recountTold) != 1 || recountTold[0] != nil {
 		t.Errorf("the recount was told %+v: it reads blind", recountTold)
 	}
 }
@@ -990,42 +991,38 @@ func TestQuoteLaterAttempts(t *testing.T) {
 	if want := (&pipeline.Retry{Findings: nothing}); len(*told) != 3 || !reflect.DeepEqual((*told)[2], want) {
 		t.Errorf("the third reading was told %+v, want %+v", (*told)[2], want)
 	}
-	if got := calls(rej.Report.Stages); !reflect.DeepEqual(got, []string{"prepare 0", "guard 1", "parse 3", "recount 3", "identify 1", "judge 1"}) {
+	if got := calls(rej.Report.Stages); !reflect.DeepEqual(got, []string{"prepare 0", "guard 1", "parse 3", "recount 1", "identify 1", "judge 1"}) {
 		t.Errorf("calls %v: a reading with no film is neither identified nor judged", got)
 	}
 
 	// too many copies refuse the cart on a later attempt too, whatever the
 	// recount beside them
 	parser, _ = later([]cart.Mention{{Title: "Heat", Quantity: 1001}}, nil)
-	recount := 0
 	_, err = newPipeline(t, func(p *pipeline.Pipeline) {
 		p.Engines.Parser = parser
-		p.Engines.Recounter = parserFunc(func(ctx context.Context, text string, again *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
-			if recount++; recount == 2 {
-				return nil, pipeline.Usage{Calls: 1}, errDown
-			}
-			return fake.Recounter{}.Parse(ctx, text, again)
-		})
+		p.Engines.Recounter = parserFails(errDown)
 	}).Quote(t.Context(), pipeline.Request{Cart: "Heat\nLa chèvre"})
 	if rej := rejection(t, err); rej.Code != pipeline.CodeQuantityTooLarge || rej.Copies == nil {
 		t.Errorf("rejection %s, want quantity_too_large on the second attempt", rej.Code)
 	}
 
-	recount = 0
+	// a recount that fails on a reading is left out of it, and fails nothing;
+	// asked again on the next reading, it is kept once it succeeded
+	recount := 0
 	parser, _ = later(nil, nil)
 	_, err = newPipeline(t, func(p *pipeline.Pipeline) {
 		p.Engines.Parser = parser
 		p.Engines.Recounter = parserFunc(func(ctx context.Context, text string, again *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
-			if recount++; recount == 2 {
+			if recount++; recount == 1 {
 				return nil, pipeline.Usage{Calls: 1}, errDown
 			}
 			return fake.Recounter{}.Parse(ctx, text, again)
 		})
 	}).Quote(t.Context(), pipeline.Request{Cart: "Heat\nLa chèvre"})
-	// a recount that fails on a later attempt degrades it, and fails nothing
 	rej = rejection(t, err)
-	if i := slices.IndexFunc(rej.Report.Stages, func(u pipeline.Usage) bool { return u.Stage == pipeline.StageRecount }); rej.Code != pipeline.CodeUnfaithfulReading || i < 0 || !rej.Report.Stages[i].Degraded {
-		t.Errorf("rejection %s, stages %+v, want unfaithful_reading, the recount degraded", rej.Code, rej.Report.Stages)
+	if i := slices.IndexFunc(rej.Report.Stages, func(u pipeline.Usage) bool { return u.Stage == pipeline.StageRecount }); rej.Code != pipeline.CodeUnfaithfulReading || i < 0 ||
+		!rej.Report.Stages[i].Degraded || rej.Report.Stages[i].Calls != 2 {
+		t.Errorf("rejection %s, stages %+v, want unfaithful_reading, the recount degraded once, 2 calls", rej.Code, rej.Report.Stages)
 	}
 }
 
@@ -1044,10 +1041,14 @@ func TestQuoteTraceReadingAgain(t *testing.T) {
 			}
 		}
 	}
-	for _, stage := range []string{"parse", "recount", "identify", "judge"} {
+	for _, stage := range []string{"parse", "identify", "judge"} {
 		if got := attempts[stage]; !reflect.DeepEqual(got, []int64{1, 2}) {
 			t.Errorf("%s spans of attempts %v, want [1 2]", stage, got)
 		}
+	}
+	// the recount, which reads blind, is asked once: its first answer is kept
+	if got := attempts["recount"]; !reflect.DeepEqual(got, []int64{1}) {
+		t.Errorf("recount spans of attempts %v, want [1]", got)
 	}
 	if len(attempts["guard"])+len(attempts["price"]) != 0 {
 		t.Errorf("attempts %v: guard and price run once", attempts)
@@ -1349,5 +1350,42 @@ func TestQuoteTraceDegradedIdentify(t *testing.T) {
 				t.Errorf("identify output %s, want recount null", kv.Value.String())
 			}
 		}
+	}
+}
+
+// The recount reads blind: its input never changes between readings, so the
+// first one that succeeded is kept for the whole request. It is not asked
+// again, whatever the next readings, and every reading is counted against it:
+// one it contradicts stays refused, though a second call would have hung.
+func TestQuoteKeepsTheFirstRecount(t *testing.T) {
+	var calls atomic.Int32
+	recounter := parserFunc(func(ctx context.Context, _ string, _ *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
+		if calls.Add(1) > 1 {
+			<-ctx.Done()
+			return nil, pipeline.Usage{Engine: "hung", Calls: 1}, fmt.Errorf("recount: %w: %w", pipeline.ErrEngine, ctx.Err())
+		}
+		return []cart.Mention{{Title: "Heat", Quantity: 3}}, pipeline.Usage{Engine: "kept", Calls: 1}, nil
+	})
+	start := time.Now()
+	_, err := newPipeline(t, func(p *pipeline.Pipeline) {
+		p.Engines.Recounter = recounter
+		p.RecountTimeout = time.Minute
+	}).Quote(t.Context(), pipeline.Request{Cart: "2 x Heat"})
+	rej := rejection(t, err)
+	if rej.Code != pipeline.CodeUnfaithfulReading || rej.Judgement.Attempts != 3 {
+		t.Fatalf("rejection %s after %d readings, want unfaithful_reading after 3", rej.Code, rej.Judgement.Attempts)
+	}
+	if n := calls.Load(); n != 1 {
+		t.Errorf("%d recount calls, want 1: the first answer is kept", n)
+	}
+	if took := time.Since(start); took > 5*time.Second {
+		t.Errorf("took %v: a kept recount is not waited for again", took)
+	}
+	i := slices.IndexFunc(rej.Report.Stages, func(u pipeline.Usage) bool { return u.Stage == pipeline.StageRecount })
+	if i < 0 || rej.Report.Stages[i].Calls != 1 || rej.Report.Stages[i].Degraded {
+		t.Errorf("stages %+v, want one recount call, not degraded", rej.Report.Stages)
+	}
+	if !slices.ContainsFunc(rej.Judgement.Findings, func(f pipeline.Finding) bool { return f.Check == pipeline.CheckCount && f.Score == 0 }) {
+		t.Errorf("findings %+v, want the count check of the last reading, against the kept recount", rej.Judgement.Findings)
 	}
 }
