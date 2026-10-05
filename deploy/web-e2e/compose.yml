@@ -21,6 +21,9 @@ services:
       # every test is a new visitor from the same address: room for a parallel run
       IP_MAX_IN_FLIGHT: "50"
       IP_STRIKE_LIMIT: "1000"
+      # and from the same address for the rate and the per-address budget too
+      IP_RATE_LIMIT: "100000"
+      IP_DAILY_BUDGET_USD: "0"
     ports: !reset []
     volumes: !reset []
   docs:

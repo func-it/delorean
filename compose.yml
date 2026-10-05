@@ -1,8 +1,14 @@
 # The whole stack, one command:
-#   docker compose up --build                 # live engines: OPENROUTER_API_KEY in .env
-#   ENGINES=fake docker compose up --build    # deterministic fake engines, no key, no cost
+#   docker compose up --build                  # fake engines: no key, no cost (the default)
+#   ENGINES=live DAILY_BUDGET_USD=5 docker compose up --build
+#                                              # real models: OPENROUTER_API_KEY in .env, and a daily
+#                                              # spending cap, without which the web app does not start
 # Web app on http://localhost:24790, Go quoter on http://localhost:24791,
 # documentation on http://localhost:24795.
+#
+# Each service is limited in memory and CPU, says when it is healthy (the web app
+# waits for the quoters), and has time to finish its requests when stopped: a
+# request is cut at 15 s (REQUEST_TIMEOUT) and the drain adds 5 s.
 name: delorean
 
 services:
@@ -11,7 +17,7 @@ services:
       context: .
       dockerfile: quoters/go/Dockerfile
     environment:
-      ENGINES: ${ENGINES:-live}
+      ENGINES: ${ENGINES:-fake}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       PARSE_MODEL: ${PARSE_MODEL:-openai/gpt-6-luna}
       PARSE_EFFORT: ${PARSE_EFFORT:-minimal}
@@ -27,6 +33,15 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:24791:24791"
+    mem_limit: 512m
+    cpus: 1.5
+    stop_grace_period: 25s
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/delorean", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
 
   # The TypeScript implementation, the same contract on :24793. Built from the
@@ -36,7 +51,7 @@ services:
       context: .
       dockerfile: quoters/typescript/Dockerfile
     environment:
-      ENGINES: ${ENGINES:-live}
+      ENGINES: ${ENGINES:-fake}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       PARSE_MODEL: ${PARSE_MODEL:-openai/gpt-6-luna}
       PARSE_EFFORT: ${PARSE_EFFORT:-minimal}
@@ -51,6 +66,15 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:24793:24793"
+    mem_limit: 512m
+    cpus: 1.5
+    stop_grace_period: 25s
+    healthcheck:
+      test: ["CMD", "node", "src/main.ts", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
 
   # The Python implementation, the same contract on :24792. Built from the
@@ -60,7 +84,7 @@ services:
       context: .
       dockerfile: quoters/python/Dockerfile
     environment:
-      ENGINES: ${ENGINES:-live}
+      ENGINES: ${ENGINES:-fake}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       PARSE_MODEL: ${PARSE_MODEL:-openai/gpt-6-luna}
       PARSE_EFFORT: ${PARSE_EFFORT:-minimal}
@@ -75,6 +99,15 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:24792:24792"
+    mem_limit: 512m
+    cpus: 1.5
+    stop_grace_period: 25s
+    healthcheck:
+      test: ["CMD", "delorean", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
 
   web:
@@ -98,15 +131,29 @@ services:
       # daily spending cap in USD over the quoters' usage.cost_usd, UTC day; empty or 0 = no cap.
       # The running total survives restarts in the web-data volume.
       DAILY_BUDGET_USD: ${DAILY_BUDGET_USD:-0}
+      # with ENGINES=live the web app refuses to start without a DAILY_BUDGET_USD above 0
+      ENGINES: ${ENGINES:-fake}
       BUDGET_FILE: /data/budget.json
     volumes:
       - web-data:/data
     ports:
       - "127.0.0.1:24790:24790"
+    mem_limit: 512m
+    cpus: 1.0
+    stop_grace_period: 25s
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:24790/').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     depends_on:
-      - quoter-go
-      - quoter-typescript
-      - quoter-python
+      quoter-go:
+        condition: service_healthy
+      quoter-typescript:
+        condition: service_healthy
+      quoter-python:
+        condition: service_healthy
     restart: unless-stopped
 
   # The documentation site, http://localhost:24795: the static pages and, under
@@ -122,6 +169,13 @@ services:
       - ./api/openapi.yaml:/usr/share/nginx/content/openapi.yaml:ro
     ports:
       - "127.0.0.1:24795:80"
+    mem_limit: 64m
+    cpus: 0.25
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
 
 volumes:
