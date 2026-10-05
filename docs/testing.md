@@ -1,52 +1,49 @@
 # Testing
 
-Delorean is tested at four levels. The first three never call a model and run
-in CI; the fourth calls the real models and only starts on purpose.
+Delorean is tested at four levels. The first three never call a model; the
+fourth calls the real models and only starts on purpose.
 
 | Level | What it proves | Where | Cost |
 |---|---|---|---|
-| Unit tests | each part does what it says | `quoters/go`, `web`, `e2e` | none |
-| Contract | every implementation speaks the same HTTP | generated code, response validation | none |
+| Unit tests | each part does what it says | `quoters/typescript`, `web`, `e2e` | none |
+| Contract | the quoter speaks the HTTP of the contract | generated code, response validation | none |
 | End-to-end | the whole API behaves, on deterministic fake engines | `e2e/` | none |
-| Benches | the real models read carts well enough, at what latency and cost | `quoters/go/cmd/bench`, `e2e/` | OpenRouter |
+| Benches | the real models read carts well enough, at what latency and cost | `e2e/` | OpenRouter |
 
 ## Unit tests
 
 ```sh
-task test          # every part
-task go:test       # go vet + go test -race ./...
+task test          # every part: the quoter, the web app, the e2e harness
+task ts:test       # the quoter alone
 ```
 
-- **Go**: 12 packages, run with the race detector. Pricing and the fake
-  engines are fully covered; the pipeline is tested stage by stage, each
-  refusal included; the HTTP layer is tested with `httptest`, and every
-  response is validated against the schemas of `api/openapi.yaml`. The live
-  engines are tested against stub OpenRouter servers: request shape, answer
-  mapping, errors wrapped as engine failures, parallel fan-out, retries, cost.
-- **Web**: 197 Vitest tests. The BFF routes with a stubbed quoter (status and
-  body passed through, anonymous session started, quoter allow-list, timeout), the
+- **The five examples of the brief** (`quoters/typescript/test/brief.test.ts`):
+  the quoter's pipeline, on the fake engines, prices 36 €, 27 €, 15 €, 48 €
+  and 56 €, with the saga discount of each. It is the first test to read.
+- **Quoter (TypeScript)**: Vitest. Pricing is fully covered; the pipeline is
+  tested stage by stage on the fake engines (refusal codes, usage order, every
+  read-again rule, the recount left out); normalization and token counts; the
+  HTTP layer, every response validated against the schemas of
+  `api/openapi.yaml`; the Jev and OpenRouter wire formats against stub
+  servers (request shape, answer mapping, errors wrapped as engine failures,
+  parallel fan-out, retries, cost).
+- **Web**: Vitest. The BFF routes with a stubbed quoter (status and
+  body passed through, anonymous session started, timeout), the
   daily budget (cap reached, UTC day change, restart, atomic file, on a
   temporary directory with an injected clock), the
   session helpers, price formatting, and the result and refusal components
   (one sentence per refusal, the judge's checks and the guard's verdict behind « détails »). A test table
   keyed by every problem code fails the type check when the contract gains a
   code that has no French message yet.
-- **TypeScript**: 276 Vitest tests: normalization and token counts against
-  Go's, the pipeline on fake engines (refusal codes, usage order, every
-  read-again rule), the fakes, the HTTP layer, the Jev and OpenRouter wire
-  formats.
-- **Python**: 367 pytest tests on the same ground, `mypy --strict`, ruff; the
-  pydantic models are held to `api/openapi.yaml` by a test.
-- **e2e harness**: 143 tests of the suite's own machinery (contract
+- **e2e harness**: the suite's own machinery (contract
   validation, case loading, report percentiles, Langfuse push against a stub).
 
 ## Contract
 
 `api/openapi.yaml` is the source of truth, and nothing drifts from it silently:
 
-- the Go server and models (oapi-codegen), the web types and the e2e types
-  (openapi-typescript) are generated from it; CI regenerates them and fails on
-  any difference;
+- the quoter's, the web's and the e2e types (openapi-typescript) are
+  generated from it, and a test fails on any difference;
 - the end-to-end suite validates every response body against its component
   schema (`Quote`, `Problem`, `Health`, `Catalog`) with Ajv in JSON Schema
   2020-12 mode, and checks the media type (`application/json` or
@@ -54,8 +51,7 @@ task go:test       # go vet + go test -race ./...
 
 ## Fake engines
 
-With `ENGINES=fake`, every model stage is answered by a deterministic stand-in,
-identical in the three implementations. They recognise canonical titles
+With `ENGINES=fake`, every model stage is answered by a deterministic stand-in. They recognise canonical titles
 ("Back to the Future 2", "2 x Back to the Future 2", roman numerals), answer
 the guard's two questions from a few markers (`steer` 0.99 on an injection
 word, `order` 1 when a line has three letters) and derive the verdict from
@@ -72,8 +68,8 @@ contract: [Fake engines](architecture.md#fake-engines-enginesfake).
 
 ## Shared cases
 
-One JSON file per case in `cases/`, read by every implementation and both
-benches. Each case has a `note` that says which mistake it guards against.
+One JSON file per case in `cases/`, read by the end-to-end suite and the system
+bench (and, in the earlier tree, by the component benches). Each case has a `note` that says which mistake it guards against.
 
 | Folder | Subject | Cases |
 |---|---|---|
@@ -83,8 +79,8 @@ benches. Each case has a `note` that says which mistake it guards against.
 | `reading/` | parse and identify together: quantities per film | 46 |
 | `judge/` | is a given reading faithful to the text, and which check says it is not (`asked`, `identity`, `missing`, `count`)? | 42 |
 
-The `fake` tag marks the 35 quote cases the fake engines must pass; CI plays
-them. The others are played against the real models only. Five of them use
+The `fake` tag marks the 35 quote cases the fake engines must pass; the
+end-to-end suite plays them. The others are played against the real models only. Five of them use
 a fault line: `recomptage-en-desaccord` (`#fake:miscount`) proves that a
 recount in disagreement refuses the cart, `recomptage-hors-schema`
 (`#fake:recount_offschema`) that a recount answering off its schema is left
@@ -118,17 +114,16 @@ task cases:check   # offline: shape, id = file name, known films, verdicts and c
 
 ## End-to-end suite
 
-A black box that only speaks the HTTP contract, for any quoter.
+A black box that only speaks the HTTP contract.
 
 ```sh
-task e2e                                            # builds the Go API, runs it on fake engines, runs the suite
-BASE_URL=http://localhost:24792 npm run e2e          # from e2e/: another quoter
-RUN_LIVE=1 BASE_URL=http://localhost:24791 npm run e2e   # against live engines (costs credits)
+task e2e                                            # starts the quoter on fake engines, runs the suite
+BASE_URL=http://localhost:24793 npm run e2e          # from e2e/: a quoter already running
+RUN_LIVE=1 BASE_URL=http://localhost:24793 npm run e2e   # against live engines (costs credits)
 ```
 
 The suite reads `GET /healthz` first. On fake engines it runs the contract
-suites and every `fake` case: 74 tests today, passed by each of the three
-quoters (`task e2e:all`). On live engines it refuses to
+suites and every `fake` case: 75 tests today. On live engines it refuses to
 start without `RUN_LIVE=1`, then plays every quote case. It checks:
 
 - malformed requests (400), oversized bodies (413), empty and over-long carts
@@ -150,7 +145,7 @@ start without `RUN_LIVE=1`, then plays every quote case. It checks:
 
 The web app end to end, as a customer uses it: a real browser (Chromium, on
 a desktop and on a Pixel 7) on the page, through the BFF and its session
-cookie, to the three quoters on fake engines.
+cookie, to the quoter on fake engines.
 
 ```sh
 task web:e2e                                        # or scripts/web-e2e.sh [playwright test args]
@@ -164,45 +159,39 @@ everything down. It checks a priced cart (the total, the lines, the saga
 discount, the announcement to screen readers), the reading behind
 « détails », an example cart, Ctrl+Enter, the refusals in one sentence (an
 injection, a text that orders no film, a cart over the token limit), a
-recount off its schema left out, `?quoter=python`, the size of a cart in
+recount off its schema left out, the size of a cart in
 three cases with a picture each (near the limit, over the token limit, over 8
 KB: `web/test-results/screenshots`), a proxy's own 413 page, and the security
 headers with the page working under them.
 
-### Parity suite
-
-```sh
-task e2e:parity      # Go :24799, TypeScript :24798, Python :24797, all on fake engines
-```
-
-The three quoters answer the same requests, and must answer the same bytes
-([Identical quoters](architecture.md#identical-quoters)). The suite
-(`e2e/parity/`) sends each the API's edges (every kind of malformed body,
-headers given twice or out of format, unknown paths and methods, `HEAD`, a
-413, the fake engines' directives) and every shared quote case, with and
-without `X-Request-Id`, and compares the status, `Content-Type`, `Allow`,
-`X-Request-Id` and `Content-Length`, the body and the log line of each, once
-the generated ids, times and durations are placeholders. Each quoter is also
-held alone to the rules: compact JSON, numbers as ECMAScript writes them, the
-contract's key order, log lines that start with `time`, `level`, `msg`.
-Then it runs each program: `version`, `tokenizer`, usage errors, every kind
-of configuration error, and a life (startup lines, one request, SIGTERM),
-comparing stdout, stderr and the exit code. Last, the traces: the quoters
-export to a stand-in for Langfuse (`e2e/src/capture.ts`, which reads OTLP in
-protobuf and JSON and takes score batches), and the span tree and scores of
-each of about 90 quotes are compared: names, kinds, parents, every
-attribute, statuses, events, score ids and values. Model generations exist
-only on live engines: their shape is held by each quoter's unit tests. The
-audit behind it, and what the comparison leaves out, is
-[`parity.md`](parity.md).
-
 ## Benches
 
-Benches call the real models. They refuse to start without `RUN_LIVE=1`, an
-OpenRouter key and Langfuse; `--dry-run` prints the calls and input tokens and
-sends nothing.
+The system bench calls the real models. It refuses to start without `RUN_LIVE=1`
+and an OpenRouter key; `--dry-run` prints the calls and input tokens and sends
+nothing.
 
-### Component benches (Go)
+### System bench
+
+Plays `cases/quote` N times against a running quoter and measures what the
+customer gets: exact totals, refusal codes, quantities per film, error rate,
+latency p50 / p90 / max, cost per cart, and duration and cost per stage.
+
+```sh
+task bench:system -- --base-url http://localhost:24793 --runs 3
+```
+
+Reports land in `reports/` as JSON and Markdown. With `LANGFUSE_*` set, each
+pass is also pushed to Langfuse as an experiment on the `quote` dataset.
+
+## Results kept from the earlier benches
+
+The project began as three implementations of one contract (see
+[History](architecture.md#history)). The tools below, the Go component benches
+and the load bench of the three images, were removed from the tree with the Go
+and Python quoters; they live in git history (`git log --diff-filter=D --
+quoters/go`), and what they measured is kept here, as it was written.
+
+### Component benches (a tool of the Go tree, removed)
 
 One subject per model stage, played in-process with the application's own
 engines, scored by code checks, and kept in Langfuse: the cases become a
@@ -227,11 +216,8 @@ runs scored and the mean score; for guard and identify, the lowest confidence
 over the runs, so an answer that is right but barely shows up before it turns
 wrong. Jev's input and output tokens go to Langfuse with each call.
 
-```sh
-task langfuse:up
-task bench -- run guard --dry-run --runs 1          # 226 Jev calls, about 77,000 input tokens
-RUN_LIVE=1 task bench -- run guard --runs 3
-```
+A dry run of the guard bench counted 226 Jev calls and about 77,000 input
+tokens.
 
 A dry run counts per case: `guard` 2 Jev calls; `identify` 1; `reading` 2 LLM
 calls (parse and recount), one Jev call per distinct title, and 2 per line
@@ -240,16 +226,13 @@ again, up to `READ_ATTEMPTS`, and adds calls; `judge` 1 LLM call (the
 recount), one Jev call per title the recount reads, and 2 per line plus 1.
 
 Every word put to a model lives in `prompts/` (`guard.json`, `parse.json`,
-`identify.json`, `judge.json`) and nowhere else, read by every
-implementation: `prompts/` is also a small Go module that embeds the files,
-which the Go quoter requires (a `replace` to its path), while TypeScript and
-Python read them at startup. Tests check how a request is assembled on a
-fixture prompt set, never the wording. A stage's version is the first 8 hex
-digits of the SHA-256 of its file: guard `58461632`, parse `23abf308`,
-identify `fae24511`, judge `2d156581`; `GET /healthz` serves them, and the
-end-to-end suite holds them to the files. The recount reads `parse.json`, so it shares the parse's version;
-the run names its model instead. A run says what it tested, and two
-implementations on the same versions ask the same questions.
+`identify.json`, `judge.json`) and nowhere else. Tests check how a request is
+assembled on a fixture prompt set, never the wording. A stage's version is the
+first 8 hex digits of the SHA-256 of its file: at the time of these runs guard
+`58461632`, parse `23abf308`, identify `fae24511`, judge `2d156581`
+(`GET /healthz` serves the current ones, and the end-to-end suite holds them to
+the files). The recount reads `parse.json`, so it shares the parse's version;
+the run names its model instead. A run says what it tested.
 
 Last live pass, 3 runs per case, $0.153 for the four benches (2026-10-02),
 with the two-question guard, the recount and the read-again loop:
@@ -272,7 +255,7 @@ with the two-question guard, the recount and the read-again loop:
   these, behind which the reading, the judge and the code still hold.
 - No wrong price in any run: every wrong reading was refused by the judge.
 
-### Parser variants: `bench matrix`
+### Parser variants: `bench matrix` (a tool of the Go tree, removed)
 
 The `parse` subject plays the first reading alone, on the `reading` cases:
 the parse, its mentions merged, identify. It is scored on `films`, and its
@@ -287,12 +270,8 @@ variant, model, effort, strategy, accuracy, cases failed, the parse's p50
 and p90, cost per cart and per 1,000 carts, errors. It writes
 `reports/<date>/<subject>-<variant>.json` and `<subject>-matrix.md`.
 
-```sh
-cd quoters/go
-go run ./cmd/bench matrix --subject parse --variants bench/variants.yaml --runs 3 --dry-run
-RUN_LIVE=1 go run ./cmd/bench matrix --subject parse --variants bench/variants.yaml --runs 3 --max-usd 1
-go run ./cmd/bench table --subject parse --date 2026-10-03   # the table again, from that day's JSON reports
-```
+It was run from the Go tree, with a variants file (a set of environment
+overrides per variant), a dry run first, and `--max-usd` to cap the spend.
 
 The matrix writes its table after each variant, under a heading that names
 the date, the cases and runs and the prompts' versions: a matrix stopped
@@ -346,35 +325,14 @@ What it decided:
   skipped), stopped by a Langfuse timeout while the local models loaded the
   machine.
 
-### System bench (any quoter)
-
-Plays `cases/quote` N times against a running quoter and measures what the
-customer gets: exact totals, refusal codes, quantities per film, error rate,
-latency p50 / p90 / max, cost per cart, and duration and cost per stage. It is
-the bench that compares the Go, Python and TypeScript implementations.
-
-```sh
-task bench:system -- --base-url http://localhost:24791 --runs 3
-task bench:compare -- ../reports/go-live-….json ../reports/python-live-….json
-```
-
-Reports land in `reports/` as JSON and Markdown. With `LANGFUSE_*` set, each
-pass is also pushed to Langfuse as an experiment on the `quote` dataset.
-
-### Load bench (the three images, no model)
-
-```sh
-task bench:load                                   # 1 and 4 CPUs, 512 MB; reports/load/<date>/
-task bench:load -- --cpus 1 --fake-cpu-ms 10      # with 10 ms of busy CPU per fake call
-task bench:load -- --table ../reports/load/<date> # the table again, from the reports
-```
+### Load bench of the three images (removed, no model)
 
 It measures the runtimes, not the models: each quoter's image runs alone
 (`docker run --cpus N --memory 512m`), as shipped (one process, no extra
 worker), on fake engines that take a model's time
 ([`FAKE_LATENCY=real`](architecture.md#fake-latency-fake_latency-fake_cpu_ms):
 guard 400 ms, parse 1.2 s, recount 2.5 s, identify 300 ms, judge 350 ms, ±20 %
-by a hash of the call, the same in the three). `e2e/src/load/` sends the 33
+by a hash of the call, the same in the three). The load tool (`e2e/src/load/` of the earlier tree) sent the 33
 fake quote cases and a cart read twice, in turn, from 1, 10, 50, 100 and 200
 clients in a closed loop (undici, one connection each): 5 s of warm-up, then
 20 s measured. Per step: requests per second, latency p50/p90/p99/max, errors
@@ -386,9 +344,7 @@ Run on 2026-10-03, an Apple M2 Max (12 cores, 32 GB), Docker Desktop 29.4
 with 6 CPUs and 12 GB. Not a quiet machine: other projects' containers
 (ClickHouse, MinIO, Langfuse) and an idle Ollama kept the host's load
 between 6 and 11, which the CPU limits keep away from the measured
-container but not entirely. At 200 requests in flight
-([`reports/load/2026-10-03/load.md`](../reports/load/2026-10-03/load.md) has
-every step):
+container but not entirely. At 200 requests in flight:
 
 | Scenario | | Go | TypeScript | Python |
 |---|---|---:|---:|---:|
@@ -425,19 +381,18 @@ What it shows:
   Python code on one core. The quoters are stateless (the identify cache is
   per process), so each scales by copies.
 
-**What it means for the choice of language.** For a quoter, none: it waits
+**What it meant for the choice of language.** For a quoter, little: it waits
 on models, and the models are more than 99 % of a quote's cost ($0.0006 of
-model calls against a few milliseconds of CPU). Go is cheapest to run (a
-fifth of the memory, half the CPU) and alone spreads CPU-bound work over
+model calls against a few milliseconds of CPU). Go was cheapest to run (a
+fifth of the memory, half the CPU) and alone spread CPU-bound work over
 cores; TypeScript shares one language and its types with the web app;
 Python owns the ecosystem around the models: evals, data analysis,
-fine-tuning a small model, running one locally. A sensible split is the
-service in TypeScript or Go, the work on models in Python.
+fine-tuning a small model, running one locally. TypeScript was kept.
 
 ## Observability
 
 With `LANGFUSE_*` set, every quote is the trace `quote`, tagged
-`quoter:<name>` and `engines:<live|fake>`, and leaves four scores on it:
+`quoter:typescript` and `engines:<live|fake>`, and leaves four scores on it:
 `cost_usd`, `latency_ms`, `attempts` and `outcome`
 ([Usage, cost and traces](architecture.md#usage-cost-and-traces)). Langfuse 4
 in `events_only` mode has no traces view in its metrics API: the scores are
@@ -446,8 +401,8 @@ picked by its tag.
 
 ```sh
 task langfuse:up                                  # http://localhost:24794
-ENGINES=fake task go:run                          # or any quoter, LANGFUSE_* from .env
-task langfuse:report                              # per quoter: quotes, cost, latency, outcomes (live engines)
+task ts:run:fake                                  # LANGFUSE_* from .env
+task langfuse:report                              # quotes, cost, latency, outcomes (live engines)
 task langfuse:report -- --from 2026-10-01         # since a date
 task langfuse:report -- --engines fake            # the fake engines' quotes (e2e runs); --engines all for both
 task langfuse:dashboard                           # the dashboard "Quotes", once
@@ -462,7 +417,7 @@ and the share of each outcome, from `/api/public/v2/metrics` (views
 `scores-numeric` and `scores-categorical`). `task langfuse:dashboard` makes
 the dashboard "Quotes" through Langfuse's dashboards API, marked `unstable`:
 the mean cost and latency per quote, the p90 latency and the outcomes, each
-per tag set (`quoter:go, engines:live`…), and quotes over time.
+per tag set (`quoter:typescript, engines:live`…), and quotes over time.
 
 A trace also opens as a graph (the trace view's graph tab): Langfuse 4 draws
 it when an observation is typed other than span, event or generation, which
@@ -478,24 +433,19 @@ times: `parse` and `recount` side by side, a stage read again repeated.
 | One four-film quote | 15 Jev, 2 LLM (parse, recount) | not measured yet; about $0.0006 with the former 18 Jev and 1 Luna |
 | A refusal by the guard | 2 Jev | not measured yet; about $0.00003 with the former single request |
 | Guard bench, 113 cases, one pass | 226 Jev | not measured yet; about $0.004 with the former single request |
-| The four component benches, 3 runs per case | about 2,700 Jev, 400 LLM (dry run) | not measured yet; about $0.09 before the recount |
+| The four component benches (earlier tree), 3 runs per case | about 2,700 Jev, 400 LLM (dry run) | not measured yet; about $0.09 before the recount |
 | Everything in CI | none | $0 |
 
 ## CI
 
-GitHub Actions, seven jobs on every push and pull request:
+GitHub Actions, on every push and pull request:
 
-- **Go**: generated code matches the contract, golangci-lint, tests with the
-  race detector, shared cases valid, the image builds (from the repository's
-  root, for `prompts/`);
 - **Web**: generated types match the contract, lint, type check, tests, build;
 - **Web end to end**: the Playwright suite against the whole stack on fake
   engines (`scripts/web-e2e.sh`), its report kept when it fails;
-- **TypeScript** and **Python**: each quoter's generated code or models,
-  lint, types, tests, then the end-to-end suite against it and its image;
-- **End-to-end**: the harness's lint, types and tests, then the suite against
-  the Go API on fake engines;
-- **Parity**: the three quoters against each other on fake engines
-  (`scripts/e2e-parity.sh`).
+- **TypeScript quoter**: generated types, lint, types, format, tests, then the
+  end-to-end suite against it and its image;
+- **End-to-end harness**: its lint, types and tests, then the suite against
+  the quoter on fake engines.
 
 `task ci` runs the same steps locally.
