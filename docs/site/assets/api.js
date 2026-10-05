@@ -100,7 +100,7 @@ function responses(spec, op) {
 }
 
 function curl(spec, path, method, op) {
-  const base = spec.servers?.[0]?.url ?? "http://localhost:24791";
+  const base = spec.servers?.find((server) => server.url.endsWith(":24793"))?.url ?? "http://localhost:24793";
   const body = resolve(spec, op.requestBody);
   const c = body && Object.values(body.content ?? {})[0];
   const example = c && (Object.values(c.examples ?? {})[0]?.value ?? c.example);

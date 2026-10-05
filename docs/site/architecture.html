@@ -21,7 +21,6 @@
       <ul class="nav">
         <li><a href="index.html">Overview</a></li>
         <li><a href="architecture.html" aria-current="page">Architecture</a></li>
-        <li><a href="quoters.html">Quoters</a></li>
         <li><a href="api.html">API</a></li>
         <li><a href="testing.html">Testing</a></li>
       </ul>
@@ -32,8 +31,7 @@
       <!-- figures: start -->
       <p class="eyebrow">Architecture</p>
       <h1>The stack and its exchanges</h1>
-      <p class="lead">A cart written in free text leaves the browser, goes through the BFF, then through the API, which reads it in seven stages, two of them side by side. The models read, through OpenRouter; the code counts and sets the price; every request leaves a trace in Langfuse.</p>
-      <p><a class="button primary" href="https://claude.ai/artifact/NeFtxWJeCbKS3RtPhgbTrH" target="_blank" rel="noopener">Open the stack diagram (Claude artifact)</a></p>
+      <p class="lead">A cart written in free text leaves the browser, goes through the BFF, then through the quoter, which reads it in seven stages, two of them side by side. The models read, through OpenRouter; the code counts and sets the price; every request leaves a trace in Langfuse.</p>
 
       <h2 id="services-and-exchanges">Services and what they exchange</h2>
       <ul class="legend" aria-label="Legend of the services diagram">
@@ -41,12 +39,11 @@
         <li><span class="swatch model" aria-hidden="true"></span>Models, through OpenRouter</li>
         <li><span class="swatch obs" aria-hidden="true"></span>Traces and benches (Langfuse)</li>
         <li><span class="swatch tool" aria-hidden="true"></span>Development tooling</li>
-        <li><span class="swatch future" aria-hidden="true"></span>Planned, same contract</li>
         <li><span class="diamond" aria-hidden="true">◆</span>Generated from <code>api/openapi.yaml</code></li>
       </ul>
       <figure>
         <div class="frame">
-          <svg viewBox="0 0 1280 680" role="img" aria-label="The browser calls the Next.js BFF, which calls the Go API with the identity headers. The API calls Jev and GPT-6 Luna through OpenRouter and sends its traces to Langfuse. The Python and TypeScript APIs follow the same contract and the same prompts. The end-to-end suite, the system bench and the component benches read the same shared cases.">
+          <svg viewBox="0 0 1280 680" role="img" aria-label="The browser calls the Next.js BFF, which calls the quoter with the identity headers. The quoter calls Jev and GPT-6 Luna through OpenRouter and sends its traces to Langfuse. The end-to-end suite and the system bench read the shared cases.">
             <defs>
               <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                 <path class="ah" d="M0,0 L10,5 L0,10 z"/>
@@ -55,7 +52,7 @@
 
             <text class="t-tier" x="81" y="36" text-anchor="middle">Client</text>
             <text class="t-tier" x="360" y="36" text-anchor="middle">Web · BFF</text>
-            <text class="t-tier" x="725" y="36" text-anchor="middle">API · one contract</text>
+            <text class="t-tier" x="725" y="36" text-anchor="middle">Quoter · one contract</text>
             <text class="t-tier" x="1132" y="36" text-anchor="middle">Models · traces</text>
 
             <rect class="box" x="16" y="112" width="130" height="76" rx="8"/>
@@ -74,9 +71,9 @@
             <text class="t-sub t-contract" x="266" y="228">◆ <tspan class="t-sub">typed openapi-fetch client</tspan></text>
 
             <rect class="box code" x="600" y="56" width="250" height="248" rx="8"/>
-            <text class="t-title" x="616" y="82">Go API</text>
-            <text class="t-port" x="836" y="82" text-anchor="end">:24791</text>
-            <text class="t-sub" x="616" y="100">Go 1.26 · trpc-agent-go v1.11</text>
+            <text class="t-title" x="616" y="82">Quoter</text>
+            <text class="t-port" x="836" y="82" text-anchor="end">:24793</text>
+            <text class="t-sub" x="616" y="100">TypeScript · Node 26 · Hono</text>
             <text class="t-mono" x="616" y="128">prepare</text>
             <circle class="dot code" cx="718" cy="124" r="4"/>
             <text class="t-body" x="728" y="128">code</text>
@@ -98,14 +95,7 @@
             <text class="t-mono" x="616" y="260">price</text>
             <circle class="dot code" cx="718" cy="256" r="4"/>
             <text class="t-body" x="728" y="260">code</text>
-            <text class="t-sub t-contract" x="616" y="290">◆ <tspan class="t-sub">generated server (oapi-codegen)</tspan></text>
-
-            <rect class="box code" x="600" y="318" width="250" height="40" rx="8"/>
-            <text class="t-title" x="616" y="343">Python API</text>
-            <text class="t-port" x="836" y="343" text-anchor="end">:24792 · FastAPI</text>
-            <rect class="box code" x="600" y="368" width="250" height="40" rx="8"/>
-            <text class="t-title" x="616" y="393">TypeScript API</text>
-            <text class="t-port" x="836" y="393" text-anchor="end">:24793 · Hono</text>
+            <text class="t-sub t-contract" x="616" y="290">◆ <tspan class="t-sub">typed from the contract (openapi-typescript)</tspan></text>
 
             <rect class="group" x="1000" y="56" width="264" height="236" rx="8"/>
             <text class="t-title" x="1016" y="82">OpenRouter</text>
@@ -147,11 +137,6 @@
             <text class="t-arrow mono" x="535" y="186" text-anchor="middle">Quote</text>
             <text class="t-arrow mono" x="535" y="212" text-anchor="middle">problem+json</text>
 
-            <path class="flow opt" d="M470,228 H530 V388 H598" marker-end="url(#arrow)"/>
-            <path class="flow opt" d="M530,338 H598" marker-end="url(#arrow)"/>
-            <text class="t-arrow mono" x="538" y="278">QUOTERS</text>
-            <text class="t-arrow" x="538" y="292">by name</text>
-
             <line class="flow" x1="850" y1="140" x2="1014" y2="140" marker-end="url(#arrow)"/>
             <text class="t-arrow mono" x="932" y="104" text-anchor="middle">guard ×2</text>
             <text class="t-arrow mono" x="932" y="117" text-anchor="middle">identify ×N</text>
@@ -172,7 +157,7 @@
 
             <rect class="box tool" x="250" y="540" width="220" height="72" rx="8"/>
             <text class="t-mono t-strong" x="266" y="563">cases/</text>
-            <text class="t-body" x="266" y="582">339 shared JSON cases</text>
+            <text class="t-body" x="266" y="582">343 shared JSON cases</text>
             <text class="t-sub" x="266" y="599">a note names the mistake guarded</text>
 
             <rect class="box tool" x="600" y="540" width="250" height="72" rx="8"/>
@@ -181,13 +166,13 @@
             <text class="t-sub t-contract" x="616" y="599">◆ <tspan class="t-sub">every response validated (Ajv)</tspan></text>
 
             <rect class="box tool" x="1000" y="540" width="264" height="72" rx="8"/>
-            <text class="t-mono t-strong" x="1016" y="563">cmd/bench</text>
-            <text class="t-body" x="1016" y="582">guard · identify · reading · judge</text>
+            <text class="t-mono t-strong" x="1016" y="563">e2e/ bench</text>
+            <text class="t-body" x="1016" y="582">the system bench</text>
             <text class="t-sub" x="1016" y="599">calls OpenRouter if RUN_LIVE=1</text>
 
             <line class="flow" x1="725" y1="538" x2="725" y2="411" marker-end="url(#arrow)"/>
             <text class="t-arrow mono" x="734" y="470">BASE_URL</text>
-            <text class="t-arrow" x="734" y="484">any quoter</text>
+            <text class="t-arrow" x="734" y="484">the quoter</text>
 
             <line class="flow" x1="470" y1="576" x2="598" y2="576" marker-end="url(#arrow)"/>
             <text class="t-arrow" x="535" y="568" text-anchor="middle">read by</text>
@@ -197,10 +182,10 @@
             <text class="t-arrow" x="1141" y="522">experiments</text>
 
             <path class="flow" d="M360,612 V646 H1132 V614" marker-end="url(#arrow)"/>
-            <text class="t-arrow" x="746" y="664" text-anchor="middle">the benches read the same cases</text>
+            <text class="t-arrow" x="746" y="664" text-anchor="middle">the suite and the bench read the same cases</text>
           </svg>
         </div>
-        <figcaption>The browser only talks to the BFF; only the BFF knows where the APIs are, and it adds the session's identity. The API alone calls OpenRouter and writes traces. The two planned APIs will plug into the same contract, and the same suite will validate them.</figcaption>
+        <figcaption>The browser only talks to the BFF; only the BFF knows where the quoter is, and it adds the session's identity. The quoter alone calls OpenRouter and writes traces.</figcaption>
       </figure>
 
       <h2 id="the-path-of-a-quote">The path of a quote</h2>
@@ -309,15 +294,13 @@
         <table>
           <thead><tr><th scope="col">Layer</th><th scope="col">Technologies</th><th scope="col">Role</th></tr></thead>
           <tbody>
-            <tr><td><strong>Contract</strong></td><td><code>OpenAPI 3.1</code> <code>oapi-codegen 2.8</code> <code>openapi-typescript 7</code></td><td>The source of truth. The Go server and the web and e2e types are generated from it; CI refuses any drift. Every word put to a model lives in <code>prompts/</code>, shared the same way.</td></tr>
-            <tr><td><strong>Web</strong></td><td><code>Next.js 16.3</code> <code>React 19.3</code> <code>iron-session 9</code> <code>openapi-fetch</code> <code>CSS Modules</code></td><td>The UI and the BFF: the session, the quoter picked by name, one French message per refusal.</td></tr>
-            <tr><td><strong>Go API</strong></td><td><code>Go 1.26</code> <code>net/http</code> <code>log/slog</code> <code>o200k_base, O(n log n) merge</code></td><td>The pipeline, pricing in cents, RFC 9457 errors. The tokenizer is compiled in: counting needs no network.</td></tr>
-            <tr><td><strong>TypeScript API</strong></td><td><code>Node 26</code> <code>Hono</code> <code>openai</code> <code>Ajv</code> <code>js-tiktoken ranks</code></td><td>The same pipeline on Node, run from its <code>.ts</code> files with no build step. Every model answer is checked against the schema.</td></tr>
-            <tr><td><strong>Python API</strong></td><td><code>Python 3.14</code> <code>uv</code> <code>FastAPI</code> <code>httpx</code> <code>openai</code> <code>tiktoken</code> <code>mypy --strict</code></td><td>The same pipeline on asyncio. The tokenizer's vocabulary is fetched once against a pinned checksum, and never at runtime.</td></tr>
-            <tr><td><strong>Agents and models</strong></td><td><code>trpc-agent-go 1.11.2</code> <code>OpenRouter</code> <code>Jev 1.13</code> <code>GPT-6 Luna</code> </td><td>Jev decides (guard, identify, judge); Luna extracts under a strict schema, and recounts with the same prompt, without reasoning; trpc-agent-go carries the agent, the traces and the evaluation.</td></tr>
+            <tr><td><strong>Contract</strong></td><td><code>OpenAPI 3.1</code> <code>openapi-typescript 7</code></td><td>The source of truth. The quoter's, the web's and the e2e types are generated from it, and a test refuses any drift. Every word put to a model lives in <code>prompts/</code>.</td></tr>
+            <tr><td><strong>Web</strong></td><td><code>Next.js 16.3</code> <code>React 19.3</code> <code>iron-session 9</code> <code>openapi-fetch</code> <code>CSS Modules</code></td><td>The UI and the BFF: the anonymous session, the limits, one French message per refusal.</td></tr>
+            <tr><td><strong>Quoter</strong></td><td><code>Node 26</code> <code>Hono</code> <code>openai</code> <code>Ajv</code> <code>js-tiktoken ranks</code></td><td>The pipeline, pricing in cents, RFC 9457 errors, run from its <code>.ts</code> files with no build step. Every model answer is checked against the schema.</td></tr>
+            <tr><td><strong>Agents and models</strong></td><td><code>OpenRouter</code> <code>Jev 1.13</code> <code>GPT-6 Luna</code></td><td>Jev decides (guard, identify, judge); Luna extracts under a strict schema, and recounts with the same prompt, without reasoning; the traces go out as OpenTelemetry.</td></tr>
             <tr><td><strong>Observability</strong></td><td><code>Langfuse 4</code> <code>OpenTelemetry</code> <code>Postgres 17</code> <code>ClickHouse 25.12</code> <code>Redis 7</code> <code>MinIO</code></td><td>One trace per request, one span per stage; the benches keep their datasets and experiments there.</td></tr>
-            <tr><td><strong>Tests and benches</strong></td><td><code>go test -race</code> <code>pytest</code> <code>Vitest 5</code> <code>Testing Library</code> <code>Ajv 2020-12</code></td><td>Deterministic fake engines in CI; live benches only with <code>RUN_LIVE=1</code>.</td></tr>
-            <tr><td><strong>Tooling</strong></td><td><code>Task</code> <code>Docker Compose</code> <code>GitHub Actions</code> <code>golangci-lint 2</code> <code>ESLint</code> <code>Prettier</code></td><td>One command per gesture: <code>task ci</code>, <code>task e2e</code>, <code>task langfuse:up</code>, <code>task bench</code>, <code>task docs</code>.</td></tr>
+            <tr><td><strong>Tests and benches</strong></td><td><code>Vitest 5</code> <code>Testing Library</code> <code>Playwright</code> <code>Ajv 2020-12</code></td><td>Deterministic fake engines for every test; live benches only with <code>RUN_LIVE=1</code>.</td></tr>
+            <tr><td><strong>Tooling</strong></td><td><code>Task</code> <code>Docker Compose</code> <code>GitHub Actions</code> <code>ESLint</code> <code>Prettier</code></td><td>One command per gesture: <code>task ci</code>, <code>task e2e</code>, <code>task langfuse:up</code>, <code>task bench:system</code>, <code>task docs</code>.</td></tr>
           </tbody>
         </table>
       </div>
