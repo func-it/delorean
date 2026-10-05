@@ -7,7 +7,7 @@ from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
-from delorean.cart import MAX_COPIES, MAX_QUANTITY, Film, Line, Mention, title_key
+from delorean.cart import MAX_COPIES, MAX_QUANTITY, Film, Line, Mention, title_key, trim_space
 from delorean.pipeline.outcome import Copies, GuardVerdict, Judgement
 from delorean.pipeline.ports import (
     WHOLE_READING,
@@ -55,7 +55,7 @@ def merge(mentions: Iterable[Mention]) -> list[Mention]:
     did not write."""
     merged: dict[str, Mention] = {}
     for mention in mentions:
-        title = mention.title.strip()
+        title = trim_space(mention.title)
         if not title:
             raise EngineError("a mention has no title")
         if mention.quantity < 1:

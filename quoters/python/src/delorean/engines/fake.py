@@ -11,7 +11,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Final, Literal
 
-from delorean.cart import MAX_COPIES, Film, Line, Mention, title_key
+from delorean.cart import MAX_COPIES, Film, Line, Mention, title_key, trim_space
 from delorean.pipeline import (
     WHOLE_READING,
     Check,
@@ -171,15 +171,15 @@ class FakeReader:
 
 def read_all(text: str) -> list[Mention]:
     """Every mention of text, as the fake parse reads them all."""
-    lines = (raw.strip() for raw in text.split("\n"))
+    lines = (trim_space(raw) for raw in text.split("\n"))
     return [_mention(line) for line in lines if line and not line.startswith(_DIRECTIVE)]
 
 
 def _mention(line: str) -> Mention:
     if (m := _QUANTITY_FIRST.fullmatch(line)) and (n := _quantity(m[1])):
-        return Mention(title=m[2].strip(), quantity=n)
+        return Mention(title=trim_space(m[2]), quantity=n)
     if (m := _QUANTITY_LAST.fullmatch(line)) and (n := _quantity(m[2])):
-        return Mention(title=m[1].strip(), quantity=n)
+        return Mention(title=trim_space(m[1]), quantity=n)
     return Mention(title=line, quantity=1)
 
 
@@ -218,7 +218,7 @@ class FakeIdentifier:
 
 
 def identify(title: str) -> Film:
-    m = _SAGA_TITLE.fullmatch(" ".join(title.lower().split()))
+    m = _SAGA_TITLE.fullmatch(title_key(title))
     return _VOLUMES[m[1]] if m else Film.OTHER
 
 

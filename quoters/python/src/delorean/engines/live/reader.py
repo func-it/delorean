@@ -12,7 +12,7 @@ from openai import omit
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from delorean.cart import Film, Mention
+from delorean.cart import Film, Mention, trim_space
 from delorean.config import Effort
 from delorean.pipeline import EngineError, Retry, Usage
 from delorean.pipeline.ports import note_cut
@@ -140,10 +140,10 @@ class LlmReader:
         try:
             if self.names_films:
                 named = _NamedReading.model_validate_json(answer).films
-                mentions = [Mention(title=f.title.strip(), quantity=f.quantity, film=f.film) for f in named]
+                mentions = [Mention(title=trim_space(f.title), quantity=f.quantity, film=f.film) for f in named]
             else:
                 read = _Reading.model_validate_json(answer).films
-                mentions = [Mention(title=f.title.strip(), quantity=f.quantity) for f in read]
+                mentions = [Mention(title=trim_space(f.title), quantity=f.quantity) for f in read]
         except ValidationError as err:
             raise EngineError(f"{self.model}: answer off schema: {err.errors()[0]['msg']}") from err
         if untitled := [i + 1 for i, m in enumerate(mentions) if not m.title]:
