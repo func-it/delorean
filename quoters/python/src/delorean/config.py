@@ -151,6 +151,12 @@ class Settings:
             read.check(effort in EFFORTS, name, f"is {_quoted(effort)}, want one of {', '.join(EFFORTS)}")
         for name, url in (("PARSE_BASE_URL", live.parse_base_url), ("RECOUNT_BASE_URL", live.recount_base_url)):
             read.check(_http_url(url), name, f"is {_quoted(url)}, not an http(s) URL")
+            # with live engines the key goes along with every call: over http it would cross the network in
+            # the clear, so http is for the local machine only (a variable already wrong is not told twice)
+            if not read.bad(name) and engines == "live" and urlsplit(url).scheme == "http" and not _is_localhost(url):
+                read.wrong(
+                    name, f"{name} is {_quoted(url)}, not https: a key is sent with it (http is for localhost only)"
+                )
         read.check(settings.request_timeout > 0, "REQUEST_TIMEOUT", "must be positive")
         read.check(settings.recount_timeout > 0, "RECOUNT_TIMEOUT", "must be positive")
         read.check(live.model_timeout > 0, "MODEL_TIMEOUT", "must be positive")
@@ -319,6 +325,15 @@ def _quoted(value: str) -> str:
 def _http_url(url: str) -> bool:
     parts = urlsplit(url)
     return parts.scheme in {"http", "https"} and bool(parts.hostname)
+
+
+def _is_localhost(url: str) -> bool:
+    """Whether the URL's host is the local machine, by exactly these names: as written, as Go reads it (a URL
+    parser lower-cases the host, and `LOCALHOST` is not `localhost` here)."""
+    match = re.match(r"[^:/?#]+://(?:[^/?#@]*@)?(\[[^\]]*\]|[^:/?#]*)", url)
+    host = match[1] if match else ""
+    name = host[1:-1] if host.startswith("[") else host
+    return name in {"localhost", "127.0.0.1", "::1"}
 
 
 _DURATION: Final = re.compile(r"(\d+(?:\.\d*)?|\.\d+)(ns|us|µs|μs|ms|s|m|h)")

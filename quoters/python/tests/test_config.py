@@ -288,3 +288,69 @@ def test_fake_latency_and_cpu() -> None:
     ]
     with pytest.raises(ConfigError, match='FAKE_CPU_MS="many" is not an integer'):
         Settings.from_env({"ENGINES": "fake", "FAKE_CPU_MS": "many"})
+
+
+def _live(**variables: str) -> dict[str, str]:
+    return {"ENGINES": "live", "OPENROUTER_API_KEY": "k", **variables}
+
+
+def test_an_http_base_url_is_refused_when_a_key_goes_with_it() -> None:
+    """With live engines a key goes along with every call to a reader's URL: over http it would cross the
+    network in the clear, so http is for the local machine (exactly localhost, 127.0.0.1 and ::1). With
+    fake engines nothing is sent, and nothing is checked."""
+    with pytest.raises(ConfigError) as raised:
+        Settings.from_env(
+            _live(PARSE_BASE_URL="http://x/v1", RECOUNT_BASE_URL="http://example.com:8080/v1"),
+        )
+    assert str(raised.value).splitlines() == [
+        'PARSE_BASE_URL is "http://x/v1", not https: a key is sent with it (http is for localhost only)',
+        'RECOUNT_BASE_URL is "http://example.com:8080/v1", not https: a key is sent with it '
+        "(http is for localhost only)",
+    ]
+
+
+@pytest.mark.parametrize(
+    "base",
+    [
+        "http://localhost:11434/v1",
+        "http://127.0.0.1:11434/v1",
+        "http://[::1]:11434/v1",
+        "https://example.com/v1",
+        "https://localhost/v1",
+    ],
+)
+def test_a_local_http_or_any_https_base_url_is_accepted_with_a_key(base: str) -> None:
+    s = Settings.from_env(_live(PARSE_BASE_URL=base, RECOUNT_BASE_URL=base))
+    assert (s.live.parse_base_url, s.live.recount_base_url) == (base, base)
+
+
+@pytest.mark.parametrize(
+    "base",
+    [
+        "http://localhost.example.com/v1",
+        "http://127.0.0.1.nip.io/v1",
+        "http://127.0.0.2/v1",
+        "http://[::2]/v1",
+        "http://LOCALHOST.evil/v1",
+        "http://LOCALHOST/v1",
+        "http://localhost@evil.example/v1",
+        "HTTP://example.com/v1",
+    ],
+)
+def test_a_base_url_that_only_looks_local_is_refused_with_a_key(base: str) -> None:
+    with pytest.raises(ConfigError, match=r"^PARSE_BASE_URL is .*not https: a key is sent with it"):
+        Settings.from_env(_live(PARSE_BASE_URL=base))
+
+
+def test_fake_engines_send_nothing_so_any_http_base_url_is_accepted() -> None:
+    s = Settings.from_env(
+        {"ENGINES": "fake", "PARSE_BASE_URL": "http://example.com/v1", "RECOUNT_BASE_URL": "http://x/v1"}
+    )
+    assert s.live.parse_base_url == "http://example.com/v1"
+
+
+def test_a_base_url_that_is_not_http_at_all_is_told_once() -> None:
+    with pytest.raises(ConfigError) as raised:
+        Settings.from_env(_live(PARSE_BASE_URL="ftp://x"))
+    assert str(raised.value).count("PARSE_BASE_URL") == 1
+    assert "not an http(s) URL" in str(raised.value)
