@@ -17,14 +17,14 @@ export interface Catalog {
 }
 
 /** A Back to the Future film as the shop sells it. */
-export interface Volume {
+interface Volume {
   film: Film;
   title: string;
   unitCents: number;
 }
 
 /** Takes `percent` off every saga DVD once a cart holds `distinctVolumes` different volumes. */
-export interface Tier {
+interface Tier {
   distinctVolumes: number;
   percent: number;
 }
@@ -44,13 +44,13 @@ export const DEFAULT_CATALOG: Catalog = {
 };
 
 /** A line with its price. */
-export interface PricedLine extends Line {
+interface PricedLine extends Line {
   unitCents: number;
   subtotalCents: number;
 }
 
 /** The saga discount of a cart; `percent` is 0 when no tier is reached. */
-export interface Discount {
+interface Discount {
   distinctVolumes: number;
   percent: number;
   /** The subtotal of the saga lines, on which `percent` applies. */

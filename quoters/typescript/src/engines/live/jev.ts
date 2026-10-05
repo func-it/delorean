@@ -12,7 +12,7 @@ import { observe } from '../../telemetry/trace.ts';
  * another: independent judgements go in requests of their own (decideAll).
  */
 
-export const JEV_URL = 'https://openrouter.ai/api/alpha/decisions';
+const JEV_URL = 'https://openrouter.ai/api/alpha/decisions';
 export const JEV_MODEL = 'typesafe/jev-1.13';
 
 /** One call: every key of `state` is a document Jev reads, named for what it is. */
@@ -22,7 +22,7 @@ export interface Request {
 }
 
 /** One question's answer: `noul` for a noul question, `choice` and `probabilities` for a choice. */
-export interface Answer {
+interface Answer {
   noul: number;
   choice: string;
   confidence: number;
@@ -303,7 +303,7 @@ function answersOf(wire: Wire['answers'], request: Request, engine: string): Rec
  * map), so that Jev is put the same request, criteria in the same order, every
  * time.
  */
-export function sortedKeys(value: unknown): unknown {
+function sortedKeys(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortedKeys);
   if (!isObject(value)) return value;
   return Object.fromEntries(

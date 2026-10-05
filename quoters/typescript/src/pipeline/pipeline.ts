@@ -73,7 +73,7 @@ export interface Quote {
 }
 
 /** The pipeline's stages, in order: the order of a report. */
-export const STAGES: readonly Stage[] = ['prepare', 'guard', 'parse', 'recount', 'identify', 'judge', 'price'];
+const STAGES: readonly Stage[] = ['prepare', 'guard', 'parse', 'recount', 'identify', 'judge', 'price'];
 
 /** How Langfuse draws each stage in its graph. */
 const OBSERVATION_TYPES: Record<Stage, ObservationType> = {

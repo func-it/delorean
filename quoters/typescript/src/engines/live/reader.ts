@@ -118,7 +118,7 @@ export function llmReader(prompts: ReadingPrompt, options: ReaderOptions): Reade
 }
 
 /** A reading as the model answers it: `{"films":[{"title":…,"quantity":…}]}`, each line's film too when it has one; compact. */
-export function readingJSON(mentions: readonly Mention[]): string {
+function readingJSON(mentions: readonly Mention[]): string {
   return JSON.stringify({
     films: mentions.map(({ title, quantity, film }) => ({ title, quantity, ...(film !== undefined && { film }) })),
   });
@@ -175,7 +175,7 @@ function costOf(completion: ChatCompletion): number | undefined {
  * The reading in an answer, held to its schema: JSON and nothing else, a
  * list of films, each with a title that is not blank and at least one copy.
  */
-export function decodeReading(completion: ChatCompletion, valid: ValidateFunction, model: string): Mention[] {
+function decodeReading(completion: ChatCompletion, valid: ValidateFunction, model: string): Mention[] {
   const choice = completion.choices[0];
   if (!choice) throw new EngineError(`${model}: no answer`);
   if (choice.finish_reason === 'length') throw new EngineError(`${model}: answer cut short at ${MAX_TOKENS} tokens`);

@@ -4,7 +4,7 @@ import { DEFAULT_PROMPTS_DIR } from './prompts.ts';
 import { langfuseFromEnv, type Langfuse } from './telemetry/langfuse.ts';
 
 /** A configuration that cannot run: one line per wrong variable. */
-export class ConfigurationError extends Error {
+class ConfigurationError extends Error {
   override name = 'ConfigurationError';
   constructor(problems: readonly string[]) {
     super(`configuration:\n${problems.join('\n')}`);

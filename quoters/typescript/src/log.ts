@@ -2,7 +2,7 @@
  * One JSON object per line on stdout (`time`, `level`, `msg`, then the fields):
  * what a log collector reads without a parser of its own.
  */
-export type Level = 'INFO' | 'WARN' | 'ERROR';
+type Level = 'INFO' | 'WARN' | 'ERROR';
 
 export interface Logger {
   log(level: Level, msg: string, attributes?: Record<string, unknown>): void;

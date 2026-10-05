@@ -329,7 +329,7 @@ function timesGiven(c: HonoContext<Env>, name: string): number {
 }
 
 /** 26 base32 characters ([A-Z2-7]) of 128 random bits, as every quoter makes a request id. */
-export function newRequestId(): string {
+function newRequestId(): string {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
   let bits = 0n;
   for (const byte of randomBytes(16)) bits = (bits << 8n) | BigInt(byte);

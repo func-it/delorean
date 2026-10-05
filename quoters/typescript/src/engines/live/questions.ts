@@ -112,7 +112,7 @@ export function jevJudge(jev: Jev, prompts: Prompts['judge']): Judge {
  * as, in the judge's words; for missing, one line per reading line,
  * `- N × "title"`.
  */
-export function judgeProbes(text: string, lines: readonly Line[], prompts: Prompts['judge']): Probe[] {
+function judgeProbes(text: string, lines: readonly Line[], prompts: Prompts['judge']): Probe[] {
   const quoted = (l: Line) => JSON.stringify(l.title);
   return [
     ...lines.flatMap((l): Probe[] => [

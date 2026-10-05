@@ -14,7 +14,7 @@ export type Problem = Schemas['Problem'];
 export type ProblemCode = Schemas['ProblemCode'];
 export type Health = Schemas['Health'];
 export type Catalog = Schemas['Catalog'];
-export type Usage = Schemas['Usage'];
+type Usage = Schemas['Usage'];
 
 /** What every answer about a reading says of where it ran. */
 export interface Context {
