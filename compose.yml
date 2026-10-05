@@ -31,6 +31,15 @@ services:
       RECOUNT_EFFORT: ${RECOUNT_EFFORT:-none}
       READ_ATTEMPTS: ${READ_ATTEMPTS:-3}
       JEV_MODEL: ${JEV_MODEL:-typesafe/jev-1.13}
+      # what the quoter reads and leaves to its own default when empty (docs/architecture.md, Configuration)
+      PARSE_BASE_URL: ${PARSE_BASE_URL:-}
+      RECOUNT_BASE_URL: ${RECOUNT_BASE_URL:-}
+      GUARD_MIN_CONFIDENCE: ${GUARD_MIN_CONFIDENCE:-}
+      JUDGE_THRESHOLD: ${JUDGE_THRESHOLD:-}
+      IDENTIFY_CACHE_SIZE: ${IDENTIFY_CACHE_SIZE:-}
+      MODEL_TIMEOUT: ${MODEL_TIMEOUT:-}
+      RECOUNT_TIMEOUT: ${RECOUNT_TIMEOUT:-}
+      REQUEST_TIMEOUT: ${REQUEST_TIMEOUT:-}
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
       LANGFUSE_BASE_URL: ${LANGFUSE_DOCKER_BASE_URL:-}
@@ -72,6 +81,12 @@ services:
       REFUSAL_MEMORY_S: ${REFUSAL_MEMORY_S:-21600}
       # no proxy in front of the port published below; behind one that appends to X-Forwarded-For, 1
       TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
+      # what the web app reads and leaves to its own default when empty (web/README.md)
+      IP_RATE_LIMIT: ${IP_RATE_LIMIT:-}
+      IP_RATE_WINDOW_S: ${IP_RATE_WINDOW_S:-}
+      IP_DAILY_BUDGET_USD: ${IP_DAILY_BUDGET_USD:-}
+      UNANSWERED_QUOTE_COST_USD: ${UNANSWERED_QUOTE_COST_USD:-}
+      QUOTER_TIMEOUT_MS: ${QUOTER_TIMEOUT_MS:-}
       # daily spending cap in USD over the quoters' usage.cost_usd, UTC day; empty or 0 = no cap.
       # The running total survives restarts in the web-data volume.
       DAILY_BUDGET_USD: ${DAILY_BUDGET_USD:-0}
