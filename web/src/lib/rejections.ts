@@ -87,6 +87,11 @@ export function explainProblem(problem: Problem): Rejection {
         "Un devis est déjà en cours.",
         "Une autre demande de devis, pour votre session ou depuis votre connexion, attend encore sa réponse. Patientez un instant, puis réessayez.",
       );
+    case "daily_budget_exhausted":
+      return rejection(
+        "Le vidéoclub a épuisé son budget du jour.",
+        "Le budget de lecture des paniers est dépensé pour aujourd'hui. Revenez demain, votre panier n'est pas en cause.",
+      );
     case "too_many_refusals":
       return rejection(
         "Trop de paniers refusés.",

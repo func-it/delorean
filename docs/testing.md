@@ -23,8 +23,10 @@ task go:test       # go vet + go test -race ./...
   response is validated against the schemas of `api/openapi.yaml`. The live
   engines are tested against stub OpenRouter servers: request shape, answer
   mapping, errors wrapped as engine failures, parallel fan-out, retries, cost.
-- **Web**: 172 Vitest tests. The BFF routes with a stubbed quoter (status and
+- **Web**: 205 Vitest tests. The BFF routes with a stubbed quoter (status and
   body passed through, session required, quoter allow-list, timeout), the
+  daily budget (cap reached, UTC day change, restart, atomic file, on a
+  temporary directory with an injected clock), the
   session helpers, price formatting, and the result and refusal components
   (the judge's checks, the guard's verdict and its two answers). A test table
   keyed by every problem code fails the type check when the contract gains a

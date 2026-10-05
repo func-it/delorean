@@ -95,6 +95,12 @@ services:
       REFUSAL_MEMORY_S: ${REFUSAL_MEMORY_S:-21600}
       # no proxy in front of the port published below; behind one that appends to X-Forwarded-For, 1
       TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
+      # daily spending cap in USD over the quoters' usage.cost_usd, UTC day; empty or 0 = no cap.
+      # The running total survives restarts in the web-data volume.
+      DAILY_BUDGET_USD: ${DAILY_BUDGET_USD:-0}
+      BUDGET_FILE: /data/budget.json
+    volumes:
+      - web-data:/data
     ports:
       - "127.0.0.1:24790:24790"
     depends_on:
@@ -117,3 +123,6 @@ services:
     ports:
       - "127.0.0.1:24795:80"
     restart: unless-stopped
+
+volumes:
+  web-data:
