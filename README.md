@@ -94,9 +94,13 @@ echo "SESSION_SECRET=$(openssl rand -hex 32)" > .env
 docker compose up --build
 ```
 
-Then open <http://localhost:24790>, paste one of the carts above. The fake
-engines recognise "Back to the Future 1/2/3" written as is and a few
-directives; they exist for tests ([how they work](docs/architecture.md#fake-engines-enginesfake)).
+Then open <http://localhost:24790>, paste one of the carts above. Without a
+key the page says so in a banner, « mode démo : lecteur simplifié, pas d'IA »:
+the fake engines are a small deterministic reader that recognises "Back to the
+Future 1/2/3" (or I/II/III) written as is, with free case and spacing, and
+prices the five examples exactly; any other text is not read the way the real
+models read it. The page then offers only the examples the fake can read
+([how the fakes work](docs/architecture.md#fake-engines-enginesfake)).
 
 With the real models, add the key and a daily spending cap (the web app does
 not start on live engines without one) to the same `.env`:
@@ -110,16 +114,18 @@ EOF
 docker compose up --build
 ```
 
-A four-film cart takes about 17 model calls (15 Jev, 2 LLM) and costs about a
-tenth of a cent. Traces in Langfuse are optional (`task langfuse:up`, see
+Traces in Langfuse are optional (`task langfuse:up`, see
 [`deploy/langfuse`](deploy/langfuse)); nothing requires them.
 
-| Service | URL |
-|---|---|
-| Web app (Next.js: page + BFF) | <http://localhost:24790> |
-| Quoter (TypeScript) | <http://localhost:24793/healthz> |
-| Documentation site | <http://localhost:24795> |
-| Langfuse (optional) | <http://localhost:24794> |
+| Service | URL | Port variable |
+|---|---|---|
+| Web app (Next.js: page + BFF) | <http://localhost:24790> | `WEB_PORT` |
+| Quoter (Node) | <http://localhost:24793/healthz> | `QUOTER_PORT` |
+| Documentation site | <http://localhost:24795> | `DOCS_PORT` |
+| Langfuse (optional) | <http://localhost:24794> | |
+
+compose publishes them on `127.0.0.1` only; set the variables in `.env` to
+move a port.
 
 The quoter alone, without the web app:
 
@@ -129,8 +135,49 @@ curl -s localhost:24793/v1/quotes -H 'content-type: application/json' \
 # 5600
 ```
 
-Without Docker, Node 26 is enough: `task setup`, then `task quoter:run:fake` (the
-quoter on :24793) and `cd web && npm run dev` (the web app on :24790).
+Without Docker, Node 26 is the only requirement. With [go-task](https://taskfile.dev):
+
+```sh
+task setup
+task quoter:run:fake          # the quoter on :24793, fake engines
+cd web && npm run dev         # in another terminal: the web app on :24790
+```
+
+Without go-task, the same in plain commands:
+
+```sh
+cd quoter && npm ci && ENGINES=fake node src/main.ts     # the quoter on :24793
+cd web && npm ci && npm run dev                          # in another terminal
+```
+
+The web app finds the quoter at `QUOTER_URL` (`http://localhost:24793` when
+unset) and, in development, needs no `SESSION_SECRET` (it warns and uses a
+development one); in production mode (`npm run build && npm start`) it needs
+`SESSION_SECRET`, 32 characters or more.
+
+## What live mode costs, and what it guarantees
+
+These figures come from the benches kept in [`docs/testing.md`](docs/testing.md);
+the ones marked *earlier* were measured before the recount existed and have not
+been taken again.
+
+- **Latency.** The parse took 1.2 s at the median and 2.5 s at p90 (parser
+  matrix, 2026-10-03). Whole quotes of the brief's fifth example took 3.3 to
+  5.9 s in earlier live checks. Every model call is cut at 6 s and a request
+  at 15 s.
+- **Cost.** A four-film cart makes about 17 model calls (15 Jev, 2 LLM);
+  about $0.0006 a quote *earlier*; $0.17 per 1,000 carts for the parse and the
+  identification (matrix). The daily budget caps the day's spending.
+- **Errors.** In the live benches no run priced a cart wrong: every wrong
+  reading was refused by the judge. The price is refusals of carts that were
+  fine (two real films whose titles read like orders were refused); the
+  parser read the films right 135 times in 138 on the reading cases.
+- **What is guaranteed, and where.** The five examples (36, 27, 15, 48, 56 €)
+  are guaranteed by tests **only on the fake engines** (`brief.test.ts` and the
+  `enonce` cases the end-to-end suite plays, both in CI). With the real models
+  they were checked by hand and by the benches, not by CI: a model can read a
+  cart differently on two calls, which is why the code compares two readings
+  and refuses what it cannot read faithfully.
 
 ## Tests
 
@@ -142,8 +189,10 @@ quoter on :24793) and `cd web && npm run dev` (the web app on :24790).
 | System bench of the quoter (accuracy, latency, cost) | `task bench -- --base-url http://localhost:24793 --runs 3` | OpenRouter if live |
 | Everything CI runs | `task ci` | none |
 
-No test calls a model. The details, the shared cases, and the results of the
-benches that chose the models are in [`docs/testing.md`](docs/testing.md).
+No test calls a model. Of the 81 shared cases, CI plays the 35 tagged `fake`
+on the fake engines; the other 46 (free text, other languages, stories) run only
+at the bench, against the real models. The details, and the results of the
+benches that chose the models, are in [`docs/testing.md`](docs/testing.md).
 
 ## Design decisions
 
@@ -177,9 +226,10 @@ benches that chose the models are in [`docs/testing.md`](docs/testing.md).
   can run against.
 - **A box set is its films.** "The trilogy" counts as the three volumes.
 
-The reasons, the thresholds and the history (the project began as three
-implementations of one contract, in Go, TypeScript and Python; one was kept)
-are in [`docs/architecture.md`](docs/architecture.md).
+The reasons, the thresholds and the project's history are in
+[`docs/architecture.md`](docs/architecture.md); why a text is read with models
+and not with a parser, and when a parser would do, in
+[`docs/adr/0001-lire-le-panier-avec-des-modeles.md`](docs/adr/0001-lire-le-panier-avec-des-modeles.md).
 
 ## Repository
 
@@ -200,6 +250,8 @@ scripts/              end-to-end and browser-test runners, docs, Langfuse secret
 - [`docs/architecture.md`](docs/architecture.md): the stages, thresholds,
   judge, fake engines and configuration.
 - [`docs/testing.md`](docs/testing.md): tests, cases, benches and their results.
+- [`docs/adr/0001-lire-le-panier-avec-des-modeles.md`](docs/adr/0001-lire-le-panier-avec-des-modeles.md):
+  the decision to read with models, its measures and its risks.
 - [`api/openapi.yaml`](api/openapi.yaml): the HTTP contract.
 - [`quoter/README.md`](quoter/README.md),
   [`web/README.md`](web/README.md) and [`e2e/README.md`](e2e/README.md): each
