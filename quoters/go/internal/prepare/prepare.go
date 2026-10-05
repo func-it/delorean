@@ -34,15 +34,42 @@ const (
 // joiners — zero-width spaces, which split a word to slip it past a reader;
 // bidirectional overrides, which show text in another order than it is read;
 // tag characters, which spell ASCII no one sees: an instruction hidden there
-// would reach the models and no reviewer.
+// would reach the models and no reviewer — and the characters of invisible.
 func visible(r rune) rune {
 	switch {
 	case r == '\n', r == '\t', r == zwnj, r == zwj:
 		return r
-	case unicode.IsControl(r), unicode.Is(unicode.Cf, r):
+	case unicode.IsControl(r), unicode.Is(unicode.Cf, r), isInvisible(r):
 		return -1
 	}
 	return r
+}
+
+// invisible are the characters that draw nothing and are not format
+// characters, so that they can hide text from a reader as the zero-width
+// ones do: a grapheme joiner, the fillers of Hangul and Khmer, Mongolian
+// variation selectors, the blank braille pattern, the variation selectors
+// (and their supplement). An explicit table, the same in the three quoters:
+// the runtimes' Unicode versions differ, and a property would too.
+var invisible = [...][2]rune{
+	{0x034F, 0x034F},   // combining grapheme joiner
+	{0x115F, 0x1160},   // Hangul choseong and jungseong fillers
+	{0x17B4, 0x17B5},   // Khmer inherent vowels
+	{0x180B, 0x180F},   // Mongolian free variation selectors, and the vowel separator
+	{0x2800, 0x2800},   // blank braille pattern
+	{0x3164, 0x3164},   // Hangul filler
+	{0xFE00, 0xFE0F},   // variation selectors
+	{0xFFA0, 0xFFA0},   // halfwidth Hangul filler
+	{0xE0100, 0xE01EF}, // variation selectors supplement
+}
+
+func isInvisible(r rune) bool {
+	for _, span := range invisible {
+		if r >= span[0] && r <= span[1] {
+			return true
+		}
+	}
+	return false
 }
 
 // Encoding is the BPE vocabulary tokens are counted with. Jev's tokenizer is

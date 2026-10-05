@@ -42,7 +42,17 @@ func TestNormalize(t *testing.T) {
 		{"a soft hyphen dropped", "Back to the Fu\u00adture 2", "Back to the Future 2"},
 		{"a format character between a letter and its accent", "che\u200b\u0300vre", "ch\u00e8vre"},
 		{"Persian keeps its non-joiner", "\u0622\u06cc\u0646\u062f\u0647\u200c\u0647\u0627", "\u0622\u06cc\u0646\u062f\u0647\u200c\u0647\u0627"},
-		{"variation selectors are not format characters", "\u2764\ufe0f Back to the Future", "\u2764\ufe0f Back to the Future"},
+		{"variation selectors are dropped, the heart stays", "\u2764\ufe0f Back to the Future", "\u2764 Back to the Future"},
+		{"a grapheme joiner between letters", "Back to the Fu\u034fture 2", "Back to the Future 2"},
+		{"Hangul fillers between letters", "Ba\u115fck to\u1160 the Fu\u3164ture\uffa0 2", "Back to the Future 2"},
+		{"Khmer inherent vowels between letters", "Back\u17b4 to the\u17b5 Future 1", "Back to the Future 1"},
+		{"Mongolian selectors and the vowel separator", "Ba\u180bc\u180ck\u180d to\u180e the\u180f Future 1", "Back to the Future 1"},
+		{"the blank braille pattern between letters", "Back to the Fu\u2800ture 3", "Back to the Future 3"},
+		{"variation selectors between letters", "Back\ufe00 to\ufe0f the Future\U000E0100 1\U000E01EF", "Back to the Future 1"},
+		{"a character just outside each span stays", "\u034e\u034f\u0350 \u115e\u1161 \u17b3\u17b6 \u180a\u1810 \u27ff\u2801 \u3163\u3165 \ufe10 \uff9f\uffa1 \U000E00FF\U000E01F0", "\u034e\u0350 \u115e\u1161 \u17b3\u17b6 \u180a\u1810 \u27ff\u2801 \u3163\u3165 \ufe10 \uff9f\uffa1 \U000E00FF\U000E01F0"},
+		{"both joiners stay, the others in the same string go", "a\u200cb\u200dc\u200bd\u2060e\ufeff", "a\u200cb\u200dcde"},
+		{"accented letters and NFD after the removal", "che\u034f\u0300vre\ufe0f e\u0301te\u2800\u0301", "ch\u00e8vre \u00e9t\u00e9"},
+		{"an emoji base keeps its form, its selector goes", "\U0001F3AC\ufe0f\u2764\ufe0f", "\U0001F3AC\u2764"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
