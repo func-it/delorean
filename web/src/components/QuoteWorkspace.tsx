@@ -12,7 +12,7 @@ import { QuoteResult } from "./QuoteResult";
 import styles from "./QuoteWorkspace.module.css";
 import { Rejection } from "./Rejection";
 
-export function QuoteWorkspace({ quoter }: { quoter: string }) {
+export function QuoteWorkspace({ quoter, maxBodyBytes }: { quoter: string; maxBodyBytes?: number }) {
   const [cart, setCart] = useState("");
   const [outcome, setOutcome] = useState<BffResult<Quote>>();
   const [pending, startTransition] = useTransition();
@@ -20,7 +20,7 @@ export function QuoteWorkspace({ quoter }: { quoter: string }) {
   function submit() {
     if (pending) return;
     startTransition(async () => {
-      const result = await requestQuote(cart, quoter);
+      const result = await requestQuote(cart, quoter, maxBodyBytes);
       startTransition(() => setOutcome(result));
     });
   }

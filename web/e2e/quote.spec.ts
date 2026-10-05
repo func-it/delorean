@@ -87,6 +87,27 @@ test("does not price several copies nobody could count, and says to retry", asyn
   await expect(result(page)).toHaveCount(0);
 });
 
+test("does not send a cart over the size the server reads, and says so", async ({ page }) => {
+  let sent = 0;
+  await page.route("**/api/quotes", (route) => {
+    sent += 1;
+    return route.continue();
+  });
+  await price(page, "a".repeat(70_000));
+
+  await expect(refusal(page)).toContainText("Votre panier est trop volumineux");
+  expect(sent).toBe(0);
+});
+
+test("explains a proxy's own 413 page as a cart too large", async ({ page }) => {
+  await page.route("**/api/quotes", (route) =>
+    route.fulfill({ status: 413, contentType: "text/html", body: "<html><h1>413 Request Entity Too Large</h1></html>" }),
+  );
+  await price(page, "Back to the Future 1");
+
+  await expect(refusal(page)).toContainText("Votre panier est trop volumineux");
+});
+
 test("picks a quoter by its name in the URL", async ({ page }) => {
   await page.goto("/?quoter=python");
   await price(page, "Back to the Future 1");

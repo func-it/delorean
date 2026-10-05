@@ -72,6 +72,39 @@ describe("QuoteWorkspace", () => {
     expect((await refusal()).getByText("Le vidéoclub a épuisé son budget du jour, revenez demain.")).toBeInTheDocument();
   });
 
+  it("does not send a cart over the size the BFF reads, and says so", async () => {
+    const bff = stubBff(() => Response.json(quote));
+    render(<QuoteWorkspace quoter="go" maxBodyBytes={200} />);
+
+    await userEvent.click(screen.getByRole("textbox", { name: "Votre panier" }));
+    await userEvent.paste("é".repeat(120));
+    await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
+
+    expect((await refusal()).getByText(/Votre panier est trop volumineux/)).toBeInTheDocument();
+    expect(bff).not.toHaveBeenCalled();
+  });
+
+  it("sends a cart that is exactly the size the BFF reads", async () => {
+    const bff = stubBff(() => Response.json(quote));
+    const body = JSON.stringify({ cart: "Back to the Future 1", quoter: "go" });
+    render(<QuoteWorkspace quoter="go" maxBodyBytes={new TextEncoder().encode(body).length} />);
+
+    await userEvent.type(screen.getByRole("textbox", { name: "Votre panier" }), "Back to the Future 1");
+    await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
+
+    expect(await screen.findByRole("region", { name: "Prix de la commande" })).toBeInTheDocument();
+    expect(bff).toHaveBeenCalledTimes(1);
+  });
+
+  it("explains a 413 that is not a problem, a proxy's page, as a cart too large", async () => {
+    stubBff(() => new Response("<html><h1>413 Request Entity Too Large</h1></html>", { status: 413, headers: { "Content-Type": "text/html" } }));
+    render(<QuoteWorkspace quoter="go" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
+
+    expect((await refusal()).getByText(/Votre panier est trop volumineux/)).toBeInTheDocument();
+  });
+
   it("says the service is out of reach when the BFF is", async () => {
     vi.stubGlobal(
       "fetch",
