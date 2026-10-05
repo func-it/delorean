@@ -132,6 +132,15 @@ export function loadConfig(env: Env): Config {
   check(config.live.modelTimeoutMs > 0, 'MODEL_TIMEOUT', 'must be positive');
   check(config.recountTimeoutMs > 0, 'RECOUNT_TIMEOUT', 'must be positive');
   check(config.requestTimeoutMs > 0, 'REQUEST_TIMEOUT', 'must be positive');
+  // a call is bounded by the recount's time, which the request's time bounds in turn;
+  // a variable that failed its own check is not compared
+  const bad = (name: string) => problems.some((p) => p.name === name);
+  if (!bad('MODEL_TIMEOUT') && !bad('RECOUNT_TIMEOUT')) {
+    check(config.recountTimeoutMs >= config.live.modelTimeoutMs, 'RECOUNT_TIMEOUT', 'must be at least MODEL_TIMEOUT');
+  }
+  if (!bad('RECOUNT_TIMEOUT') && !bad('REQUEST_TIMEOUT')) {
+    check(config.requestTimeoutMs >= config.recountTimeoutMs, 'REQUEST_TIMEOUT', 'must be at least RECOUNT_TIMEOUT');
+  }
   check(['off', 'real'].includes(fakeLatency), 'FAKE_LATENCY', `is ${JSON.stringify(fakeLatency)}, want off or real`);
   check(config.fake.cpuMs >= 0, 'FAKE_CPU_MS', 'must be at least 0');
   if (engines !== 'live' && engines !== 'fake') {
@@ -221,8 +230,8 @@ const UNITS_MS: Record<string, number> = {
 };
 
 /**
- * A duration as Go writes it, in milliseconds: "30s", "1m30s", "1.5s",
- * "500ms". The variable is shared with the Go implementation, and so is its
+ * A duration as Go writes it, in whole milliseconds (a finer value is
+ * rounded): "30s", "1m30s", "1.5s", "500ms". The variable is shared with the Go implementation, and so is its
  * syntax.
  */
 export function parseDuration(raw: string): number | undefined {
@@ -233,5 +242,8 @@ export function parseDuration(raw: string): number | undefined {
   for (const [, value, unit] of match[2].matchAll(/(\d+\.?\d*|\.\d+)(ns|us|µs|μs|ms|s|m|h)/gu)) {
     ms += Number(value) * (UNITS_MS[unit ?? ''] ?? Number.NaN);
   }
+  // whole milliseconds, as the Go implementation reads them: "1.1s" is 1100, not 1100.0000000000002,
+  // which AbortSignal.timeout refuses
+  ms = Math.round(ms);
   return Number.isFinite(ms) ? (match[1] === '-' ? -ms : ms) : undefined;
 }

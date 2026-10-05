@@ -159,6 +159,39 @@ describe('loadConfig', () => {
   });
 });
 
+describe('the three timeouts', () => {
+  const fake = { ENGINES: 'fake' };
+
+  it('are ordered: a call, then the recount that holds it, then the request that holds both', () => {
+    expect(
+      loadConfig({ ...fake, MODEL_TIMEOUT: '1.1s', RECOUNT_TIMEOUT: '2.0004s', REQUEST_TIMEOUT: '9s' }),
+    ).toMatchObject({
+      live: { modelTimeoutMs: 1100 },
+      recountTimeoutMs: 2000,
+      requestTimeoutMs: 9000,
+    });
+    expect(() => loadConfig({ ...fake, MODEL_TIMEOUT: '7s' })).toThrow(
+      'RECOUNT_TIMEOUT must be at least MODEL_TIMEOUT',
+    );
+    expect(() => loadConfig({ ...fake, RECOUNT_TIMEOUT: '20s' })).toThrow(
+      'REQUEST_TIMEOUT must be at least RECOUNT_TIMEOUT',
+    );
+    expect(() => loadConfig({ ...fake, MODEL_TIMEOUT: '20s', RECOUNT_TIMEOUT: '20s', REQUEST_TIMEOUT: '10s' })).toThrow(
+      'REQUEST_TIMEOUT must be at least RECOUNT_TIMEOUT',
+    );
+  });
+
+  it('are not compared when one failed its own check', () => {
+    let message = '';
+    try {
+      loadConfig({ ...fake, RECOUNT_TIMEOUT: '-1s', REQUEST_TIMEOUT: '1s', MODEL_TIMEOUT: '9s' });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toBe('configuration:\nRECOUNT_TIMEOUT must be positive');
+  });
+});
+
 describe('parseDuration', () => {
   it.each([
     ['30s', 30_000],
@@ -168,6 +201,10 @@ describe('parseDuration', () => {
     ['1h', 3_600_000],
     ['.5s', 500],
     ['0', 0],
+    // whole milliseconds: a float product would give 1100.0000000000002, which AbortSignal.timeout refuses
+    ['1.1s', 1100],
+    ['2.0004s', 2000],
+    ['0.0036s', 4],
   ])('reads %s as Go does', (raw, ms) => {
     expect(parseDuration(raw)).toBe(ms);
   });
