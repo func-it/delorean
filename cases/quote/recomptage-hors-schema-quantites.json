@@ -1,0 +1,16 @@
+{
+  "id": "recomptage-hors-schema-quantites",
+  "note": "Le second lecteur répond hors de son schéma (#fake:recount_offschema) et une ligne demande deux exemplaires : sans recomptage, rien ne contrôle la quantité ; le devis n'est pas chiffré, refus propre et réessayable (503 quantity_unverified). Garde contre un prix posé sur une quantité que personne n'a vérifiée.",
+  "tags": [
+    "recomptage",
+    "quantite",
+    "fake"
+  ],
+  "input": {
+    "cart": "2 x Back to the Future 1\n#fake:recount_offschema"
+  },
+  "expect": {
+    "status": 503,
+    "code": "quantity_unverified"
+  }
+}
