@@ -8,7 +8,8 @@ export type RejectionCode =
   | 'invalid_request' // guard
   | 'no_film' // parse
   | 'quantity_too_large' // parse
-  | 'unfaithful_reading'; // judge
+  | 'unfaithful_reading' // judge
+  | 'quantity_unverified'; // price: no recount to count the quantities against; retryable
 
 export type Verdict = 'valid' | 'injection' | 'invalid';
 

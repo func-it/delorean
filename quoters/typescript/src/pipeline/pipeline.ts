@@ -235,6 +235,14 @@ export class Pipeline {
         },
       );
       if (judgement.score >= judgeThreshold) {
+        // No recount succeeded in the request (degraded): nothing counts the quantities. A cart of single
+        // copies is priced; a line of several is not, and the same cart may be priced on a retry.
+        if (kept === undefined && lines.some((l) => l.quantity > 1)) {
+          throw new Rejection(
+            'quantity_unverified',
+            'The quantities could not be cross-checked and a line asks for more than one copy: try again.',
+          );
+        }
         const priced = await run.stage(
           'price',
           () => Promise.resolve({ price: price(this.config.catalog, lines), usage: LOCAL }),
