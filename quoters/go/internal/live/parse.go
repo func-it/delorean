@@ -38,11 +38,13 @@ import (
 // cost, which Langfuse would then price from its own table, at 0 for a
 // model it does not know.
 type Parser struct {
-	stage  pipeline.Stage
-	model  string
-	effort string
-	llm    model.Model
-	prompt readingPrompt
+	// timeout bounds the model call; 0, the request's budget alone
+	timeout time.Duration
+	stage   pipeline.Stage
+	model   string
+	effort  string
+	llm     model.Model
+	prompt  readingPrompt
 }
 
 // message is the user turn of one reading: the customer's text, fenced.
@@ -162,7 +164,7 @@ func newParser(s pipeline.Stage, cfg Config, r readingPrompt, baseURL, name, eff
 			}
 		}),
 	)
-	return &Parser{stage: s, model: name, effort: effort, llm: llm, prompt: r}
+	return &Parser{timeout: cfg.ModelTimeout, stage: s, model: name, effort: effort, llm: llm, prompt: r}
 }
 
 // Parse reads text; told what failed (again not nil), it reads it again in
@@ -171,11 +173,18 @@ func (p *Parser) Parse(ctx context.Context, text string, again *pipeline.Retry) 
 	start := time.Now()
 	m := &meter{}
 	var mentions []cart.Mention
+	if p.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, p.timeout)
+		defer cancel()
+	}
 	err := p.call(context.WithValue(ctx, meterKey{}, m), p.prompt.conversation(text, again), func(answer string) (err error) {
 		mentions, err = decodeReading(answer, p.prompt.films)
 		return err
 	})
-	u := pipeline.Usage{Engine: p.model, Model: p.model, Calls: m.calls, Ms: time.Since(start).Milliseconds(), CostUSD: m.cost}
+	// a call that went out counts, answered or not: a response is counted as it comes,
+	// so a call cut by its time has none to count
+	u := pipeline.Usage{Engine: p.model, Model: p.model, Calls: max(m.calls, 1), Ms: time.Since(start).Milliseconds(), CostUSD: m.cost}
 	if err != nil {
 		return nil, u, failed(p.stage, err)
 	}

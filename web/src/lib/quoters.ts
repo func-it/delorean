@@ -23,8 +23,8 @@ export interface Quoter {
 
 const DEFAULT_QUOTER_URL = "http://localhost:24791";
 
-/** A little above the quoter's own `REQUEST_TIMEOUT` (30 s), so its answer wins the race. */
-const DEFAULT_TIMEOUT_MS = 35_000;
+/** A little above the quoter's own `REQUEST_TIMEOUT` (15 s), so its answer wins the race. */
+const DEFAULT_TIMEOUT_MS = 20_000;
 
 export function configuredQuoters(): Quoter[] {
   const map = process.env.QUOTERS;

@@ -7,6 +7,8 @@ next-env.d.ts
 # dependencies and test output
 /node_modules
 /coverage
+/test-results
+/playwright-report
 
 # local env files; .env.example is the documented template
 .env*

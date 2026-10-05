@@ -24,6 +24,7 @@ TITLES: Final = {
     ProblemCode.quantity_too_large: "Cart rejected",
     ProblemCode.unfaithful_reading: "Cart rejected",
     ProblemCode.engine_unavailable: "Engine unavailable",
+    ProblemCode.quantity_unverified: "Quantities not verified",
     ProblemCode.not_found: "Not found",
     ProblemCode.method_not_allowed: "Method not allowed",
     ProblemCode.internal: "Internal error",
@@ -45,6 +46,9 @@ class Exchange:
     """The problem answered, if any."""
     cause: BaseException | None = None
     """What went wrong behind a 5xx: logged, never shown."""
+    degraded: bool = False
+    """A stage failed and the answer, a quote or a refusal, was made without it
+    (the recount): said in the log line."""
 
 
 def exchange_of(scope: Scope) -> Exchange:

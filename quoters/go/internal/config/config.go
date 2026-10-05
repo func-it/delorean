@@ -39,6 +39,9 @@ type Config struct {
 	ReadAttempts int
 	// RequestTimeout is the budget of one request, model calls included.
 	RequestTimeout time.Duration
+	// RecountTimeout is the time the recount has, a retry included, before
+	// the quote goes on without it.
+	RecountTimeout time.Duration
 	// FakeLatency is "off", fakes that answer at once, or "real", fakes
 	// that take a model's time (the load bench).
 	FakeLatency string
@@ -59,18 +62,20 @@ func Load(getenv func(string) string) (Config, error) {
 			ParseEffort:       e.string("PARSE_EFFORT", "minimal"),
 			ParseBaseURL:      e.string("PARSE_BASE_URL", live.OpenRouter),
 			ParseIdentifies:   e.bool("PARSE_IDENTIFIES", false),
-			RecountModel:      e.string("RECOUNT_MODEL", "deepseek/deepseek-v4.1-flash"),
-			RecountEffort:     e.string("RECOUNT_EFFORT", "low"),
+			RecountModel:      e.string("RECOUNT_MODEL", "openai/gpt-6-luna"),
+			RecountEffort:     e.string("RECOUNT_EFFORT", "none"),
 			RecountBaseURL:    e.string("RECOUNT_BASE_URL", live.OpenRouter),
 			JevModel:          e.string("JEV_MODEL", "typesafe/jev-1.13"),
 			IdentifyCacheSize: e.int("IDENTIFY_CACHE_SIZE", 10000),
+			ModelTimeout:      e.duration("MODEL_TIMEOUT", 6*time.Second),
 		},
-		MaxBodyBytes:       int64(e.int("MAX_BODY_BYTES", 65536)),
-		MaxInputTokens:     e.int("MAX_INPUT_TOKENS", 2048),
+		MaxBodyBytes:       int64(e.int("MAX_BODY_BYTES", 8192)),
+		MaxInputTokens:     e.int("MAX_INPUT_TOKENS", 256),
 		GuardMinConfidence: e.float("GUARD_MIN_CONFIDENCE", 0.5),
 		JudgeThreshold:     e.float("JUDGE_THRESHOLD", 0.5),
 		ReadAttempts:       e.int("READ_ATTEMPTS", 3),
-		RequestTimeout:     e.duration("REQUEST_TIMEOUT", 30*time.Second),
+		RequestTimeout:     e.duration("REQUEST_TIMEOUT", 15*time.Second),
+		RecountTimeout:     e.duration("RECOUNT_TIMEOUT", 6*time.Second),
 		FakeLatency:        e.string("FAKE_LATENCY", "off"),
 		FakeCPUMs:          e.int("FAKE_CPU_MS", 0),
 	}
@@ -89,7 +94,17 @@ func Load(getenv func(string) string) (Config, error) {
 		u, err := url.Parse(v.base)
 		e.check(err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != "", v.name, fmt.Sprintf("is %q, not an http(s) URL", v.base))
 	}
+	e.check(c.Live.ModelTimeout > 0, "MODEL_TIMEOUT", "must be positive")
+	e.check(c.RecountTimeout > 0, "RECOUNT_TIMEOUT", "must be positive")
 	e.check(c.RequestTimeout > 0, "REQUEST_TIMEOUT", "must be positive")
+	// a call is bounded by the recount's time, which the request's time bounds in turn;
+	// a variable that failed its own check is not compared
+	if !e.bad("MODEL_TIMEOUT") && !e.bad("RECOUNT_TIMEOUT") {
+		e.check(c.RecountTimeout >= c.Live.ModelTimeout, "RECOUNT_TIMEOUT", "must be at least MODEL_TIMEOUT")
+	}
+	if !e.bad("RECOUNT_TIMEOUT") && !e.bad("REQUEST_TIMEOUT") {
+		e.check(c.RequestTimeout >= c.RecountTimeout, "REQUEST_TIMEOUT", "must be at least RECOUNT_TIMEOUT")
+	}
 	e.check(c.FakeLatency == "off" || c.FakeLatency == "real", "FAKE_LATENCY", fmt.Sprintf("is %q, want off or real", c.FakeLatency))
 	e.check(c.FakeCPUMs >= 0, "FAKE_CPU_MS", "must be at least 0")
 	switch c.Engines {
@@ -110,7 +125,7 @@ var Variables = []string{
 	"PARSE_MODEL", "PARSE_EFFORT", "PARSE_BASE_URL", "PARSE_IDENTIFIES",
 	"RECOUNT_MODEL", "RECOUNT_EFFORT", "RECOUNT_BASE_URL", "JEV_MODEL",
 	"MAX_BODY_BYTES", "MAX_INPUT_TOKENS", "GUARD_MIN_CONFIDENCE", "JUDGE_THRESHOLD",
-	"READ_ATTEMPTS", "IDENTIFY_CACHE_SIZE", "REQUEST_TIMEOUT", "FAKE_LATENCY", "FAKE_CPU_MS",
+	"READ_ATTEMPTS", "IDENTIFY_CACHE_SIZE", "MODEL_TIMEOUT", "RECOUNT_TIMEOUT", "REQUEST_TIMEOUT", "FAKE_LATENCY", "FAKE_CPU_MS",
 }
 
 // env reads typed variables and collects what is wrong with them.
@@ -176,6 +191,14 @@ func (e *env) float(name string, def float64) float64 {
 	return parsed(e, name, def, func(s string) (float64, error) { return strconv.ParseFloat(s, 64) }, "a number")
 }
 
+// duration reads whole milliseconds: "1.1s" is 1100 ms, whatever the other
+// quoters' arithmetic gives, and a finer value is rounded.
 func (e *env) duration(name string, def time.Duration) time.Duration {
-	return parsed(e, name, def, time.ParseDuration, `a duration such as "30s"`)
+	return parsed(e, name, def, func(s string) (time.Duration, error) {
+		d, err := time.ParseDuration(s)
+		return d.Round(time.Millisecond), err
+	}, `a duration such as "30s"`)
 }
+
+// bad reports whether name already failed a check of its own.
+func (e *env) bad(name string) bool { return e.errs[name] != nil }

@@ -167,6 +167,8 @@ export async function startStubQuoter(options: StubOptions = {}): Promise<Stub> 
     const all = lines.filter((l) => l.trim() !== '' && !l.trim().startsWith('#fake:')).map((l) => mention(l.trim()));
     // The recount reads everything; #fake:miscount gives it one more copy of the first mention.
     const miscount = lines.includes('#fake:miscount');
+    // #fake:recount_offschema: the recount answers off its schema, is asked once more, then left out.
+    const offSchema = lines.includes('#fake:recount_offschema');
     const recounted = merge(all.map((m, i) => (miscount && i === 0 ? { ...m, quantity: m.quantity + 1 } : m)));
     const { max_copies_per_title: maxCopies, max_reading_attempts: attempts } = CATALOG.limits;
     const known = new Map<string, Film>();
@@ -177,7 +179,15 @@ export async function startStubQuoter(options: StubOptions = {}): Promise<Stub> 
       // #fake:reread: a first reading leaves out the last mention.
       const parsed = merge(attempt === 1 && lines.includes('#fake:reread') ? all.slice(0, -1) : all);
       ran('parse');
-      ran('recount');
+      // The first recount that succeeds is kept for the request; one left out is asked again at the next reading.
+      if (offSchema) {
+        ran('recount');
+        ran('recount');
+        const recount = stages.find((s) => s.stage === 'recount');
+        if (recount) recount.degraded = true;
+      } else if (attempt === 1) {
+        ran('recount');
+      }
       const tooMany = parsed.find((m) => m.quantity > maxCopies);
       if (tooMany) {
         return reject('quantity_too_large', {
@@ -222,7 +232,7 @@ export async function startStubQuoter(options: StubOptions = {}): Promise<Stub> 
       const recount = filmsOf(recounted.map((m) => ({ ...m, film: filmOf(m.title) })));
       const checks: Quote['judge']['checks'] = [
         ...found,
-        ...FILMS.filter((film) => film in read || film in recount).map((film) => {
+        ...FILMS.filter((film) => !offSchema && (film in read || film in recount)).map((film) => {
           const [r, c] = [read[film] ?? 0, recount[film] ?? 0];
           return { check: 'count' as const, label: `${film}: ${r} read, ${c} recounted`, score: r === c ? 1 : 0 };
         }),
@@ -232,6 +242,14 @@ export async function startStubQuoter(options: StubOptions = {}): Promise<Stub> 
     }
     if (!judge || judge.score < judge.threshold) {
       return reject('unfaithful_reading', judge && { judge: { ...judge, attempts } });
+    }
+
+    // No recount succeeded and a line asks for several copies: nothing counted them (quantity_unverified).
+    if (offSchema && reading.some((l) => l.quantity > 1)) {
+      return problem(503, 'quantity_unverified', {
+        detail: 'The quantities could not be cross-checked and a line asks for more than one copy: try again.',
+        usage: usage(),
+      });
     }
 
     ran('price');

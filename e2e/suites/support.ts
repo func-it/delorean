@@ -62,6 +62,13 @@ function expectConformingProblem({ response, body }: Exchange, { router = false 
     expect(problem.usage, 'a 422 carries what the refusal cost').toBeDefined();
     if (problem.usage) expect(usageViolations(problem.usage, health, stage, problem.judge?.attempts)).toEqual([]);
   }
+  if (problem.code === 'quantity_unverified') {
+    // refused once the judge held the reading: every stage up to it ran, and not the price
+    expect(problem.usage, 'a refusal carries what it cost').toBeDefined();
+    if (problem.usage) {
+      expect(usageViolations(problem.usage, health, 'judge', problem.judge?.attempts)).toEqual([]);
+    }
+  }
   if (problem.code === 'unfaithful_reading') {
     expect(problem.judge?.attempts, 'a reading is refused after the last attempt').toBe(
       catalog.limits.max_reading_attempts,

@@ -6,6 +6,7 @@ import json
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Final, Literal
 from urllib.parse import urlsplit
@@ -40,12 +41,17 @@ class LiveSettings:
     parse_identifies: bool = False
     """The parse gives each line its film too (prompts/parse-films.json), and
     identify skips those titles."""
-    recount_model: str = "deepseek/deepseek-v4.1-flash"
-    recount_effort: Effort = "low"
+    recount_model: str = "openai/gpt-6-luna"
+    """The recount: the parse's model by default, without reasoning, for a
+    second reading that does not keep the customer waiting."""
+    recount_effort: Effort = "none"
     recount_base_url: str = OPENROUTER
     jev_model: str = "typesafe/jev-1.13"
     identify_cache_size: int = 10_000
     """Titles whose film is kept in memory; 0 turns the cache off."""
+    model_timeout: float = 6.0
+    """Seconds one model call may take, Jev's and the LLMs': one that
+    outlasts it fails as an engine does."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,13 +69,16 @@ class Settings:
     """live, the models through OpenRouter, or fake, deterministic stand-ins
     for tests."""
     live: LiveSettings = field(default_factory=lambda: LiveSettings(openrouter_api_key=""))
-    max_body_bytes: int = 65536
-    max_input_tokens: int = 2048
+    max_body_bytes: int = 8192
+    max_input_tokens: int = 256
     guard_min_confidence: float = 0.5
     judge_threshold: float = 0.5
     read_attempts: int = 3
     """The most readings of one cart before unfaithful_reading."""
-    request_timeout: float = 30.0
+    recount_timeout: float = 6.0
+    """Seconds the recount has, a retry included, before the quote goes on
+    without it (degraded)."""
+    request_timeout: float = 15.0
     """The budget of one request, model calls included, in seconds."""
     fake_latency: Literal["off", "real"] = "off"
     """`real`: the fake engines take a model's time, for the load bench."""
@@ -106,6 +115,9 @@ class Settings:
             identify_cache_size=read.parsed(
                 "IDENTIFY_CACHE_SIZE", defaults.live.identify_cache_size, _int, "an integer"
             ),
+            model_timeout=read.parsed(
+                "MODEL_TIMEOUT", defaults.live.model_timeout, go_duration, 'a duration such as "30s"'
+            ),
         )
         settings = cls(
             port=port,
@@ -116,6 +128,9 @@ class Settings:
             guard_min_confidence=read.parsed("GUARD_MIN_CONFIDENCE", defaults.guard_min_confidence, float, "a number"),
             judge_threshold=read.parsed("JUDGE_THRESHOLD", defaults.judge_threshold, float, "a number"),
             read_attempts=read.parsed("READ_ATTEMPTS", defaults.read_attempts, _int, "an integer"),
+            recount_timeout=read.parsed(
+                "RECOUNT_TIMEOUT", defaults.recount_timeout, go_duration, 'a duration such as "30s"'
+            ),
             request_timeout=read.parsed(
                 "REQUEST_TIMEOUT", defaults.request_timeout, go_duration, 'a duration such as "30s"'
             ),
@@ -137,6 +152,20 @@ class Settings:
         for name, url in (("PARSE_BASE_URL", live.parse_base_url), ("RECOUNT_BASE_URL", live.recount_base_url)):
             read.check(_http_url(url), name, f"is {_quoted(url)}, not an http(s) URL")
         read.check(settings.request_timeout > 0, "REQUEST_TIMEOUT", "must be positive")
+        read.check(settings.recount_timeout > 0, "RECOUNT_TIMEOUT", "must be positive")
+        read.check(live.model_timeout > 0, "MODEL_TIMEOUT", "must be positive")
+        # a call is bounded by the recount's time, which the request's time bounds in turn;
+        # a variable that failed its own check is not compared
+        if not read.bad("MODEL_TIMEOUT") and not read.bad("RECOUNT_TIMEOUT"):
+            read.check(
+                settings.recount_timeout >= live.model_timeout, "RECOUNT_TIMEOUT", "must be at least MODEL_TIMEOUT"
+            )
+        if not read.bad("RECOUNT_TIMEOUT") and not read.bad("REQUEST_TIMEOUT"):
+            read.check(
+                settings.request_timeout >= settings.recount_timeout,
+                "REQUEST_TIMEOUT",
+                "must be at least RECOUNT_TIMEOUT",
+            )
         read.check(fake_latency in {"off", "real"}, "FAKE_LATENCY", f"is {_quoted(fake_latency)}, want off or real")
         read.check(settings.fake_cpu_ms >= 0, "FAKE_CPU_MS", "must be at least 0")
         match engines:
@@ -180,6 +209,8 @@ ORDER: Final = (
     "JUDGE_THRESHOLD",
     "READ_ATTEMPTS",
     "IDENTIFY_CACHE_SIZE",
+    "MODEL_TIMEOUT",
+    "RECOUNT_TIMEOUT",
     "REQUEST_TIMEOUT",
     "FAKE_LATENCY",
     "FAKE_CPU_MS",
@@ -207,6 +238,10 @@ class _Reader:
     def check(self, ok: bool, name: str, problem: str) -> None:  # noqa: FBT001
         if not ok:
             self.wrong(name, f"{name} {problem}")
+
+    def bad(self, name: str) -> bool:
+        """Whether name already failed a check of its own."""
+        return name in self._errors
 
     def text(self, name: str, default: str) -> str:
         return self.env.get(name) or default
@@ -287,25 +322,27 @@ def _http_url(url: str) -> bool:
 
 
 _DURATION: Final = re.compile(r"(\d+(?:\.\d*)?|\.\d+)(ns|us|µs|μs|ms|s|m|h)")
-_UNITS: Final = {
-    "ns": 1e-9,
-    "us": 1e-6,
-    "µs": 1e-6,
-    "μs": 1e-6,
-    "ms": 1e-3,
-    "s": 1.0,
-    "m": 60.0,
-    "h": 3600.0,
+_UNITS: Final = {  # in milliseconds, exact: a fraction of a millisecond rounds as Go rounds it
+    "ns": Decimal("0.000001"),
+    "us": Decimal("0.001"),
+    "µs": Decimal("0.001"),
+    "μs": Decimal("0.001"),
+    "ms": Decimal(1),
+    "s": Decimal(1000),
+    "m": Decimal(60_000),
+    "h": Decimal(3_600_000),
 }
 
 
 def go_duration(text: str) -> float:
     """A duration as Go writes it, "30s", "1m30s", "1.5s" or "500ms", in
-    seconds: REQUEST_TIMEOUT means the same in every implementation."""
+    seconds: REQUEST_TIMEOUT means the same in every implementation. It is
+    read in whole milliseconds, as Go rounds it: "1.1s" is 1.1, not 1.1000000000000001."""
     if text == "0":
         return 0.0
     sign, body = (-1.0, text[1:]) if text.startswith("-") else (1.0, text.removeprefix("+"))
     parts = list(_DURATION.finditer(body))
     if not body or "".join(p[0] for p in parts) != body:
         raise ValueError(f"not a duration: {text!r}")
-    return sign * sum(float(p[1]) * _UNITS[p[2]] for p in parts)
+    milliseconds = int(sum((Decimal(p[1]) * _UNITS[p[2]] for p in parts), Decimal(0)).to_integral_value(ROUND_HALF_UP))
+    return sign * milliseconds / 1000

@@ -12,6 +12,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from delorean.api.body import REQUEST_ID
 from delorean.api.contract import ProblemCode
 from delorean.api.problems import INTERNAL_DETAIL, Exchange, problem, problem_response
+from delorean.pipeline.ports import Stage
 
 
 class Exchanges:
@@ -71,6 +72,8 @@ class Exchanges:
             fields["code"] = exchange.code.value
         if exchange.cause:
             fields["err"] = str(exchange.cause) or type(exchange.cause).__name__
+        if exchange.degraded:
+            fields["degraded"] = Stage.RECOUNT.value
         level = logging.ERROR if status >= 500 else logging.INFO
         trace = exchange.cause if status == 500 else None  # a bug: where it happened
         self.log.log(level, "request", extra=fields, exc_info=trace)

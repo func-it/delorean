@@ -26,6 +26,11 @@ export interface EngineUsage {
 export interface Usage extends EngineUsage {
   stage: Stage;
   ms: number;
+  /**
+   * The stage failed and the quote went on without it. Only the recount can:
+   * it is a second opinion, and the judge is still the guard.
+   */
+  degraded?: boolean;
 }
 
 /** An engine's answer, with what it took. */

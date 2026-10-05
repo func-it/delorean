@@ -118,7 +118,9 @@ class Jev:
 
     `attempts` above 1 waits out transient failures, `wait` seconds apart,
     doubled each time; at 1, the default, a failure is an EngineError at once:
-    in the request path a customer is waiting."""
+    in the request path a customer is waiting. `timeout` bounds a whole call,
+    connecting, sending and reading the answer (MODEL_TIMEOUT): not the time of
+    each phase, which a slow trickle never exceeds."""
 
     def __init__(
         self,
@@ -130,6 +132,7 @@ class Jev:
         url: str = JEV_URL,
         attempts: int = 1,
         wait: float = 5.0,
+        timeout: float | None = None,
     ) -> None:
         self._key = key
         self._client = client
@@ -138,6 +141,7 @@ class Jev:
         self.url = url
         self.attempts = max(attempts, 1)
         self.wait = wait
+        self._timeout = timeout
 
     @property
     def engine(self) -> str:
@@ -215,13 +219,18 @@ class Jev:
             **HEADERS,
         }
         try:
-            async with self._client.stream("POST", self.url, content=content, headers=headers) as response:
+            async with (
+                asyncio.timeout(self._timeout),
+                self._client.stream("POST", self.url, content=content, headers=headers) as response,
+            ):
                 raw = bytearray()
                 async for chunk in response.aiter_bytes():
                     raw += chunk
                     if len(raw) > MAX_ANSWER_BYTES:
                         raise JevError(f"{self.engine}: status {response.status_code}: answer over 256 KiB")
                 return response.status_code, bytes(raw)
+        except TimeoutError as err:  # the whole call, past MODEL_TIMEOUT
+            raise JevError(f"{self.engine}: no answer in {self._timeout}s", transient=True) from err
         except httpx.TimeoutException as err:
             raise JevError(f"{self.engine}: {type(err).__name__}", transient=True) from err
         except httpx.HTTPError as err:

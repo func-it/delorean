@@ -32,6 +32,11 @@ type Pipeline struct {
 	// ReadAttempts is the most readings of one cart, the first included,
 	// before it is refused as unfaithful; below 1, one.
 	ReadAttempts int
+	// RecountTimeout is the time the recount has, a retry included: past it
+	// the reading goes on without the recount (degraded). It is tried a
+	// second time when the first failed in under half of it. 0 gives it the
+	// request's whole budget and no retry.
+	RecountTimeout time.Duration
 	// Prompts are the versions of the prompts the engines read, by file
 	// (guard, parse, identify, judge), for the trace.
 	Prompts map[string]string
@@ -63,6 +68,8 @@ type Measures struct {
 	Attempts int
 	// Outcome is "priced", or the problem's code.
 	Outcome string
+	// Degraded: a stage failed and the quote went on without it (the recount).
+	Degraded bool
 }
 
 // Quote is a cart read, held faithful by the judge, and priced.
@@ -109,7 +116,8 @@ func (p *Pipeline) Quote(ctx context.Context, req Request) (Quote, error) {
 	case err == nil:
 		q.Report = report
 	}
-	m := Measures{TraceID: report.TraceID, CostUSD: report.CostUSD, Ms: report.Ms, Attempts: r.attempts, Outcome: outcome(err)}
+	m := Measures{TraceID: report.TraceID, CostUSD: report.CostUSD, Ms: report.Ms, Attempts: r.attempts, Outcome: outcome(err),
+		Degraded: slices.ContainsFunc(report.Stages, func(u Usage) bool { return u.Degraded })}
 	out := ""
 	if req.Answer != nil {
 		out = req.Answer(q, err)
@@ -171,6 +179,7 @@ func (r *run) account(us ...Usage) {
 		s.Calls += u.Calls
 		s.Ms += u.Ms
 		s.CostUSD += u.CostUSD
+		s.Degraded = s.Degraded || u.Degraded
 	}
 }
 
@@ -186,7 +195,7 @@ func timed(ctx context.Context, s Stage, attempt int) (_ context.Context, done f
 		if u.Ms == 0 {
 			u.Ms = time.Since(start).Milliseconds()
 		}
-		endStage(span, out, err)
+		endStage(span, out, err, u.Degraded)
 		return u
 	}
 }
@@ -243,10 +252,23 @@ func (p *Pipeline) read(ctx context.Context, r *run, raw string) (Quote, error) 
 		}
 	}
 
+	if !read.Counted && hasSeveralCopies(read.Lines) {
+		return Quote{}, &Rejection{
+			Code:   CodeQuantityUnverified,
+			Detail: "The quantities could not be cross-checked and a line asks for more than one copy: try again.",
+		}
+	}
+
 	_, end = r.stage(ctx, StagePrice, 0)
 	price := p.Catalog.Price(read.Lines)
 	end(Usage{Engine: engineLocal}, map[string]int{"total_cents": price.TotalCents}, nil)
 	return Quote{ID: r.id, Price: price, Judgement: judgement, CreatedAt: time.Now().UTC()}, nil
+}
+
+// hasSeveralCopies reports whether a line of the reading, as merged by title,
+// asks for more than one copy.
+func hasSeveralCopies(lines []cart.Line) bool {
+	return slices.ContainsFunc(lines, func(l cart.Line) bool { return l.Quantity > 1 })
 }
 
 func (p *Pipeline) guardRejection(v GuardVerdict) *Rejection {

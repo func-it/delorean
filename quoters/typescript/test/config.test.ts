@@ -16,18 +16,20 @@ describe('loadConfig', () => {
         parseEffort: 'minimal',
         parseBaseUrl: 'https://openrouter.ai/api/v1',
         parseIdentifies: false,
-        recountModel: 'deepseek/deepseek-v4.1-flash',
-        recountEffort: 'low',
+        recountModel: 'openai/gpt-6-luna',
+        recountEffort: 'none',
         recountBaseUrl: 'https://openrouter.ai/api/v1',
         jevModel: 'typesafe/jev-1.13',
         identifyCacheSize: 10_000,
+        modelTimeoutMs: 6_000,
       },
-      maxBodyBytes: 65536,
-      maxInputTokens: 2048,
+      maxBodyBytes: 8192,
+      maxInputTokens: 256,
       guardMinConfidence: 0.5,
       judgeThreshold: 0.5,
       readAttempts: 3,
-      requestTimeoutMs: 30_000,
+      requestTimeoutMs: 15_000,
+      recountTimeoutMs: 6_000,
       fake: { latency: 'off', cpuMs: 0 },
       promptsDir: DEFAULT_PROMPTS_DIR,
     });
@@ -51,6 +53,8 @@ describe('loadConfig', () => {
       JUDGE_THRESHOLD: '0.6',
       READ_ATTEMPTS: '1',
       REQUEST_TIMEOUT: '1m30s',
+      MODEL_TIMEOUT: '2.5s',
+      RECOUNT_TIMEOUT: '4s',
       PROMPTS_DIR: '/prompts',
     });
     expect(config).toMatchObject({
@@ -62,6 +66,7 @@ describe('loadConfig', () => {
         recountModel: 'r',
         recountEffort: 'medium',
         jevModel: 'typesafe/jev-2.0',
+        modelTimeoutMs: 2_500,
       },
       maxBodyBytes: 1024,
       maxInputTokens: 100,
@@ -69,6 +74,7 @@ describe('loadConfig', () => {
       judgeThreshold: 0.6,
       readAttempts: 1,
       requestTimeoutMs: 90_000,
+      recountTimeoutMs: 4_000,
       promptsDir: '/prompts',
     });
   });
@@ -82,6 +88,8 @@ describe('loadConfig', () => {
       loadConfig({
         ENGINES: 'live',
         REQUEST_TIMEOUT: '30',
+        RECOUNT_TIMEOUT: '0',
+        MODEL_TIMEOUT: 'soon',
         JUDGE_THRESHOLD: 'half',
         GUARD_MIN_CONFIDENCE: '2',
         MAX_BODY_BYTES: '0',
@@ -96,6 +104,8 @@ describe('loadConfig', () => {
         'MAX_BODY_BYTES must be at least 1',
         'GUARD_MIN_CONFIDENCE must be between 0 and 1',
         'JUDGE_THRESHOLD="half" is not a number',
+        'MODEL_TIMEOUT="soon" is not a duration such as "30s"',
+        'RECOUNT_TIMEOUT must be positive',
         'REQUEST_TIMEOUT="30" is not a duration such as "30s"',
         'Langfuse is half configured: LANGFUSE_SECRET_KEY and LANGFUSE_BASE_URL (or LANGFUSE_HOST) missing',
       ].join('\n'),
@@ -149,6 +159,39 @@ describe('loadConfig', () => {
   });
 });
 
+describe('the three timeouts', () => {
+  const fake = { ENGINES: 'fake' };
+
+  it('are ordered: a call, then the recount that holds it, then the request that holds both', () => {
+    expect(
+      loadConfig({ ...fake, MODEL_TIMEOUT: '1.1s', RECOUNT_TIMEOUT: '2.0004s', REQUEST_TIMEOUT: '9s' }),
+    ).toMatchObject({
+      live: { modelTimeoutMs: 1100 },
+      recountTimeoutMs: 2000,
+      requestTimeoutMs: 9000,
+    });
+    expect(() => loadConfig({ ...fake, MODEL_TIMEOUT: '7s' })).toThrow(
+      'RECOUNT_TIMEOUT must be at least MODEL_TIMEOUT',
+    );
+    expect(() => loadConfig({ ...fake, RECOUNT_TIMEOUT: '20s' })).toThrow(
+      'REQUEST_TIMEOUT must be at least RECOUNT_TIMEOUT',
+    );
+    expect(() => loadConfig({ ...fake, MODEL_TIMEOUT: '20s', RECOUNT_TIMEOUT: '20s', REQUEST_TIMEOUT: '10s' })).toThrow(
+      'REQUEST_TIMEOUT must be at least RECOUNT_TIMEOUT',
+    );
+  });
+
+  it('are not compared when one failed its own check', () => {
+    let message = '';
+    try {
+      loadConfig({ ...fake, RECOUNT_TIMEOUT: '-1s', REQUEST_TIMEOUT: '1s', MODEL_TIMEOUT: '9s' });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toBe('configuration:\nRECOUNT_TIMEOUT must be positive');
+  });
+});
+
 describe('parseDuration', () => {
   it.each([
     ['30s', 30_000],
@@ -158,6 +201,10 @@ describe('parseDuration', () => {
     ['1h', 3_600_000],
     ['.5s', 500],
     ['0', 0],
+    // whole milliseconds: a float product would give 1100.0000000000002, which AbortSignal.timeout refuses
+    ['1.1s', 1100],
+    ['2.0004s', 2000],
+    ['0.0036s', 4],
   ])('reads %s as Go does', (raw, ms) => {
     expect(parseDuration(raw)).toBe(ms);
   });

@@ -35,6 +35,7 @@ const TITLES: Record<ProblemCode, string> = {
   quantity_too_large: 'Cart rejected',
   unfaithful_reading: 'Cart rejected',
   engine_unavailable: 'Engine unavailable',
+  quantity_unverified: 'Quantities not verified',
   not_found: 'Not found',
   method_not_allowed: 'Method not allowed',
   internal: 'Internal error',
@@ -47,8 +48,10 @@ export function problem(status: number, code: ProblemCode, detail: string): Prob
 /** The problem of a cart a stage refused, with the facts that decided and what the reading cost. */
 export function rejected(rejection: Rejection, context: Context): Problem {
   const { tokens, guard, copies, judgement } = rejection.facts;
+  // nothing is wrong with the cart when its quantities could not be verified: the same one may be priced on a retry
+  const status = rejection.code === 'quantity_unverified' ? 503 : 422;
   return {
-    ...problem(422, rejection.code, rejection.detail),
+    ...problem(status, rejection.code, rejection.detail),
     ...(tokens && { tokens }),
     ...(guard && { guard: guardOutcome(guard) }),
     ...(copies && { quantity: copies }),
@@ -107,6 +110,7 @@ function usage(r: Report, { engines, traceId }: Context): Usage {
       duration_ms: s.ms,
       cost_usd: s.costUsd,
       ...(s.stage === 'prepare' && { tokens: s.tokens ?? 0 }),
+      ...(s.degraded === true && { degraded: true }),
     })),
   };
 }

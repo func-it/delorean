@@ -59,6 +59,7 @@ async function run(config: Config, log: Logger): Promise<void> {
     guardMinConfidence: config.guardMinConfidence,
     judgeThreshold: config.judgeThreshold,
     readAttempts: config.readAttempts,
+    recountTimeoutMs: config.recountTimeoutMs,
   });
   const app = createApp({
     pipeline,

@@ -249,17 +249,28 @@ describe('live readers', () => {
     await expect(engines.parser.read('Heat', call)).rejects.toBeInstanceOf(EngineError);
   });
 
-  it('asks the recount of its own model, with the same instruction and schema', async () => {
+  it('asks the recount of its own model, with the same instruction and schema: Luna without reasoning by default', async () => {
     const { sent, engines } = openRouter(() => [200, completion('{"films":[]}')]);
     await expect(engines.recounter.read('Heat', call)).resolves.toMatchObject({
       mentions: [],
-      usage: { engine: 'deepseek/deepseek-v4.1-flash' },
+      usage: { engine: 'openai/gpt-6-luna' },
     });
     expect(sent[0]?.body).toMatchObject({
-      model: 'deepseek/deepseek-v4.1-flash',
+      model: 'openai/gpt-6-luna',
       messages: [{ content: prompts.parse.instruction }, {}],
       response_format: { json_schema: { schema: prompts.parse.schema } },
     });
+    expect(sent[0]?.body).not.toHaveProperty('reasoning_effort');
+  });
+
+  it('asks the recount of the model configured, of another family if wanted', async () => {
+    const { sent, engines } = openRouter(() => [200, completion('{"films":[]}')], {
+      ...config,
+      recountModel: 'deepseek/deepseek-v4.1-flash',
+      recountEffort: 'low',
+    });
+    await engines.recounter.read('Heat', call);
+    expect(sent[0]?.body).toMatchObject({ model: 'deepseek/deepseek-v4.1-flash', reasoning_effort: 'low' });
   });
 
   it.each([
@@ -290,7 +301,39 @@ describe('live readers', () => {
     const { sent, engines } = openRouter(() => [429, { error: { message: 'rate limited', code: 429 } }]);
     const error = await engines.parser.read('Heat', call).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(EngineError);
-    expect((error as EngineError).usage).toMatchObject({ calls: 0, costUsd: 0 });
+    expect((error as EngineError).usage).toMatchObject({ calls: 1, costUsd: 0 });
     expect(sent).toHaveLength(1);
+  });
+});
+
+describe('MODEL_TIMEOUT', () => {
+  /** A model that never answers: its call ends only when its signal aborts. */
+  function silent(modelTimeoutMs: number) {
+    const fetch = (_url: string | URL, init?: RequestInit) =>
+      new Promise<Response>((_, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(init.signal?.reason as Error);
+        });
+      });
+    return liveEngines({ ...config, modelTimeoutMs }, prompts, fetch as typeof globalThis.fetch);
+  }
+
+  it.each(['parser', 'recounter'] as const)('cuts a %s call that outlasts it: an engine failure', async (reader) => {
+    const started = performance.now();
+    const engines = silent(50);
+    const error = await engines[reader].read('Heat', call).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(EngineError);
+    expect(performance.now() - started).toBeLessThan(2_000);
+    // the call that went out counts, its model known and its cost unknown (0)
+    expect((error as EngineError).usage).toMatchObject({ calls: 1, costUsd: 0 });
+  });
+
+  it('cuts a Jev call that outlasts it: an engine failure', async () => {
+    const started = performance.now();
+    const error = await silent(50)
+      .guard.check('Heat', call)
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(EngineError);
+    expect(performance.now() - started).toBeLessThan(2_000);
   });
 });

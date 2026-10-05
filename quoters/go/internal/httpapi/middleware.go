@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"runtime/debug"
 	"time"
+
+	"github.com/func-it/delorean/quoters/go/internal/pipeline"
 )
 
 // exchange is what the middleware and the handlers share about one request:
@@ -20,6 +22,9 @@ type exchange struct {
 	// cause is what went wrong behind a 5xx, or a response that was not
 	// written.
 	cause error
+	// degraded: a stage failed and the quote went on without it, or was
+	// refused without it (the recount).
+	degraded bool
 }
 
 type exchangeKey struct{}
@@ -88,6 +93,9 @@ func (s *server) logRequest(r *http.Request, rec *recorder, took time.Duration) 
 	}
 	if ex.cause != nil {
 		attrs = append(attrs, slog.String("err", ex.cause.Error()))
+	}
+	if ex.degraded {
+		attrs = append(attrs, slog.String("degraded", string(pipeline.StageRecount)))
 	}
 	level := slog.LevelInfo
 	if status >= http.StatusInternalServerError {

@@ -246,7 +246,79 @@ describe('the trace of a quote', () => {
     expect(scores()).toMatchObject({ outcome: 'engine_unavailable', attempts: 1 });
   });
 
-  it('has a parse, recount, identify and judge span per attempt, the attempt in their metadata', async () => {
+  it('marks a degraded recount a warning, not an error, and says so on the root', async () => {
+    const recounter = {
+      read: () =>
+        Promise.reject(new EngineError('answer off schema', { usage: { engine: 'r', calls: 1, costUsd: 0 } })),
+    };
+    const { response } = await post('Heat', { recounter });
+    expect(response.status).toBe(200);
+    const recount = named('recount');
+    expect(attribute(recount, 'langfuse.observation.level')).toBe('WARNING');
+    expect(attribute(recount, 'langfuse.observation.status_message')).toBe('degraded: answer off schema');
+    expect(recount?.status.code).not.toBe(2);
+    expect(attribute(named('quote'), 'langfuse.observation.level')).toBeUndefined();
+    expect(attribute(named('quote'), 'langfuse.trace.metadata.degraded')).toBe('recount');
+    expect(attribute(named('quote'), 'langfuse.trace.metadata.outcome')).toBe('priced');
+  });
+
+  it('traces a refusal for quantities nobody counted: outcome and degraded on the root, no price span', async () => {
+    const recounter = {
+      read: () =>
+        Promise.reject(new EngineError('answer off schema', { usage: { engine: 'r', calls: 1, costUsd: 0 } })),
+    };
+    const { response } = await post('2 x Heat', { recounter });
+    expect(response.status).toBe(503);
+    expect(named('price')).toBeUndefined();
+    const root = named('quote');
+    expect(attribute(root, 'langfuse.trace.metadata.outcome')).toBe('quantity_unverified');
+    expect(attribute(root, 'langfuse.trace.metadata.degraded')).toBe('recount');
+    expect(attribute(root, 'langfuse.observation.level')).toBeUndefined();
+    expect(String(attribute(root, 'langfuse.trace.output'))).toContain('quantity_unverified');
+    expect(scores()).toMatchObject({ outcome: 'quantity_unverified' });
+  });
+
+  it('marks a warning only the reading whose recount was left out, not the one whose recount succeeded', async () => {
+    let asked = 0;
+    const free = { engine: 'r', calls: 1, costUsd: 0 };
+    const recounter: Reader = {
+      read: () =>
+        ++asked === 1
+          ? Promise.reject(new EngineError('answer off schema', { usage: free }))
+          : Promise.resolve({ mentions: [{ title: 'Heat', quantity: 2 }], usage: free }),
+    };
+    let readings = 0;
+    const parser: Reader = {
+      read: () => Promise.resolve({ mentions: [{ title: 'Heat', quantity: ++readings === 1 ? 1 : 2 }], usage: free }),
+    };
+    // the first reading, with no recount to count against, is refused by the judge; the second is held
+    let judged = 0;
+    const judge = {
+      judge: (_: string, lines: readonly { title: string }[]) =>
+        Promise.resolve({
+          findings: lines.map((l) => ({ check: 'asked' as const, label: l.title, score: ++judged === 1 ? 0 : 1 })),
+          usage: free,
+        }),
+    };
+    const { response } = await post('Heat', { parser, recounter, judge });
+    expect(response.status).toBe(200);
+    const levels = spans
+      .getFinishedSpans()
+      .filter((s) => s.name === 'recount')
+      .map((s) => [attribute(s, 'langfuse.observation.metadata.attempt'), attribute(s, 'langfuse.observation.level')]);
+    expect(levels).toEqual([
+      [1, 'WARNING'],
+      [2, undefined],
+    ]);
+  });
+
+  it('says nothing degraded of a quote whose recount did its work', async () => {
+    await post('Heat');
+    expect(attribute(named('quote'), 'langfuse.trace.metadata.degraded')).toBeUndefined();
+    expect(attribute(named('recount'), 'langfuse.observation.level')).toBeUndefined();
+  });
+
+  it('has a parse, identify and judge span per attempt, and a recount span for the first only, the attempt in their metadata', async () => {
     await post(`Heat\nRonin\n${DIRECTIVE.reread}`);
     const attempts = (name: string) =>
       spans
@@ -254,7 +326,8 @@ describe('the trace of a quote', () => {
         .filter((s) => s.name === name)
         .map((s) => s.attributes['langfuse.observation.metadata.attempt']);
     expect(attempts('parse')).toEqual([1, 2]);
-    expect(attempts('recount')).toEqual([1, 2]);
+    // the first recount that succeeded is kept: not asked, so not traced, at the next reading
+    expect(attempts('recount')).toEqual([1]);
     expect(attempts('judge')).toEqual([1, 2]);
     expect(attempts('identify')).toEqual([1, 2]);
     expect(attempts('price')).toEqual([undefined]);

@@ -29,6 +29,8 @@ export interface ReaderOptions {
   effort: string;
   baseURL?: string;
   fetch?: typeof fetch;
+  /** The most one call may take, whatever the request's own budget; none when undefined. */
+  timeoutMs?: number;
 }
 
 /** Reasoning included; a reading is a few hundred tokens. */
@@ -47,7 +49,11 @@ export function llmReader(prompts: ReadingPrompt, options: ReaderOptions): Reade
   const valid = new Ajv({ strict: true, allErrors: true }).compile(prompts.schema);
 
   return {
-    async read(text, { signal }, retry) {
+    async read(text, call, retry) {
+      const signal =
+        options.timeoutMs === undefined
+          ? call.signal
+          : AbortSignal.any([call.signal, AbortSignal.timeout(options.timeoutMs)]);
       // OpenRouter reports the real cost of each call when asked to
       const body: ChatCompletionCreateParamsNonStreaming & { usage: { include: true } } = {
         model,
@@ -102,7 +108,8 @@ export function llmReader(prompts: ReadingPrompt, options: ReaderOptions): Reade
         } catch (error) {
           if (!isCancelled(signal)) generation.fail(error);
           // a call answered counts, and costs, even off schema
-          throw engineFailure(error, completion ? usage(1, costOf(completion) ?? 0) : usage(0));
+          // the call went out, answered or not: one cut by its time counts, its cost unknown (0)
+          throw engineFailure(error, usage(1, completion ? (costOf(completion) ?? 0) : 0));
         }
       });
     },

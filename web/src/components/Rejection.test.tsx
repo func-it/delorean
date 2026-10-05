@@ -32,6 +32,7 @@ const MESSAGES: Record<ProblemCode, [number, string]> = {
   method_not_allowed: [405, OUR_SIDE],
   internal: [500, OUR_SIDE],
   too_many_refusals: [429, "Trop de paniers refusés comme des ordres au système : vos demandes sont suspendues. Réessayez plus tard."],
+  quantity_unverified: [503, "Nous n'avons pas pu vérifier les quantités à cet instant : réessayez dans un instant."],
   quote_in_progress: [429, "Un devis est déjà en cours pour vous : patientez un instant, puis réessayez."],
   daily_budget_exhausted: [503, "Le vidéoclub a épuisé son budget du jour, revenez demain."],
   quoter_unavailable: [502, OUR_SIDE],

@@ -19,7 +19,7 @@ refuses what is not an order, and returns a detailed price.
 | **Input** | a cart in free text, `POST /v1/quotes {"cart": "…"}` |
 | **Output** | a quote in integer cents, or a refusal with a stable code and the facts behind it |
 | **Reading** | seven stages: `prepare` → `guard` → `parse` beside `recount` → `identify` → `judge` → `price` |
-| **Models** | Jev 1.13 decides (guard, identify, judge); GPT-6 Luna extracts titles and quantities, DeepSeek V4.1 Flash recounts them; all through OpenRouter |
+| **Models** | Jev 1.13 decides (guard, identify, judge); GPT-6 Luna extracts titles and quantities, and recounts them without reasoning; all through OpenRouter |
 | **Contract** | one OpenAPI 3.1 file, [`api/openapi.yaml`](api/openapi.yaml), for every implementation |
 | **Implementations** | Go, TypeScript on Node, and Python: interchangeable, same contract, same prompts, same end-to-end suite, measured against each other |
 | **Observability** | one Langfuse trace per request, one span per stage, cost included |
@@ -101,13 +101,13 @@ browser ─► web (Next.js: UI + BFF, session) ─► API (Go | TypeScript | Py
    prepare   code      normalises, counts tokens, bounds the size
    guard     Jev       is it an order? does it speak to the system? → valid | injection | invalid
    parse     LLM       titles and quantities (GPT-6 Luna, strict JSON schema)    ┐ in parallel
-   recount   LLM 2     the same reading, by another model (DeepSeek V4.1 Flash) ┘
+   recount   LLM       the same reading, again (GPT-6 Luna, no reasoning)       ┘
    identify  Jev       each distinct title of both readings → volume 1, 2, 3 or another film
    judge     Jev+code  is the reading faithful to the text? do both readings count the same?
                        a refused reading is read again, told what failed: 3 readings at most
    price     code      integer cents
                                                  │
-                     OpenRouter (Jev, GPT-6 Luna, DeepSeek) · traces → Langfuse
+                     OpenRouter (Jev, GPT-6 Luna) · traces → Langfuse
 ```
 
 Every stage may refuse the cart with a stable code (`too_long`, `injection`,
@@ -132,10 +132,23 @@ implementations: they are compared on their code, not on their prompts.
   title the film it was identified as? is a film missing?), asked separately
   and in parallel; the worst score decides. It is the evaluator of the
   benches, put in production.
-- **Two readings, compared in code.** Jev cannot count, so a second LLM of
-  another family reads the cart again; the code compares both readings film by
-  film, and any disagreement refuses the cart. The recount never sets the
-  price.
+- **Two readings, compared in code.** Jev cannot count, so the cart is read a
+  second time; the code compares both readings film by film, and any
+  disagreement refuses the cart. The recount never sets the price. It is
+  GPT-6 Luna again, without reasoning, chosen for its speed: it is the same
+  model as the parse, so its readings are correlated. It catches a model
+  that reads the same cart differently from one call to the next, not one
+  that misreads it the same way twice. A second family (DeepSeek V4.1 Flash)
+  was the more independent reader, but set a quote's p90 at 11 s.
+- **The recount is a second opinion, not a dependency.** One that fails,
+  answers off its schema or takes over `RECOUNT_TIMEOUT` (6 s) is asked once
+  more if it failed fast, then left out: the quote goes on with the parse
+  alone, held to the text by the judge, with no count check, and its usage
+  says `degraded`. With nothing to count against, a cart whose lines all ask
+  for one copy is priced, and one with a line of several copies is not:
+  `503 quantity_unverified`, a refusal to retry, shown as one sentence. The first recount that succeeds is kept for the whole
+  request. Every model call is bounded by `MODEL_TIMEOUT` (6 s), a request by
+  `REQUEST_TIMEOUT` (15 s); the three must be ordered so.
 - **A refused reading is read again, never re-judged as is.** A reading the
   judge refuses goes back to the model with what failed, up to three
   readings: a slip of the model should not cost the customer a refusal. Only
@@ -153,7 +166,7 @@ implementations: they are compared on their code, not on their prompts.
   is misread, never an amount invented.
 - **A pre-parser counts tokens** before any call, offline, with the same
   counts in the three implementations: Jev accepts at most 64k tokens, the
-  cart is capped at 2048. Its BPE merge is O(n log n): the textbook one is
+  cart is capped at 256 and the body at 8 KB (the longest text of the shared cases is 478 bytes). Its BPE merge is O(n log n): the textbook one is
   quadratic, and a 64 KB one-word body took 2 s of CPU before it was refused.
 - **Contract first, three implementations.** One `openapi.yaml`, one
   `prompts/`, one end-to-end suite, one system bench: Go, TypeScript and
@@ -227,8 +240,8 @@ The details are in [`docs/testing.md`](docs/testing.md).
 
 ## Roadmap
 
-1. Choose the recount on latency: DeepSeek V4.1 Flash is the most accurate
-   reader but sets a quote's p90 (11 s); the recount only has to agree.
+1. Measure, live, the recount on GPT-6 Luna without reasoning: its latency,
+   and the disagreements it still catches.
 2. Compare the three quoters live with the system bench.
 3. Measure the parse that also identifies (identify skipped), and the judge
    asked only when the two readings disagree.

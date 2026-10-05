@@ -47,7 +47,7 @@ type Config struct {
 	// ParseEffort is the reasoning effort asked of the parsing LLM.
 	ParseEffort string
 	// RecountModel is the OpenRouter id of the recounting LLM, of another
-	// family than the parser's: "deepseek/deepseek-v4.1-flash".
+	// reading of its own: "openai/gpt-6-luna", without reasoning.
 	RecountModel string
 	// RecountEffort is the reasoning effort asked of the recounting LLM.
 	RecountEffort string
@@ -67,14 +67,18 @@ type Config struct {
 	// transient (a rate limit, an overload). Below 2, none is retried: the
 	// request path, where a customer waits. Benches wait out a rate limit.
 	Attempts int
+	// ModelTimeout is how long one model call may take, Jev's and the LLMs':
+	// a call that outlasts it fails as an engine does. 0, no limit but the
+	// request's.
+	ModelTimeout time.Duration
 }
 
 // Defaults of the parse and the recount, when Config leaves them empty.
 const (
 	DefaultParseModel    = "openai/gpt-6-luna"
 	DefaultParseEffort   = "minimal"
-	DefaultRecountModel  = "deepseek/deepseek-v4.1-flash"
-	DefaultRecountEffort = "low"
+	DefaultRecountModel  = "openai/gpt-6-luna"
+	DefaultRecountEffort = "none"
 )
 
 // OpenRouter is the API every model is reached through, unless a reader's
@@ -91,7 +95,11 @@ func New(cfg Config) (pipeline.Engines, error) {
 	if cfg.OpenRouterKey == "" {
 		return pipeline.Engines{}, errors.New("live engines: OPENROUTER_API_KEY is required")
 	}
-	jev := decide.WithRetry(decide.Jev(cfg.OpenRouterKey, cfg.JevModel), cfg.Attempts)
+	jevHTTP := decide.Jev(cfg.OpenRouterKey, cfg.JevModel)
+	if cfg.ModelTimeout > 0 {
+		jevHTTP.Client.Timeout = cfg.ModelTimeout
+	}
+	jev := decide.WithRetry(jevHTTP, cfg.Attempts)
 	parse := prompts.parse
 	if cfg.ParseIdentifies {
 		parse = prompts.parseFilms

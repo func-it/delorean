@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "generate": "openapi-typescript ../api/openapi.yaml -o src/generated/api.d.ts"
+    "generate": "openapi-typescript ../api/openapi.yaml -o src/generated/api.d.ts",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "iron-session": "^9.0.1",
@@ -25,6 +26,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",

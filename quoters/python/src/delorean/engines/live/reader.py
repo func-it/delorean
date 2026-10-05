@@ -2,6 +2,7 @@
 many copies of each, under a strict JSON schema. The schema is asked of the
 model, and its answer held to it here: never trusted."""
 
+import asyncio
 import json
 from collections.abc import Sequence
 from typing import Final
@@ -54,7 +55,8 @@ class LlmReader:
     """One reader: a model, its reasoning effort, its prompt. Bounded to one
     call and no tool: the cost of a reading does not rest on the model's good
     will. With `names_films`, the prompt is parse-films.json's and each line
-    comes with its film."""
+    comes with its film. `timeout` bounds the whole call (MODEL_TIMEOUT), not
+    the time of each phase of the connection."""
 
     def __init__(
         self,
@@ -65,7 +67,9 @@ class LlmReader:
         prompt: ParsePrompt,
         tracer: Tracer,
         names_films: bool = False,
+        timeout: float | None = None,
     ) -> None:
+        self._timeout = timeout
         self._client = client
         self.model = model
         self._effort = effort
@@ -91,23 +95,26 @@ class LlmReader:
             f"chat {self.model}", model=self.model, input=messages, parameters=parameters
         ) as span:
             try:
-                completion = await self._client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    response_format={
-                        "type": "json_schema",
-                        "json_schema": {
-                            "name": "reading",
-                            "schema": self._prompt.json_schema,
-                            "strict": True,
+                async with asyncio.timeout(self._timeout):
+                    completion = await self._client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        response_format={
+                            "type": "json_schema",
+                            "json_schema": {
+                                "name": "reading",
+                                "schema": self._prompt.json_schema,
+                                "strict": True,
+                            },
                         },
-                    },
-                    # a model without reasoning refuses the field: none sends none
-                    reasoning_effort=omit if self._effort == "none" else self._effort,
-                    max_completion_tokens=MAX_TOKENS,
-                    # OpenRouter reports the real cost of each call when asked to
-                    extra_body={"usage": {"include": True}},
-                )
+                        # a model without reasoning refuses the field: none sends none
+                        reasoning_effort=omit if self._effort == "none" else self._effort,
+                        max_completion_tokens=MAX_TOKENS,
+                        # OpenRouter reports the real cost of each call when asked to
+                        extra_body={"usage": {"include": True}},
+                    )
+            except TimeoutError as err:  # the whole call, past MODEL_TIMEOUT
+                raise EngineError(f"{self.model}: no answer in {self._timeout}s", usage=self._usage(0.0)) from err
             except openai.OpenAIError as err:
                 raise EngineError(f"{self.model}: {err}", usage=self._usage(0.0)) from err
             cost, input_tokens, output_tokens = _metered(completion)

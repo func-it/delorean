@@ -27,17 +27,19 @@ def test_defaults() -> None:
             parse_effort="minimal",
             parse_base_url="https://openrouter.ai/api/v1",
             parse_identifies=False,
-            recount_model="deepseek/deepseek-v4.1-flash",
-            recount_effort="low",
+            recount_model="openai/gpt-6-luna",
+            recount_effort="none",
             jev_model="typesafe/jev-1.13",
             identify_cache_size=10_000,
+            model_timeout=6.0,
         ),
-        max_body_bytes=65536,
-        max_input_tokens=2048,
+        max_body_bytes=8192,
+        max_input_tokens=256,
         guard_min_confidence=0.5,
         judge_threshold=0.5,
         read_attempts=3,
-        request_timeout=30.0,
+        recount_timeout=6.0,
+        request_timeout=15.0,
         fake_latency="off",
         fake_cpu_ms=0,
         prompts_dir=REPO_DIR / "prompts",
@@ -62,6 +64,8 @@ def test_every_variable() -> None:
             "RECOUNT_EFFORT": "minimal",
             "JEV_MODEL": "typesafe/jev-2.0",
             "IDENTIFY_CACHE_SIZE": "0",
+            "MODEL_TIMEOUT": "2s",
+            "RECOUNT_TIMEOUT": "2500ms",
             "MAX_BODY_BYTES": "1024",
             "MAX_INPUT_TOKENS": "512",
             "GUARD_MIN_CONFIDENCE": "0.7",
@@ -77,7 +81,7 @@ def test_every_variable() -> None:
     )
     assert (s.port, s.engines, s.max_body_bytes, s.max_input_tokens) == (9081, "fake", 1024, 512)
     assert (s.guard_min_confidence, s.judge_threshold, s.request_timeout) == (0.7, 0.6, 90.0)
-    assert s.read_attempts == 5
+    assert (s.read_attempts, s.recount_timeout) == (5, 2.5)
     assert s.live == LiveSettings(
         openrouter_api_key="",
         parse_model="openai/gpt-6",
@@ -89,6 +93,7 @@ def test_every_variable() -> None:
         recount_base_url="http://localhost:11434/v1",
         jev_model="typesafe/jev-2.0",
         identify_cache_size=0,
+        model_timeout=2.0,
     )
     assert (s.prompts_dir, s.tokenizer_dir) == (Path("/srv/prompts"), Path("/srv/tiktoken"))
     assert s.langfuse == LangfuseSettings(public_key="pk", secret_key="sk", base_url="http://localhost:24794")
@@ -111,6 +116,8 @@ def test_every_mistake_at_once() -> None:
                 "GUARD_MIN_CONFIDENCE": "1.5",
                 "JUDGE_THRESHOLD": "half",
                 "READ_ATTEMPTS": "0",
+                "MODEL_TIMEOUT": "0",
+                "RECOUNT_TIMEOUT": "6",
                 "REQUEST_TIMEOUT": "30",
                 "PARSE_EFFORT": "extreme",
                 "LANGFUSE_PUBLIC_KEY": "pk",
@@ -125,6 +132,8 @@ def test_every_mistake_at_once() -> None:
         "GUARD_MIN_CONFIDENCE must be between 0 and 1",
         'JUDGE_THRESHOLD="half" is not a number',
         "READ_ATTEMPTS must be at least 1",
+        "MODEL_TIMEOUT must be positive",
+        'RECOUNT_TIMEOUT="6" is not a duration such as "30s"',
         'REQUEST_TIMEOUT="30" is not a duration such as "30s"',
         "Langfuse is half configured: LANGFUSE_SECRET_KEY and LANGFUSE_BASE_URL (or LANGFUSE_HOST) missing",
     ]
@@ -194,10 +203,50 @@ def test_go_duration(text: str, seconds: float) -> None:
     assert go_duration(text) == pytest.approx(seconds)
 
 
+@pytest.mark.parametrize(
+    ("text", "seconds"),
+    [("1.1s", 1.1), ("1.0004s", 1.0), ("1.0005s", 1.001), ("0.0004ms", 0.0), ("2.3s", 2.3), ("1500us", 0.002)],
+)
+def test_go_duration_is_whole_milliseconds(text: str, seconds: float) -> None:
+    assert go_duration(text) == seconds, "the very float, not one that drifts: 1.1000000000000001"
+
+
 @pytest.mark.parametrize("text", ["", "30", "s", "30 s", "1d", "1m-30s", "thirty seconds"])
 def test_go_duration_refuses(text: str) -> None:
     with pytest.raises(ValueError, match="duration"):
         go_duration(text)
+
+
+@pytest.mark.parametrize(
+    ("env", "lines"),
+    [
+        ({"MODEL_TIMEOUT": "7s"}, ["RECOUNT_TIMEOUT must be at least MODEL_TIMEOUT"]),
+        ({"RECOUNT_TIMEOUT": "20s"}, ["REQUEST_TIMEOUT must be at least RECOUNT_TIMEOUT"]),
+        # the recount's own line says it: the next comparison is then left out
+        (
+            {"MODEL_TIMEOUT": "9s", "RECOUNT_TIMEOUT": "8s", "REQUEST_TIMEOUT": "7s"},
+            ["RECOUNT_TIMEOUT must be at least MODEL_TIMEOUT"],
+        ),
+        # a variable that failed its own check is not compared
+        (
+            {"MODEL_TIMEOUT": "0", "RECOUNT_TIMEOUT": "20s"},
+            ["MODEL_TIMEOUT must be positive", "REQUEST_TIMEOUT must be at least RECOUNT_TIMEOUT"],
+        ),
+        (
+            {"RECOUNT_TIMEOUT": "oops", "MODEL_TIMEOUT": "20s"},
+            ['RECOUNT_TIMEOUT="oops" is not a duration such as "30s"'],
+        ),
+    ],
+)
+def test_the_timeouts_are_ordered(env: dict[str, str], lines: list[str]) -> None:
+    with pytest.raises(ConfigError) as raised:
+        Settings.from_env({"ENGINES": "fake", **env})
+    assert str(raised.value).splitlines() == lines
+
+
+def test_equal_timeouts_are_ordered() -> None:
+    s = Settings.from_env({"ENGINES": "fake", "MODEL_TIMEOUT": "3s", "RECOUNT_TIMEOUT": "3s", "REQUEST_TIMEOUT": "3s"})
+    assert (s.live.model_timeout, s.recount_timeout, s.request_timeout) == (3.0, 3.0, 3.0)
 
 
 def test_reader_endpoints_and_options_are_checked() -> None:

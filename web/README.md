@@ -34,7 +34,7 @@ docker run -p 24790:24790 -e SESSION_SECRET=… -e QUOTER_URL=http://go:24791 de
 | `QUOTERS` | — | quoters as JSON, name → URL: `{"go":"http://localhost:24791","python":"http://localhost:24792"}`; the first one is the default; the page uses it, or the one named by `?quoter=python` in the URL (no selector on screen) |
 | `QUOTER_URL` | `http://localhost:24791` | a single quoter, when `QUOTERS` is not set |
 | `SESSION_COOKIE_SECURE` | `true` in production | `false` when the app is served over plain HTTP (`docker compose` locally): some browsers reject a `Secure` cookie received over HTTP, even from localhost |
-| `QUOTER_TIMEOUT_MS` | `35000` | maximum wait for a quoter (a little more than its 30 s) |
+| `QUOTER_TIMEOUT_MS` | `20000` | maximum wait for a quoter (a little more than its 15 s) |
 | `STRIKE_LIMIT` | `3` | injection refusals that block a session or a username ([strike rule](#strike-rule)) |
 | `IP_STRIKE_LIMIT` | `10` | injection refusals that block a client address, which a carrier's NAT may share between many customers |
 | `IP_MAX_IN_FLIGHT` | `4` | quotes in flight at once from one client address (a session or a username: one) |
@@ -55,6 +55,7 @@ by URL.
 | `npm run dev` | development server |
 | `npm run build`, `npm start` | production build (`.next/standalone`, the one the image uses), then server; `start` reads `.env.local` if it exists |
 | `npm test` | Vitest: BFF and libraries (Node), components (jsdom) |
+| `npm run e2e` | Playwright (`e2e/`): the page in a real browser, desktop and mobile, against a running stack at `BASE_URL`; `task web:e2e` starts one on fake engines, apart from any other ([testing](../docs/testing.md#web-app-in-a-browser-playwright)) |
 | `npm run lint`, `npm run typecheck` | ESLint, `tsc --noEmit` |
 | `npm run generate` | regenerates `src/generated/api.d.ts` from `../api/openapi.yaml` (the file is committed: the Docker build only needs `web/`) |
 

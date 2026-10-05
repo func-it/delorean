@@ -3,6 +3,7 @@ import type { Line } from '../src/cart.ts';
 import { DIRECTIVE } from '../src/engines/fake.ts';
 import {
   EngineError,
+  type EngineUsage,
   type Finding,
   type Guard,
   type Identifier,
@@ -262,17 +263,14 @@ describe('Pipeline.quote, the two readings', () => {
     expect(rej.report.costUsd).toBe(0.002);
   });
 
-  it('answers the parse refusal before the recount failure, the recount failure before the reading goes on', async () => {
+  it('answers the parse refusal before anything of the recount, whose failure the refusal still reports', async () => {
     const recounter: Reader = {
       read: () => Promise.reject(new EngineError('recount down', { usage: { engine: 'qwen', calls: 1, costUsd: 0 } })),
     };
     const rej = await rejection(quote(newPipeline({ recounter }), '#fake:nothing'));
     expect(rej.code).toBe('no_film');
     expect(rej.report.stages.map((s) => s.stage)).toEqual(['prepare', 'guard', 'parse', 'recount']);
-
-    const error = await quote(newPipeline({ recounter }), 'Heat').catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(EngineError);
-    expect((error as Error).message).toBe('recount: recount down');
+    expect(rej.report.stages.at(-1)).toMatchObject({ stage: 'recount', engine: 'qwen', calls: 1, degraded: true });
   });
 });
 
@@ -339,7 +337,6 @@ describe('Pipeline.quote engine failures', () => {
     ['a quantity of 0', { parser: reads({ title: 'Heat', quantity: 0 }) }, 'Heat'],
     ['a quantity that is not an integer', { parser: reads({ title: 'Heat', quantity: 1.5 }) }, 'Heat'],
     ['a mention without title', { parser: reads({ title: ' ', quantity: 1 }) }, 'Heat'],
-    ['a recount out of contract', { recounter: reads({ title: 'Heat', quantity: -1 }) }, 'Heat'],
     ['an identification missing', { identifier: identifiesAs() }, 'Heat'],
     ['a film out of the contract', { identifier: identifiesAs({ film: 'bttf_4', confidence: 1 }) }, 'Heat'],
     ['a confidence over 1', { identifier: identifiesAs({ film: 'other', confidence: 1.2 }) }, 'Heat'],
@@ -536,8 +533,8 @@ describe('Pipeline.quote, reading again', () => {
     expect(q.judgement.attempts).toBe(2);
     expect(q.price.lines.map((l) => l.film)).toEqual(['bttf_1', 'bttf_2']);
     expect(q.price.totalCents).toBe(2700);
-    // the recount read both titles on the first attempt: nothing new to identify on the second
-    expect(calls(q)).toEqual({ prepare: 0, guard: 1, parse: 2, recount: 2, identify: 1, judge: 2, price: 0 });
+    // the recount read both titles on the first attempt, and is kept: nothing new to ask or identify on the second
+    expect(calls(q)).toEqual({ prepare: 0, guard: 1, parse: 2, recount: 1, identify: 1, judge: 2, price: 0 });
     expect(q.report.stages.map((s) => s.stage)).toEqual([
       'prepare',
       'guard',
@@ -557,7 +554,7 @@ describe('Pipeline.quote, reading again', () => {
       prepare: 0,
       guard: 1,
       parse: 3,
-      recount: 3,
+      recount: 1,
       identify: 1,
       judge: 1,
     });
@@ -607,7 +604,8 @@ describe('Pipeline.quote, reading again', () => {
         failed: [{ check: 'count', label: 'other: 4 read, 3 recounted', score: 0 }],
       },
     ]);
-    expect(recountTold).toEqual([undefined, undefined, undefined]);
+    // asked once, blind: the first recount that succeeded is kept for the readings after it
+    expect(recountTold).toEqual([undefined]);
   });
 
   it('holds a later reading without film a failed attempt: not put to Jev, a missing finding at 0', async () => {
@@ -661,7 +659,7 @@ describe('Pipeline.quote, reading again', () => {
     expect(rej.facts.copies).toEqual({ title: 'Heat', count: 5000, max: 1000 });
   });
 
-  it('answers a recount failure on a later attempt with a 502, even beside a reading without film', async () => {
+  it('counts later readings against the recount that succeeded, which is not asked again', async () => {
     let attempt = 0;
     const parser: Reader = {
       read: () => Promise.resolve({ mentions: attempt === 0 ? [{ title: 'Heat', quantity: 1 }] : [], usage: free }),
@@ -672,9 +670,11 @@ describe('Pipeline.quote, reading again', () => {
           ? Promise.resolve({ mentions: [{ title: 'Heat', quantity: 2 }], usage: free })
           : Promise.reject(new EngineError('recount down')),
     };
-    const error = await quote(newPipeline({ parser, recounter }), '2 x Heat').catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(EngineError);
-    expect((error as Error).message).toBe('recount: recount down');
+    const rej = await rejection(quote(newPipeline({ parser, recounter }), '2 x Heat'));
+    expect(rej.code).toBe('unfaithful_reading');
+    expect(rej.facts.judgement?.attempts).toBe(3);
+    expect(rej.report.stages.find((s) => s.stage === 'recount')).toMatchObject({ calls: 1 });
+    expect(rej.report.stages.find((s) => s.stage === 'recount')?.degraded).toBeUndefined();
   });
 
   it("reuses a judged reading's findings in the new reading's line order", async () => {
@@ -735,7 +735,7 @@ describe('Pipeline.quote, reading again', () => {
     expect(rej.facts.judgement?.attempts).toBe(3);
     expect(Object.fromEntries(rej.report.stages.map((s) => [s.stage, s.calls]))).toMatchObject({
       parse: 3,
-      recount: 3,
+      recount: 1,
       identify: 1,
       judge: 1,
     });
@@ -789,5 +789,275 @@ describe('Pipeline.quote, reading again', () => {
     expect(identified).toEqual([['Heat', 'Ronin', 'Alien']]);
     // the second reading is the first in another order: not put to Jev again
     expect(judged).toBe(2);
+  });
+});
+
+// The recount is a second opinion: one that fails, answers off its schema or
+// is too slow does not fail the quote. It goes on with the parse alone — no
+// count check, the judge still holds the reading — and says so.
+describe('Pipeline.quote, a recount that fails', () => {
+  const offSchema = (usage: EngineUsage = { engine: 'flaky', calls: 1, costUsd: 0.5 }) =>
+    new EngineError('recount: answer off schema', { usage });
+  const recountOf = (q: { report: { stages: readonly { stage: string }[] } }) =>
+    q.report.stages.find((s) => s.stage === 'recount');
+
+  it.each([
+    ['a recount down', { read: () => Promise.reject(offSchema()) } satisfies Reader],
+    ['a recount quantity of 0', reads({ title: 'Heat', quantity: 0 })],
+    ['a recount without title', reads({ title: ' ', quantity: 1 })],
+  ])('%s: priced on the parse, no count check, the recount degraded', async (_, recounter) => {
+    const q = await quote(newPipeline({ recounter }), 'Heat\nRonin');
+    expect(q.price.totalCents).toBe(4000);
+    expect(q.judgement.findings.filter((f) => f.check === 'count')).toEqual([]);
+    expect(q.report.stages.map((s) => [s.stage, s.degraded === true])).toEqual([
+      ['prepare', false],
+      ['guard', false],
+      ['parse', false],
+      ['recount', true],
+      ['identify', false],
+      ['judge', false],
+      ['price', false],
+    ]);
+  });
+
+  it('still has the judge refuse a reading, and read it again', async () => {
+    const recounter: Reader = { read: () => Promise.reject(offSchema()) };
+    const rej = await rejection(quote(newPipeline({ recounter }), `Heat\n${DIRECTIVE.unfaithful}`));
+    expect(rej.code).toBe('unfaithful_reading');
+    expect(rej.facts.judgement?.attempts).toBe(3);
+  });
+
+  it('asks a recount that failed fast once more, and one right the second time is a recount like any other', async () => {
+    let calls = 0;
+    const flaky: Reader = {
+      read: () =>
+        ++calls === 1
+          ? Promise.reject(offSchema())
+          : Promise.resolve({
+              mentions: [{ title: 'Heat', quantity: 2 }],
+              usage: { engine: 'flaky', calls: 1, costUsd: 0.5 },
+            }),
+    };
+    const q = await quote(newPipeline({ recounter: flaky }, { recountTimeoutMs: 60_000 }), '2 x Heat');
+    expect(recountOf(q)).toMatchObject({ calls: 2, costUsd: 1 });
+    expect(recountOf(q)).not.toHaveProperty('degraded');
+    expect(q.judgement.findings).toContainEqual({ check: 'count', label: 'other: 2 read, 2 recounted', score: 1 });
+  });
+
+  it('asks no more than twice: still off schema, the recount degrades', async () => {
+    let calls = 0;
+    const broken: Reader = {
+      read: () => {
+        calls++;
+        return Promise.reject(offSchema());
+      },
+    };
+    const q = await quote(newPipeline({ recounter: broken }, { recountTimeoutMs: 60_000 }), 'Heat');
+    expect(calls).toBe(2);
+    expect(recountOf(q)).toMatchObject({ calls: 2, costUsd: 1, degraded: true });
+  });
+
+  it('does not ask again a recount that failed slowly: a slow model does not get faster', async () => {
+    let calls = 0;
+    const slow: Reader = {
+      read: async () => {
+        calls++;
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        throw offSchema();
+      },
+    };
+    const q = await quote(newPipeline({ recounter: slow }, { recountTimeoutMs: 100 }), 'Heat');
+    expect(calls).toBe(1);
+    expect(recountOf(q)).toMatchObject({ calls: 1, degraded: true });
+  });
+
+  it('cuts a recount that does not answer at its timeout, and goes on in that time', async () => {
+    const hung: Reader = {
+      read: (_, { signal }) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => {
+            reject(new EngineError('recount: no answer in time', { usage: { engine: 'hung', calls: 1, costUsd: 0 } }));
+          });
+        }),
+    };
+    const started = performance.now();
+    const q = await quote(newPipeline({ recounter: hung }, { recountTimeoutMs: 80 }), 'Heat');
+    expect(performance.now() - started).toBeLessThan(2_000);
+    expect(recountOf(q)).toMatchObject({ calls: 1, degraded: true });
+  });
+
+  it('fails on the recount only when the request is over', async () => {
+    const hung: Reader = {
+      read: (_, { signal }) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => {
+            reject(new Error('aborted'));
+          });
+        }),
+    };
+    const pipeline = newPipeline({ recounter: hung }, { recountTimeoutMs: 60_000 });
+    const error = await pipeline.quote({ cart: 'Heat' }, AbortSignal.timeout(50)).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(EngineError);
+  });
+
+  it(`degrades on ${DIRECTIVE.recountOffSchema}: two fake calls, then the parse alone`, async () => {
+    const q = await quote(newPipeline({}, { recountTimeoutMs: 6_000 }), `Heat\nRonin\n${DIRECTIVE.recountOffSchema}`);
+    expect(q.price.totalCents).toBe(4000);
+    expect(recountOf(q)).toMatchObject({ engine: 'fake', calls: 2, costUsd: 0, degraded: true });
+    expect(q.judgement.findings.filter((f) => f.check === 'count')).toEqual([]);
+  });
+});
+
+describe('Pipeline.quote, the recount: what degrades it, and what a kept one does', () => {
+  const stage = (q: { report: { stages: readonly { stage: string; calls: number }[] } }, name: string) =>
+    q.report.stages.find((s) => s.stage === name);
+  const hangs: Reader = {
+    read: (_, { signal }) =>
+      new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => {
+          reject(signal.reason as Error);
+        });
+      }),
+  };
+
+  it('does not swallow a failure that is no engine failure: it fails the quote as any stage would', async () => {
+    const recounter: Reader = { read: () => Promise.reject(new TypeError('a bug')) };
+    const error = await quote(newPipeline({ recounter }), 'Heat').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(TypeError);
+    expect(error).not.toBeInstanceOf(EngineError);
+  });
+
+  it('degrades a recount whose own time ran out, whatever the error its call raised', async () => {
+    const q = await quote(newPipeline({ recounter: hangs }, { recountTimeoutMs: 80 }), 'Heat');
+    expect(stage(q, 'recount')).toMatchObject({ degraded: true });
+    // the call that went out counts, its engine unknown to the pipeline, its cost 0
+    expect(stage(q, 'recount')?.calls).toBeGreaterThanOrEqual(1);
+  });
+
+  it('keeps the first recount that succeeded: asked once, however many readings, and counted against each', async () => {
+    let asked = 0;
+    const recounter: Reader = {
+      read: () => {
+        asked++;
+        return Promise.resolve({ mentions: [{ title: 'Heat', quantity: 3 }], usage: free });
+      },
+    };
+    const parser = reads({ title: 'Heat', quantity: 2 });
+    const rej = await rejection(quote(newPipeline({ parser, recounter }), '2 x Heat'));
+    expect(rej.facts.judgement?.attempts).toBe(3);
+    expect(asked).toBe(1);
+    expect(stage(rej, 'recount')).toMatchObject({ calls: 1 });
+    expect(rej.facts.judgement?.findings.filter((f) => f.check === 'count')).toEqual([
+      { check: 'count', label: 'other: 2 read, 3 recounted', score: 0 },
+    ]);
+  });
+
+  it('refuses at the second reading when its recount would have run out: the kept one still holds it', async () => {
+    let asked = 0;
+    const recounter: Reader = {
+      read: (text, call) => {
+        asked++;
+        return asked === 1
+          ? Promise.resolve({ mentions: [{ title: 'Heat', quantity: 3 }], usage: free })
+          : hangs.read(text, call);
+      },
+    };
+    const parser = reads({ title: 'Heat', quantity: 2 });
+    const started = performance.now();
+    const rej = await rejection(
+      quote(newPipeline({ parser, recounter }, { recountTimeoutMs: 150, readAttempts: 2 }), '2 x Heat'),
+    );
+    expect(rej.code).toBe('unfaithful_reading');
+    expect(asked).toBe(1);
+    expect(performance.now() - started).toBeLessThan(2_000);
+  });
+
+  it('does not let a degraded mark stick to a reading whose recount succeeded', async () => {
+    let asked = 0;
+    const recounter: Reader = {
+      read: () =>
+        ++asked === 1
+          ? Promise.reject(new EngineError('recount down', { usage: free }))
+          : Promise.resolve({ mentions: [{ title: 'Heat', quantity: 2 }], usage: free }),
+    };
+    // the judge refuses the first reading, which had no recount to count against; the second has one
+    let judged = 0;
+    const judge: Judge = {
+      judge: (_, lines) =>
+        Promise.resolve({
+          findings: lines.map((l) => ({ check: 'asked' as const, label: l.title, score: ++judged === 1 ? 0 : 1 })),
+          usage: free,
+        }),
+    };
+    const parser: Reader = {
+      read: () => Promise.resolve({ mentions: [{ title: 'Heat', quantity: judged === 0 ? 1 : 2 }], usage: free }),
+    };
+    const q = await quote(newPipeline({ parser, recounter, judge }), 'Heat');
+    expect(q.judgement.attempts).toBe(2);
+    expect(q.judgement.findings.filter((f) => f.check === 'count')).toEqual([
+      { check: 'count', label: 'other: 2 read, 2 recounted', score: 1 },
+    ]);
+    // left out once, over the readings: the usage says so; the calls of both are added up
+    expect(stage(q, 'recount')).toMatchObject({ calls: 2, degraded: true });
+  });
+});
+
+describe('Pipeline.quote, quantity_unverified: nothing counted the quantities', () => {
+  const down: Reader = { read: () => Promise.reject(new EngineError('recount: down', { usage: free })) };
+  const detail = 'The quantities could not be cross-checked and a line asks for more than one copy: try again.';
+
+  it.each([
+    ['a line of two copies', '2 x Heat'],
+    ['a title written twice, merged', 'Heat\nheat'],
+    ['one line of two among single ones', 'Back to the Future 1\nHeat x 2'],
+  ])('refuses %s, with the usage of what ran and no price', async (_, cart) => {
+    const rej = await rejection(quote(newPipeline({ recounter: down }), cart));
+    expect(rej.code).toBe('quantity_unverified');
+    expect(rej.detail).toBe(detail);
+    expect(rej.report.stages.map((s) => [s.stage, s.degraded === true])).toEqual([
+      ['prepare', false],
+      ['guard', false],
+      ['parse', false],
+      ['recount', true],
+      ['identify', false],
+      ['judge', false],
+    ]);
+  });
+
+  it('prices single copies all the same', async () => {
+    const q = await quote(newPipeline({ recounter: down }), 'Back to the Future 1\nHeat\nRonin');
+    expect(q.price.totalCents).toBe(5500);
+    expect(q.report.stages.find((s) => s.stage === 'recount')).toMatchObject({ degraded: true });
+  });
+
+  it('never refuses once a recount succeeded: it is kept', async () => {
+    const q = await quote(newPipeline(), '2 x Heat');
+    expect(q.price.totalCents).toBe(4000);
+  });
+
+  it('counts at a reading whose recount succeeded, though the first reading had none', async () => {
+    let asked = 0;
+    const recounter: Reader = {
+      read: () =>
+        ++asked === 1
+          ? Promise.reject(new EngineError('recount: down', { usage: free }))
+          : Promise.resolve({
+              mentions: [
+                { title: 'Back to the Future 1', quantity: 1 },
+                { title: 'Heat', quantity: 2 },
+              ],
+              usage: free,
+            }),
+    };
+    const q = await quote(newPipeline({ recounter }), `Back to the Future 1\n2 x Heat\n${DIRECTIVE.reread}`);
+    expect(q.price.totalCents).toBe(5500);
+    expect(q.judgement.attempts).toBe(2);
+    expect(q.judgement.findings.some((f) => f.check === 'count')).toBe(true);
+  });
+
+  it("lets the judge's refusal come first", async () => {
+    const rej = await rejection(quote(newPipeline({ recounter: down }), `2 x Heat\n${DIRECTIVE.unfaithful}`));
+    expect(rej.code).toBe('unfaithful_reading');
+    expect(rej.facts.judgement?.attempts).toBe(3);
   });
 });

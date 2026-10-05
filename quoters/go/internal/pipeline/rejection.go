@@ -12,6 +12,9 @@ const (
 	CodeNoFilm            Code = "no_film"            // parse
 	CodeQuantityTooLarge  Code = "quantity_too_large" // parse
 	CodeUnfaithfulReading Code = "unfaithful_reading" // judge
+	// CodeQuantityUnverified is a retryable refusal: the reading is held
+	// faithful, but no recount was there to count its quantities.
+	CodeQuantityUnverified Code = "quantity_unverified" // price
 )
 
 // Rejection is a cart a stage refused to price: the facts that decided, and

@@ -317,8 +317,6 @@ async def test_identifies_the_distinct_titles_of_both_readings(pipeline: Pipelin
         pytest.param({"guard": Says(GuardAnswers(order=1.0, steer=math.nan))}, id="no probability"),
         pytest.param({"parser": Says([Mention("Heat", 0)])}, id="a quantity of 0"),
         pytest.param({"parser": Says([Mention(" ", 1)])}, id="a mention without title"),
-        pytest.param({"recounter": Says([Mention("Heat", -1)])}, id="a recount out of contract"),
-        pytest.param({"recounter": Says(EngineError("down"))}, id="the recount down"),
         pytest.param({"identifier": Says([])}, id="an identification missing"),
         pytest.param(
             {"identifier": Says([Identification(cast(Film, "bttf_4"), 1.0)])}, id="a film out of the contract"
@@ -380,12 +378,11 @@ async def test_the_parse_decides_before_the_recount(pipeline: Pipeline) -> None:
     down = Says(EngineError("recount down", usage=billed))
     rej = await rejection(engines(pipeline, recounter=down), "#fake:nothing to buy")
     assert rej.code == Code.NO_FILM, "the parse's refusal stands over the recount's failure"
-    assert ran(Stage.RECOUNT, billed.engine, billed.model, calls=1, cost_usd=0.0002) in [
-        replace(u, ms=0) for u in rej.report.stages
-    ], "the failed recount ran too, and its usage is reported"
+    recount = replace(ran(Stage.RECOUNT, billed.engine, billed.model, calls=1, cost_usd=0.0002), degraded=True)
+    assert recount in [replace(u, ms=0) for u in rej.report.stages], (
+        "the failed recount ran too, and its usage is reported"
+    )
     assert rej.report.cost_usd == pytest.approx(0.0002)
-    with pytest.raises(EngineError, match="recount down"):
-        await engines(pipeline, recounter=down).quote(Request(cart="Heat"))
 
 
 async def test_a_refusal_waits_for_the_recount(pipeline: Pipeline) -> None:
@@ -637,12 +634,13 @@ async def test_a_reading_read_again_is_priced(pipeline: Pipeline) -> None:
     assert [p.line.title for p in q.price.lines] == ["Back to the Future 1", "Back to the Future 2"]
     assert q.judgement.attempts == 2
     assert q.judgement.score == 1
-    # the recount read both titles on the first attempt: nothing new to identify
+    # the recount read both titles on the first attempt: nothing new to identify,
+    # and it is not asked again, the first one that succeeded being kept
     assert calls(q) == {
         Stage.PREPARE: 0,
         Stage.GUARD: 1,
         Stage.PARSE: 2,
-        Stage.RECOUNT: 2,
+        Stage.RECOUNT: 1,
         Stage.IDENTIFY: 1,
         Stage.JUDGE: 2,
         Stage.PRICE: 0,
@@ -656,7 +654,7 @@ async def test_an_unfaithful_reading_is_refused_after_the_last_attempt(pipeline:
     assert rej.judgement.attempts == 3
     # the same reading three times: put to the judge once
     assert calls(rej)[Stage.PARSE] == 3
-    assert calls(rej)[Stage.RECOUNT] == 3
+    assert calls(rej)[Stage.RECOUNT] == 1, "asked once, kept for the three readings"
     assert calls(rej)[Stage.JUDGE] == 1
     assert stages(rej) == [s for s in Stage if s != Stage.PRICE]
 
@@ -780,7 +778,7 @@ async def test_too_many_copies_wins_over_a_recount_failure_on_a_later_attempt(pi
     assert rej.code == Code.QUANTITY_TOO_LARGE, "a reading refusal stands over a recount failure"
 
 
-@pytest.mark.parametrize("failing", ["parser", "recounter"])
+@pytest.mark.parametrize("failing", ["parser"])
 async def test_a_failure_on_a_later_attempt_with_no_film_is_a_502(pipeline: Pipeline, failing: str) -> None:
     class Later:
         """Reads Heat twice on the first attempt, nothing on the second, and fails then if asked to."""
@@ -807,13 +805,8 @@ async def test_a_failure_on_a_later_attempt_with_no_film_is_a_502(pipeline: Pipe
 
 async def test_a_reading_judged_once_is_reused_in_any_order(pipeline: Pipeline) -> None:
     heat, ronin = Mention("Heat", 1), Mention("Ronin", 2)
-    script = Script([heat, ronin], [ronin, heat])
-    recounts = iter([[heat], [heat, ronin]])
-
-    class Recount:
-        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
-            return next(recounts), fake.USAGE
-
+    script = Script([heat, ronin], [ronin, heat], [ronin, heat])
+    recount = Says([heat], asked=[])  # the one recount, kept: every reading is counted against it
     judge = Says(
         [
             Finding(Check.ASKED, "Heat", 1.0),
@@ -824,17 +817,20 @@ async def test_a_reading_judged_once_is_reused_in_any_order(pipeline: Pipeline) 
         ],
         asked=[],
     )
-    q = await quote(engines(pipeline, parser=script, recounter=Recount(), judge=judge), "Heat\n2 x Ronin")
-    assert q.judgement.attempts == 2, "the recount now agrees"
+    rej = await rejection(engines(pipeline, parser=script, recounter=recount, judge=judge), "Heat\n2 x Ronin")
+    assert rej.judgement is not None
+    assert rej.judgement.attempts == 3, "the kept recount disagrees at every reading"
     assert judge.asked is not None
     assert len(judge.asked) == 1, "the same lines are not put to the judge again"
-    assert [(f.check, f.label, f.score) for f in q.judgement.findings] == [
+    assert recount.asked is not None
+    assert len(recount.asked) == 1, "the recount that succeeded is not asked again"
+    assert [(f.check, f.label, f.score) for f in rej.judgement.findings] == [
         (Check.ASKED, "Ronin", 0.8),
         (Check.IDENTITY, "Ronin", 0.7),
         (Check.ASKED, "Heat", 1.0),
         (Check.IDENTITY, "Heat", 0.9),
         (Check.MISSING, "the whole reading", 1.0),
-        (Check.COUNT, "other: 3 read, 3 recounted", 1.0),
+        (Check.COUNT, "other: 3 read, 1 recounted", 0.0),
     ]
 
 
@@ -874,7 +870,8 @@ async def test_a_span_per_stage_per_attempt(traced: Pipeline, spans: Spans) -> N
         [
             ("prepare", None),
             ("guard", None),
-            *[(stage, n) for n in (1, 2) for stage in ("parse", "recount", "identify", "judge")],
+            *[(stage, n) for n in (1, 2) for stage in ("parse", "identify", "judge")],
+            ("recount", 1),  # the first one that succeeded is kept: not asked at the second reading
             ("price", None),
         ],
         key=str,
@@ -996,3 +993,403 @@ async def test_the_release_is_langfuse_release_s_alone(
         assert releases == {release}
     finally:
         await spans.tracer.shutdown()
+
+
+# The recount is a second opinion: one that fails, answers off its schema or is
+# too slow does not fail the quote. It goes on with the parse alone — no count
+# check, the judge still holds the reading — and says so.
+
+
+def recount_usage(outcome: Quote | Rejection) -> StageUsage:
+    (usage,) = [u for u in outcome.report.stages if u.stage == Stage.RECOUNT]
+    return usage
+
+
+@pytest.mark.parametrize(
+    "recounter",
+    [
+        pytest.param(Says(EngineError("down", usage=Usage(engine="test", calls=1))), id="the recount down"),
+        pytest.param(Says([Mention("Heat", 0)]), id="a recount quantity of 0"),
+        pytest.param(Says([Mention(" ", 1)]), id="a recount without title"),
+    ],
+)
+async def test_a_recount_that_fails_degrades(pipeline: Pipeline, recounter: Says) -> None:
+    q = await quote(engines(pipeline, recounter=recounter), "Heat")
+    assert q.price.total_cents == 2000, "priced on the parse"
+    assert not [f for f in q.judgement.findings if f.check == Check.COUNT], "nothing to count against"
+    assert stages(q) == [
+        Stage.PREPARE,
+        Stage.GUARD,
+        Stage.PARSE,
+        Stage.RECOUNT,
+        Stage.IDENTIFY,
+        Stage.JUDGE,
+        Stage.PRICE,
+    ]
+    assert [u.stage for u in q.report.stages if u.degraded] == [Stage.RECOUNT]
+    assert recount_usage(q).calls == 1, "no retry without a recount timeout"
+
+
+async def test_the_fake_recount_off_schema(pipeline: Pipeline) -> None:
+    """As the service runs it, with its 6 s: asked twice, as the e2e sees it."""
+    q = await quote(replace(pipeline, recount_timeout=6.0), f"Back to the Future 1\n{fake.RECOUNT_OFFSCHEMA}")
+    assert q.price.total_cents == 1500
+    assert (recount_usage(q).engine, recount_usage(q).calls, recount_usage(q).degraded) == ("fake", 2, True)
+    assert [f.check for f in q.judgement.findings] == [Check.ASKED, Check.IDENTITY, Check.MISSING]
+
+
+async def test_only_an_engine_failure_degrades_the_recount(pipeline: Pipeline) -> None:
+    class Buggy:
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            raise TypeError("a bug, not an engine")
+
+    with pytest.raises(TypeError, match="a bug"):
+        await engines(replace(pipeline, recount_timeout=6.0), recounter=Buggy()).quote(Request(cart="Heat"))
+    with pytest.raises(TypeError, match="a bug"):
+        await engines(pipeline, recounter=Buggy()).quote(Request(cart="Heat"))
+
+
+async def test_a_degraded_reading_is_still_judged(pipeline: Pipeline) -> None:
+    p = engines(pipeline, recounter=Says(EngineError("down")))
+    rej = await rejection(p, f"Heat\n{fake.UNFAITHFUL}")
+    assert rej.code == Code.UNFAITHFUL_READING
+    assert rej.judgement is not None
+    assert rej.judgement.attempts == 3, "read again, without the recount"
+
+
+async def test_a_recount_failure_on_a_later_attempt_with_no_film_is_no_502(pipeline: Pipeline) -> None:
+    class Later:
+        """Reads Heat twice first, nothing later; the recount is down: it is asked at every reading,
+        none having succeeded."""
+
+        def __init__(self, *, parse: bool) -> None:
+            self.parse, self.reads = parse, 0
+
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            self.reads += 1
+            if self.parse:
+                return ([Mention("Heat", 2)] if self.reads == 1 else []), fake.USAGE
+            if self.reads >= 1:
+                raise EngineError("recount down", usage=fake.USAGE)
+            return [Mention("Heat", 1)], fake.USAGE
+
+    recounter = Later(parse=False)
+    rej = await rejection(engines(pipeline, parser=Later(parse=True), recounter=recounter), f"Heat\n{fake.UNFAITHFUL}")
+    assert rej.code == Code.UNFAITHFUL_READING
+    assert recount_usage(rej).degraded
+    assert recounter.reads == 3, "none succeeded: asked again at each reading"
+
+
+class Flaky:
+    """Fails its first `failures` reads off schema, then reads Heat twice; each
+    call billed 0.5."""
+
+    def __init__(self, failures: int) -> None:
+        self.failures, self.reads = failures, 0
+
+    async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+        self.reads += 1
+        billed = Usage(engine="flaky", model="flaky", calls=1, cost_usd=0.5)
+        if self.reads <= self.failures:
+            raise EngineError("answer off schema", usage=billed)
+        return [Mention("Heat", 2)], billed
+
+
+async def test_a_recount_that_fails_fast_is_asked_once_more(pipeline: Pipeline) -> None:
+    flaky = Flaky(failures=1)
+    q = await quote(engines(replace(pipeline, recount_timeout=60.0), recounter=flaky), "2 x Heat")
+    usage = recount_usage(q)
+    assert (usage.calls, usage.cost_usd, usage.degraded) == (2, 1.0, False)
+    assert Finding(Check.COUNT, "other: 2 read, 2 recounted", 1.0) in q.judgement.findings
+
+    flaky = Flaky(failures=99)
+    q = await quote(engines(replace(pipeline, recount_timeout=60.0), recounter=flaky), "Heat")
+    assert (recount_usage(q).calls, recount_usage(q).degraded) == (2, True)
+    assert flaky.reads == 2, "at most one retry"
+
+
+async def test_a_recount_that_fails_slowly_is_not_asked_again(pipeline: Pipeline) -> None:
+    class Slow:
+        reads = 0
+
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            Slow.reads += 1
+            await asyncio.sleep(0.06)
+            raise EngineError("answer off schema", usage=Usage(engine="slow", calls=1))
+
+    q = await quote(engines(replace(pipeline, recount_timeout=0.1), recounter=Slow()), "Heat")
+    assert (Slow.reads, recount_usage(q).calls, recount_usage(q).degraded) == (1, 1, True)
+
+
+async def test_a_recount_that_does_not_answer_is_cut_at_its_timeout(pipeline: Pipeline) -> None:
+    class Hung:
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            await asyncio.sleep(60)
+            raise AssertionError("not cut")
+
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    q = await quote(engines(replace(pipeline, recount_timeout=0.08), recounter=Hung()), "Heat")
+    assert loop.time() - started < 2, "in the time of the recount's timeout, not the request's"
+    assert recount_usage(q).degraded
+    assert q.price.total_cents == 2000
+
+
+async def test_a_recount_cut_by_its_time_counts_the_call_that_went_out(pipeline: Pipeline) -> None:
+    class Hung:
+        model = "openai/gpt-6-luna"
+
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            await asyncio.sleep(60)
+            raise AssertionError("not cut")
+
+    q = await quote(engines(replace(pipeline, recount_timeout=0.08), recounter=Hung()), "Heat")
+    usage = recount_usage(q)
+    assert (usage.engine, usage.model, usage.calls, usage.cost_usd, usage.degraded) == (
+        "openai/gpt-6-luna",
+        "openai/gpt-6-luna",
+        1,
+        0.0,
+        True,
+    ), "one call, its model known, its cost not"
+
+    # one that names nothing is an engine not known, the call counted all the same
+    class Nameless:
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            await asyncio.sleep(60)
+            raise AssertionError("not cut")
+
+    q = await quote(engines(replace(pipeline, recount_timeout=0.08), recounter=Nameless()), "Heat")
+    assert (recount_usage(q).engine, recount_usage(q).calls) == ("unknown", 1)
+
+
+async def test_a_retry_cut_by_the_recount_time_counts_both_calls(pipeline: Pipeline) -> None:
+    class FailsThenHangs:
+        model = "openai/gpt-6-luna"
+        reads = 0
+
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            FailsThenHangs.reads += 1
+            if FailsThenHangs.reads == 1:
+                raise EngineError("answer off schema", usage=Usage(engine=self.model, model=self.model, calls=1))
+            await asyncio.sleep(60)
+            raise AssertionError("not cut")
+
+    q = await quote(engines(replace(pipeline, recount_timeout=0.4), recounter=FailsThenHangs()), "Heat")
+    usage = recount_usage(q)
+    assert (usage.engine, usage.calls, usage.degraded) == ("openai/gpt-6-luna", 2, True)
+
+
+async def test_the_fake_recount_cut_by_its_time_is_the_fake_engine(pipeline: Pipeline) -> None:
+    async def hang(seconds: float) -> None:
+        await asyncio.sleep(60)
+
+    recounter = fake.FakeReader(recount=True, pace=fake.Pace(latency="real", sleep=hang))
+    q = await quote(engines(replace(pipeline, recount_timeout=0.08), recounter=recounter), "Heat")
+    assert (recount_usage(q).engine, recount_usage(q).calls) == ("fake", 1)
+
+
+async def test_only_a_request_that_is_over_fails_on_the_recount(pipeline: Pipeline) -> None:
+    class Hung:
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            await asyncio.sleep(60)
+            raise AssertionError("not cut")
+
+    p = engines(replace(pipeline, recount_timeout=60.0), recounter=Hung())
+    with pytest.raises(TimeoutError):
+        async with asyncio.timeout(0.05):
+            await p.quote(Request(cart="Heat"))
+
+
+async def test_a_degraded_recount_is_a_warning(traced: Pipeline, spans: Spans) -> None:
+    q = await quote(engines(traced, recounter=Says(EngineError("down"))), "Heat")
+    assert recount_usage(q).degraded
+    recount = spans.attributes("recount")
+    assert recount["langfuse.observation.level"] == "WARNING"
+    assert recount["langfuse.observation.status_message"] == "degraded: down"
+    assert spans.named("recount").status.status_code != StatusCode.ERROR
+    assert not [
+        s.name for s in spans.ended() if dict(s.attributes or {}).get("langfuse.observation.level") == "ERROR"
+    ], "no span is an error: the quote did not fail"
+    identify = json.loads(spans.attributes("identify")["langfuse.observation.output"])
+    assert identify == {
+        "reading": [{"title": "Heat", "quantity": 1, "film": "other", "confidence": 1}],
+        "recount": None,
+    }
+    quote_span = spans.attributes("quote")
+    assert quote_span["langfuse.trace.metadata.degraded"] == "recount"
+    assert quote_span["langfuse.trace.metadata.outcome"] == "priced"
+
+
+async def test_a_degraded_mark_does_not_stick_to_the_reading_whose_recount_succeeded(
+    traced: Pipeline, spans: Spans
+) -> None:
+    class FailsOnce:
+        reads = 0
+
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            FailsOnce.reads += 1
+            billed = Usage(engine="test", calls=1)
+            if FailsOnce.reads == 1:
+                raise EngineError("answer off schema", usage=billed)
+            return [Mention("Heat", 2)], billed
+
+    rej = await rejection(engines(traced, recounter=FailsOnce()), f"2 x Heat\n{fake.UNFAITHFUL}")
+    assert rej.judgement is not None
+    assert rej.judgement.attempts == 3
+    assert Finding(Check.COUNT, "other: 2 read, 2 recounted", 1.0) in rej.judgement.findings, "counted at the end"
+    assert FailsOnce.reads == 2, "left out at the first reading, asked again at the second, kept for the third"
+    usage = recount_usage(rej)
+    assert (usage.calls, usage.degraded) == (2, True), "calls added up; left out at least once"
+    levels = {
+        dict(s.attributes or {}).get("langfuse.observation.metadata.attempt"): dict(s.attributes or {}).get(
+            "langfuse.observation.level"
+        )
+        for s in spans.ended()
+        if s.name == "recount"
+    }
+    assert levels == {1: "WARNING", 2: None}, "a warning at the reading it failed, none after, no span at the third"
+
+
+async def test_a_recount_that_expires_at_a_later_reading_leaves_the_kept_one_standing(pipeline: Pipeline) -> None:
+    heat, ronin = Mention("Heat", 1), Mention("Ronin", 2)
+
+    class HangsAfterTheFirst:
+        reads = 0
+
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            HangsAfterTheFirst.reads += 1
+            if HangsAfterTheFirst.reads > 1:
+                await asyncio.sleep(60)
+            return [heat], fake.USAGE
+
+    recounter = HangsAfterTheFirst()
+    p = engines(
+        replace(pipeline, recount_timeout=0.1),
+        parser=Script([heat, ronin], [heat, ronin], [heat, ronin]),
+        recounter=recounter,
+    )
+    rej = await rejection(p, "Heat\n2 x Ronin")
+    assert rej.judgement is not None
+    assert rej.judgement.attempts == 3
+    assert recounter.reads == 1, "asked once: the first one that succeeded stands for every reading"
+    assert Finding(Check.COUNT, "other: 3 read, 1 recounted", 0.0) in rej.judgement.findings, "still counted against"
+    assert not recount_usage(rej).degraded
+
+
+async def test_a_recount_failing_beside_a_failing_parse_is_no_degradation(traced: Pipeline, spans: Spans) -> None:
+    """Both fail in the same tick: the recount is decided once the parse has
+    settled, so it is a failure, not a degradation, whichever failed first."""
+
+    class FailsFirst:
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            raise EngineError("recount down", usage=Usage(engine="test", calls=1))
+
+    class FailsLater:
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            await asyncio.sleep(0.01)
+            raise EngineError("parse down", usage=Usage(engine="test", calls=1))
+
+    p = engines(replace(traced, recount_timeout=6.0), parser=FailsLater(), recounter=FailsFirst())
+    with pytest.raises(EngineError, match="parse down"):
+        await p.quote(Request(cart="Heat"))
+    levels = {s.name: str(dict(s.attributes or {}).get("langfuse.observation.level")) for s in spans.ended()}
+    assert (levels["parse"], levels["recount"]) == ("ERROR", "ERROR")
+
+
+async def test_a_degraded_recount_reports_its_own_time(pipeline: Pipeline) -> None:
+    """Failed at once beside a slow parse: decided once the parse has settled,
+    yet its duration is its own, not the parse's."""
+
+    class SlowParse(fake.FakeReader):
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            await asyncio.sleep(0.2)
+            return await super().read(text, retry)
+
+    p = engines(pipeline, parser=SlowParse(), recounter=Says(EngineError("down")))
+    q = await quote(p, "Heat")
+    usage = recount_usage(q)
+    assert usage.degraded
+    assert usage.ms < 100, f"{usage.ms} ms: the recount's own time"
+    assert next(u.ms for u in q.report.stages if u.stage == Stage.PARSE) >= 200
+
+
+# A quote made without a recount: nothing counts its quantities, so a line of
+# several copies is not priced (503 quantity_unverified, to retry), a cart of
+# single copies is.
+
+UNVERIFIED = "The quantities could not be cross-checked and a line asks for more than one copy: try again."
+
+
+def down() -> Says:
+    return Says(EngineError("down", usage=Usage(engine="test", calls=1)))
+
+
+async def test_without_a_recount_single_copies_are_priced(pipeline: Pipeline) -> None:
+    q = await quote(engines(pipeline, recounter=down()), "Heat\nRonin")
+    assert q.price.total_cents == 4000
+    assert recount_usage(q).degraded
+
+
+@pytest.mark.parametrize(
+    "cart",
+    [
+        pytest.param("2 x Heat", id="two copies"),
+        pytest.param("Heat\nHeat", id="a title written twice, one line of two"),
+        pytest.param("Heat\n2 x Ronin", id="a line of two among single ones"),
+    ],
+)
+async def test_without_a_recount_a_line_of_several_copies_is_not_priced(pipeline: Pipeline, cart: str) -> None:
+    rej = await rejection(engines(pipeline, recounter=down()), cart)
+    assert rej.code == Code.QUANTITY_UNVERIFIED
+    assert rej.detail == UNVERIFIED
+    assert (rej.guard, rej.judgement, rej.tokens, rej.copies) == (None, None, None, None)
+    assert stages(rej) == [Stage.PREPARE, Stage.GUARD, Stage.PARSE, Stage.RECOUNT, Stage.IDENTIFY, Stage.JUDGE], (
+        "every stage up to the judge ran, and not the price"
+    )
+    assert recount_usage(rej).degraded
+
+
+async def test_a_recount_that_succeeded_is_kept_and_lifts_the_rule(pipeline: Pipeline) -> None:
+    q = await quote(engines(pipeline, recounter=Flaky(failures=0)), "2 x Heat")
+    assert q.price.total_cents == 4000
+    assert not recount_usage(q).degraded
+
+
+async def test_a_recount_that_succeeds_at_a_later_reading_lifts_the_rule(pipeline: Pipeline) -> None:
+    """Left out at the first reading (the judge refuses it), it succeeds at the second: counted, and priced."""
+    heat, ronin = Mention("Heat", 2), Mention("Ronin", 1)
+
+    class Recovers:
+        reads = 0
+
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            Recovers.reads += 1
+            if Recovers.reads == 1:
+                raise EngineError("down", usage=fake.USAGE)
+            return [heat, ronin], fake.USAGE
+
+    q = await quote(engines(pipeline, recounter=Recovers()), f"2 x Heat\nRonin\n{fake.REREAD}")
+    assert q.judgement.attempts == 2
+    assert q.price.total_cents == 6000, "a line of two, priced: the second reading was counted"
+    assert Finding(Check.COUNT, "other: 3 read, 3 recounted", 1.0) in q.judgement.findings
+    assert recount_usage(q).degraded, "left out at least once"
+
+
+async def test_the_judge_refuses_before_the_quantities_are_looked_at(pipeline: Pipeline) -> None:
+    rej = await rejection(engines(pipeline, recounter=down()), f"2 x Heat\n{fake.UNFAITHFUL}")
+    assert rej.code == Code.UNFAITHFUL_READING
+    assert rej.judgement is not None
+    assert rej.judgement.attempts == 3
+
+
+async def test_the_trace_of_a_quote_left_unpriced(traced: Pipeline, spans: Spans) -> None:
+    await rejection(engines(traced, recounter=down()), "2 x Heat")
+    assert "price" not in [s.name for s in spans.ended()], "the price stage did not run"
+    root = spans.attributes("quote")
+    assert root["langfuse.trace.metadata.outcome"] == "quantity_unverified"
+    assert root["langfuse.trace.metadata.degraded"] == "recount"
+    assert json.loads(root["langfuse.trace.output"])["code"] == "quantity_unverified"
+    assert not [
+        s.name for s in spans.ended() if dict(s.attributes or {}).get("langfuse.observation.level") == "ERROR"
+    ], "a refusal is no error"

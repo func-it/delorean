@@ -173,19 +173,20 @@ func (e JudgeCheckCheck) Valid() bool {
 
 // Defines values for ProblemCode.
 const (
-	ProblemCodeEmptyCart         ProblemCode = "empty_cart"
-	ProblemCodeEngineUnavailable ProblemCode = "engine_unavailable"
-	ProblemCodeInjection         ProblemCode = "injection"
-	ProblemCodeInternal          ProblemCode = "internal"
-	ProblemCodeInvalidRequest    ProblemCode = "invalid_request"
-	ProblemCodeMalformedRequest  ProblemCode = "malformed_request"
-	ProblemCodeMethodNotAllowed  ProblemCode = "method_not_allowed"
-	ProblemCodeNoFilm            ProblemCode = "no_film"
-	ProblemCodeNotFound          ProblemCode = "not_found"
-	ProblemCodePayloadTooLarge   ProblemCode = "payload_too_large"
-	ProblemCodeQuantityTooLarge  ProblemCode = "quantity_too_large"
-	ProblemCodeTooLong           ProblemCode = "too_long"
-	ProblemCodeUnfaithfulReading ProblemCode = "unfaithful_reading"
+	ProblemCodeEmptyCart          ProblemCode = "empty_cart"
+	ProblemCodeEngineUnavailable  ProblemCode = "engine_unavailable"
+	ProblemCodeInjection          ProblemCode = "injection"
+	ProblemCodeInternal           ProblemCode = "internal"
+	ProblemCodeInvalidRequest     ProblemCode = "invalid_request"
+	ProblemCodeMalformedRequest   ProblemCode = "malformed_request"
+	ProblemCodeMethodNotAllowed   ProblemCode = "method_not_allowed"
+	ProblemCodeNoFilm             ProblemCode = "no_film"
+	ProblemCodeNotFound           ProblemCode = "not_found"
+	ProblemCodePayloadTooLarge    ProblemCode = "payload_too_large"
+	ProblemCodeQuantityTooLarge   ProblemCode = "quantity_too_large"
+	ProblemCodeQuantityUnverified ProblemCode = "quantity_unverified"
+	ProblemCodeTooLong            ProblemCode = "too_long"
+	ProblemCodeUnfaithfulReading  ProblemCode = "unfaithful_reading"
 )
 
 // Valid indicates whether the value is a known member of the ProblemCode enum.
@@ -212,6 +213,8 @@ func (e ProblemCode) Valid() bool {
 	case ProblemCodePayloadTooLarge:
 		return true
 	case ProblemCodeQuantityTooLarge:
+		return true
+	case ProblemCodeQuantityUnverified:
 		return true
 	case ProblemCodeTooLong:
 		return true
@@ -483,6 +486,8 @@ type Problem struct {
 	//   spaces aside) are merged first; two spellings of one volume are two titles.
 	// - `unfaithful_reading` (422): the judge does not hold the reading faithful.
 	// - `engine_unavailable` (502): a model engine failed.
+	// - `quantity_unverified` (503): the quantities could not be cross-checked
+	//   (the recount failed) and a line asks for more than one copy; retry.
 	// - `not_found` (404), `method_not_allowed` (405), `internal` (500).
 	Code      ProblemCode   `json:"code"`
 	Detail    *string       `json:"detail,omitempty"`
@@ -527,6 +532,8 @@ type Problem_Quantity struct {
 //     spaces aside) are merged first; two spellings of one volume are two titles.
 //   - `unfaithful_reading` (422): the judge does not hold the reading faithful.
 //   - `engine_unavailable` (502): a model engine failed.
+//   - `quantity_unverified` (503): the quantities could not be cross-checked
+//     (the recount failed) and a line asks for more than one copy; retry.
 //   - `not_found` (404), `method_not_allowed` (405), `internal` (500).
 type ProblemCode string
 
@@ -605,6 +612,9 @@ type StageUsage struct {
 
 	// Tokens Input tokens counted (prepare).
 	Tokens *int `json:"tokens,omitempty"`
+
+	// Degraded The stage failed (an engine down, an answer off its schema, too slow) and the quote was made without it. Only `recount` can be degraded: it is a second opinion, and the judge is still the guard. Absent when the stage did its work; true once, over the readings, when it did not.
+	Degraded *bool `json:"degraded,omitempty"`
 }
 
 // StageUsageStage defines model for StageUsage.Stage.
@@ -650,6 +660,9 @@ type MalformedRequest = Problem
 
 // PayloadTooLarge RFC 9457 problem details, with a stable `code` and the facts behind it.
 type PayloadTooLarge = Problem
+
+// QuantityUnverified RFC 9457 problem details, with a stable `code` and the facts behind it.
+type QuantityUnverified = Problem
 
 // Rejected RFC 9457 problem details, with a stable `code` and the facts behind it.
 type Rejected = Problem

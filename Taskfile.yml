@@ -73,6 +73,10 @@ tasks:
     desc: The end-to-end suite against the Python quoter on its fake engines (:24797)
     cmds: [quoters/python/scripts/e2e-fake.sh]
 
+  web:e2e:
+    desc: The web app in a browser (Playwright, desktop and mobile) against the whole stack on fake engines, in Docker
+    cmds: ["scripts/web-e2e.sh {{.CLI_ARGS}}"]
+
   e2e:parity:
     desc: "The three quoters against each other on their fake engines: same answers, logs and commands, byte for byte"
     cmds: [scripts/e2e-parity.sh]

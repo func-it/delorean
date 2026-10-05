@@ -15,7 +15,7 @@ export const CATALOG: Catalog = {
     { distinct_volumes: 2, percent: 10 },
     { distinct_volumes: 3, percent: 20 },
   ],
-  limits: { max_body_bytes: 65_536, max_input_tokens: 2048, max_copies_per_title: 1000, max_reading_attempts: 3 },
+  limits: { max_body_bytes: 8192, max_input_tokens: 256, max_copies_per_title: 1000, max_reading_attempts: 3 },
 };
 
 export function unitPrice(film: Film): number {

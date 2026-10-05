@@ -90,7 +90,11 @@ async function attempt(client: Api, c: QuoteCase, pass: number): Promise<Attempt
     started_at: startedAt,
     latency_ms: elapsed(),
     status,
-    ...(status >= 500 && { error: `${status} ${outcome.code ?? ''}`.trim() }),
+    // a 5xx is a failure of the service, unless the case expects exactly it (a refusal to retry)
+    ...(status >= 500 &&
+      !('code' in c.expect && c.expect.status === status && c.expect.code === outcome.code) && {
+        error: `${status} ${outcome.code ?? ''}`.trim(),
+      }),
     outcome,
     grade: grade(c.expect, outcome),
     ...(body.usage && { usage: body.usage }),

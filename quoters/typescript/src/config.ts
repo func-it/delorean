@@ -30,6 +30,8 @@ export interface Config {
   readAttempts: number;
   /** The budget of one request, model calls included. */
   requestTimeoutMs: number;
+  /** The time the recount has, a retry included, before the quote goes on without it. */
+  recountTimeoutMs: number;
   /** The fake engines' pace, for the load bench (docs/architecture.md, "Fake latency"). */
   fake: Pace;
   /** Where the shared prompts are read from: the repository's prompts/. */
@@ -54,6 +56,8 @@ export interface LiveConfig {
   jevModel: string;
   /** The titles whose film is kept in memory, across requests; 0 keeps none. */
   identifyCacheSize: number;
+  /** How long one model call may take, Jev's and the LLMs'. */
+  modelTimeoutMs: number;
 }
 
 type Env = Record<string, string | undefined>;
@@ -72,6 +76,7 @@ export function loadConfig(env: Env): Config {
   const string = (name: string, fallback: string) => read(name, fallback, (raw) => raw, 'a string');
   const integer = (name: string, fallback: number) => read(name, fallback, parseInteger, 'an integer');
   const number = (name: string, fallback: number) => read(name, fallback, parseNumber, 'a number');
+  const duration = (name: string, fallback: number) => read(name, fallback, parseDuration, 'a duration such as "30s"');
   const check = (ok: boolean, name: string, problem: string) => {
     if (!ok) say(name, `${name} ${problem}`);
   };
@@ -87,18 +92,20 @@ export function loadConfig(env: Env): Config {
       parseEffort: string('PARSE_EFFORT', 'minimal'),
       parseBaseUrl: string('PARSE_BASE_URL', OPENROUTER_URL),
       parseIdentifies: read('PARSE_IDENTIFIES', false, parseBool, 'true or false'),
-      recountModel: string('RECOUNT_MODEL', 'deepseek/deepseek-v4.1-flash'),
-      recountEffort: string('RECOUNT_EFFORT', 'low'),
+      recountModel: string('RECOUNT_MODEL', 'openai/gpt-6-luna'),
+      recountEffort: string('RECOUNT_EFFORT', 'none'),
       recountBaseUrl: string('RECOUNT_BASE_URL', OPENROUTER_URL),
       jevModel: string('JEV_MODEL', 'typesafe/jev-1.13'),
       identifyCacheSize: integer('IDENTIFY_CACHE_SIZE', 10_000),
+      modelTimeoutMs: duration('MODEL_TIMEOUT', 6_000),
     },
-    maxBodyBytes: integer('MAX_BODY_BYTES', 65536),
-    maxInputTokens: integer('MAX_INPUT_TOKENS', 2048),
+    maxBodyBytes: integer('MAX_BODY_BYTES', 8192),
+    maxInputTokens: integer('MAX_INPUT_TOKENS', 256),
     guardMinConfidence: number('GUARD_MIN_CONFIDENCE', 0.5),
     judgeThreshold: number('JUDGE_THRESHOLD', 0.5),
     readAttempts: integer('READ_ATTEMPTS', 3),
-    requestTimeoutMs: read('REQUEST_TIMEOUT', 30_000, parseDuration, 'a duration such as "30s"'),
+    requestTimeoutMs: duration('REQUEST_TIMEOUT', 15_000),
+    recountTimeoutMs: duration('RECOUNT_TIMEOUT', 6_000),
     fake: { latency: fakeLatency === 'real' ? 'real' : 'off', cpuMs: integer('FAKE_CPU_MS', 0) },
     promptsDir: string('PROMPTS_DIR', DEFAULT_PROMPTS_DIR),
   };
@@ -122,7 +129,18 @@ export function loadConfig(env: Env): Config {
   ] as const) {
     check(isHttpUrl(base), name, `is ${JSON.stringify(base)}, not an http(s) URL`);
   }
+  check(config.live.modelTimeoutMs > 0, 'MODEL_TIMEOUT', 'must be positive');
+  check(config.recountTimeoutMs > 0, 'RECOUNT_TIMEOUT', 'must be positive');
   check(config.requestTimeoutMs > 0, 'REQUEST_TIMEOUT', 'must be positive');
+  // a call is bounded by the recount's time, which the request's time bounds in turn;
+  // a variable that failed its own check is not compared
+  const bad = (name: string) => problems.some((p) => p.name === name);
+  if (!bad('MODEL_TIMEOUT') && !bad('RECOUNT_TIMEOUT')) {
+    check(config.recountTimeoutMs >= config.live.modelTimeoutMs, 'RECOUNT_TIMEOUT', 'must be at least MODEL_TIMEOUT');
+  }
+  if (!bad('RECOUNT_TIMEOUT') && !bad('REQUEST_TIMEOUT')) {
+    check(config.requestTimeoutMs >= config.recountTimeoutMs, 'REQUEST_TIMEOUT', 'must be at least RECOUNT_TIMEOUT');
+  }
   check(['off', 'real'].includes(fakeLatency), 'FAKE_LATENCY', `is ${JSON.stringify(fakeLatency)}, want off or real`);
   check(config.fake.cpuMs >= 0, 'FAKE_CPU_MS', 'must be at least 0');
   if (engines !== 'live' && engines !== 'fake') {
@@ -164,6 +182,8 @@ const ORDER = [
   'JUDGE_THRESHOLD',
   'READ_ATTEMPTS',
   'IDENTIFY_CACHE_SIZE',
+  'MODEL_TIMEOUT',
+  'RECOUNT_TIMEOUT',
   'REQUEST_TIMEOUT',
   'FAKE_LATENCY',
   'FAKE_CPU_MS',
@@ -210,8 +230,8 @@ const UNITS_MS: Record<string, number> = {
 };
 
 /**
- * A duration as Go writes it, in milliseconds: "30s", "1m30s", "1.5s",
- * "500ms". The variable is shared with the Go implementation, and so is its
+ * A duration as Go writes it, in whole milliseconds (a finer value is
+ * rounded): "30s", "1m30s", "1.5s", "500ms". The variable is shared with the Go implementation, and so is its
  * syntax.
  */
 export function parseDuration(raw: string): number | undefined {
@@ -222,5 +242,8 @@ export function parseDuration(raw: string): number | undefined {
   for (const [, value, unit] of match[2].matchAll(/(\d+\.?\d*|\.\d+)(ns|us|µs|μs|ms|s|m|h)/gu)) {
     ms += Number(value) * (UNITS_MS[unit ?? ''] ?? Number.NaN);
   }
+  // whole milliseconds, as the Go implementation reads them: "1.1s" is 1100, not 1100.0000000000002,
+  // which AbortSignal.timeout refuses
+  ms = Math.round(ms);
   return Number.isFinite(ms) ? (match[1] === '-' ? -ms : ms) : undefined;
 }

@@ -44,14 +44,19 @@ class StageUsage:
     cost_usd: float
     tokens: int | None = None
     """The input tokens, which only prepare counts."""
+    degraded: bool = False
+    """The stage failed and the quote went on without it. Only the recount
+    can: it is a second opinion, and the judge is still the guard."""
 
     def __add__(self, later: StageUsage) -> StageUsage:
-        """The stage over two attempts: calls, time and cost add up."""
+        """The stage over two attempts: calls, time and cost add up; degraded
+        once, degraded."""
         return replace(
             self,
             calls=self.calls + later.calls,
             ms=self.ms + later.ms,
             cost_usd=self.cost_usd + later.cost_usd,
+            degraded=self.degraded or later.degraded,
         )
 
 
@@ -91,6 +96,7 @@ class Code(StrEnum):
     NO_FILM = "no_film"  # parse
     QUANTITY_TOO_LARGE = "quantity_too_large"  # parse
     UNFAITHFUL_READING = "unfaithful_reading"  # judge
+    QUANTITY_UNVERIFIED = "quantity_unverified"  # price: no recount to count against; retryable
 
 
 @dataclass(frozen=True, slots=True)

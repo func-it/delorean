@@ -1,0 +1,27 @@
+# The stack the web app's Playwright suite runs against (scripts/web-e2e.sh),
+# on top of compose.yml: fake engines, no key, and no port on the host, so
+# that it never meets a stack already running there. Playwright reaches the
+# web app on the project's network.
+services:
+  quoter-go:
+    environment:
+      OPENROUTER_API_KEY: ""
+    ports: !reset []
+  quoter-typescript:
+    environment:
+      OPENROUTER_API_KEY: ""
+    ports: !reset []
+  quoter-python:
+    environment:
+      OPENROUTER_API_KEY: ""
+    ports: !reset []
+  web:
+    environment:
+      DAILY_BUDGET_USD: "0"
+      # every test is a new visitor from the same address: room for a parallel run
+      IP_MAX_IN_FLIGHT: "50"
+      IP_STRIKE_LIMIT: "1000"
+    ports: !reset []
+    volumes: !reset []
+  docs:
+    profiles: [never]

@@ -32,7 +32,10 @@ const (
 	Miscount = "#fake:miscount"
 	// EngineDown, a line of its own, fails the parse as an engine fails.
 	EngineDown = "#fake:engine_down"
-	directive  = "#fake:"
+	// RecountOffSchema, a line of its own, makes the recount answer off its
+	// schema at every call: the quote goes on without it.
+	RecountOffSchema = "#fake:recount_offschema"
+	directive        = "#fake:"
 )
 
 // New returns the fake engines, instant.
@@ -98,12 +101,16 @@ func (p Parser) Parse(ctx context.Context, text string, again *pipeline.Retry) (
 }
 
 // Recounter reads as Parser does in full, but for a text with a Miscount
-// line: then it reads one more copy of the first mention.
+// line: then it reads one more copy of the first mention. With a
+// RecountOffSchema line it answers off its schema.
 type Recounter struct{ Latency Latency }
 
 func (r Recounter) Parse(ctx context.Context, text string, _ *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
 	if err := r.Latency.take(ctx, pipeline.StageRecount, text); err != nil {
 		return nil, usage(), err
+	}
+	if hasLine(text, RecountOffSchema) {
+		return nil, usage(), fmt.Errorf("fake recount: %w: answer off schema (%s)", pipeline.ErrEngine, RecountOffSchema)
 	}
 	mentions, err := read(text)
 	if err == nil && len(mentions) > 0 && hasLine(text, Miscount) {

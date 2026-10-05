@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/func-it/delorean/quoters/go/internal/cart"
 	"github.com/func-it/delorean/quoters/go/internal/pipeline"
@@ -364,5 +365,30 @@ func TestParserReusesItsConnection(t *testing.T) {
 	}
 	if opened != 1 {
 		t.Errorf("%d connections for 5 calls", opened)
+	}
+}
+
+// A call is bounded by ModelTimeout, whole: a server that never answers
+// fails the call at the time, as an engine does, and the usage still counts
+// the call that went out, its model known, its cost unknown (0).
+func TestParserCallIsBoundedByModelTimeout(t *testing.T) {
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(func() { close(release); srv.Close() })
+	p := newParser(pipeline.StageParse, Config{OpenRouterKey: "k", ModelTimeout: 80 * time.Millisecond}, prompts.parse,
+		srv.URL+"/api/v1", DefaultParseModel, DefaultParseEffort)
+	start := time.Now()
+	_, u, err := p.Parse(context.Background(), "Heat", nil)
+	isEngineErr(t, err)
+	if took := time.Since(start); took < 70*time.Millisecond || took > 3*time.Second {
+		t.Errorf("failed after %v, want about ModelTimeout (80ms)", took)
+	}
+	if u.Calls != 1 || u.Engine != DefaultParseModel || u.Model != DefaultParseModel || u.CostUSD != 0 {
+		t.Errorf("usage %+v, want the call that went out counted, its model known, no cost", u)
 	}
 }

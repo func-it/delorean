@@ -206,11 +206,62 @@ async def test_create_quote(api: httpx.AsyncClient) -> None:
         "prepare", "guard", "parse", "recount", "identify", "judge", "price",
     ]  # fmt: skip
     assert [s["stage"] for s in usage["stages"] if "tokens" in s] == ["prepare"], "only prepare counts tokens"
+    assert not [s for s in usage["stages"] if "degraded" in s], "degraded only when a stage is"
     assert datetime.now(UTC) - datetime.fromisoformat(q["created_at"]) < timedelta(minutes=1)
     assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z", q["created_at"]), "UTC, to the millisecond"
     assert b'"confidence":1,' in response.content, "numbers as JSON.stringify writes them"
     compact = json.dumps(response.json(), ensure_ascii=False, separators=(",", ":")).encode()
     assert response.content == compact, "compact, in the contract's order"
+
+
+async def test_a_degraded_recount_says_so(api: httpx.AsyncClient) -> None:
+    response = await api.post("/v1/quotes", content='{"cart": "Back to the Future 1\\n#fake:recount_offschema"}')
+    assert response.status_code == 200, response.text
+    q = conforms(response, "Quote", "application/json")
+    assert q["total_cents"] == 1500, "priced on the parse"
+    (recount,) = [s for s in q["usage"]["stages"] if s["stage"] == "recount"]
+    assert recount == {
+        "stage": "recount",
+        "engine": "fake",
+        "calls": 1,
+        "duration_ms": recount["duration_ms"],
+        "cost_usd": 0,
+        "degraded": True,
+    }
+    assert list(recount)[-1] == "degraded", "in the contract's order"
+    assert [c["check"] for c in q["judge"]["checks"]] == ["asked", "identity", "missing"], "no count check"
+
+
+async def test_the_log_line_says_a_recount_was_left_out(api: httpx.AsyncClient, logs: io.StringIO) -> None:
+    response = await post_cart(api, f"Back to the Future 1\n{fake.RECOUNT_OFFSCHEMA}")
+    assert response.status_code == 200
+    line = json.loads(logs.getvalue())
+    assert line["degraded"] == "recount"
+    assert list(line).index("degraded") > list(line).index("bytes"), "after the usual fields"
+
+
+async def test_the_log_line_says_it_of_a_refusal_too(make: Make, pipeline: Pipeline, logs: io.StringIO) -> None:
+    api = make(pipeline=replace(pipeline, read_attempts=1))
+    response = await post_cart(api, f"Back to the Future 1\n{fake.UNFAITHFUL}\n{fake.RECOUNT_OFFSCHEMA}")
+    problem_of(response, 422, "unfaithful_reading")
+    assert json.loads(logs.getvalue())["degraded"] == "recount"
+
+
+async def test_the_log_line_has_no_degraded_otherwise(api: httpx.AsyncClient, logs: io.StringIO) -> None:
+    await post_cart(api, "Back to the Future 1")
+    assert "degraded" not in json.loads(logs.getvalue())
+
+
+async def test_a_recount_bug_is_no_degradation(make: Make, pipeline: Pipeline, logs: io.StringIO) -> None:
+    class Buggy:
+        async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
+            raise TypeError("a bug, not an engine")
+
+    api = make(pipeline=replace(pipeline, engines=replace(pipeline.engines, recounter=Buggy())))
+    problem_of(await post_cart(api, "Heat"), 500, "internal")
+    line = json.loads(logs.getvalue())
+    assert (line["status"], line["code"]) == (500, "internal")
+    assert "degraded" not in line
 
 
 @pytest.mark.parametrize(
@@ -550,3 +601,27 @@ async def test_strings_are_written_as_json_stringify_writes_them(api: httpx.Asyn
     assert b'"title":"Fast <&> Furious"' in response.content, "no HTML escaping"
     response = await post_cart(api, "Heat   II")
     assert '"title":"Heat   II"'.encode() in response.content, "U+2028 as it is"
+
+
+async def test_a_line_of_several_copies_nobody_could_count_is_refused_to_retry(
+    api: httpx.AsyncClient, logs: io.StringIO
+) -> None:
+    response = await post_cart(api, f"2 x Back to the Future 1\n{fake.RECOUNT_OFFSCHEMA}")
+    p = problem_of(response, 503, "quantity_unverified")
+    assert response.headers["content-type"].split(";")[0] == "application/problem+json"
+    assert p["title"] == "Quantities not verified"
+    assert p["detail"] == "The quantities could not be cross-checked and a line asks for more than one copy: try again."
+    assert [k for k in p if k in ("guard", "judge", "tokens", "quantity")] == [], "no facts of a cart refused"
+    stages = [s["stage"] for s in p["usage"]["stages"]]
+    assert stages == ["prepare", "guard", "parse", "recount", "identify", "judge"], "up to the judge, not the price"
+    (recount,) = [s for s in p["usage"]["stages"] if s["stage"] == "recount"]
+    assert recount["degraded"] is True
+    assert list(p)[:5] == ["type", "title", "status", "code", "detail"], "in the contract's order"
+    line = json.loads(logs.getvalue())
+    assert (line["code"], line["degraded"], line["status"]) == ("quantity_unverified", "recount", 503)
+
+
+async def test_single_copies_without_a_recount_are_still_priced(api: httpx.AsyncClient) -> None:
+    response = await post_cart(api, f"Back to the Future 1\nHeat\n{fake.RECOUNT_OFFSCHEMA}")
+    assert response.status_code == 200, response.text
+    assert conforms(response, "Quote", "application/json")["total_cents"] == 3500

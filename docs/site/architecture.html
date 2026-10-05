@@ -46,7 +46,7 @@
       </ul>
       <figure>
         <div class="frame">
-          <svg viewBox="0 0 1280 680" role="img" aria-label="The browser calls the Next.js BFF, which calls the Go API with the identity headers. The API calls Jev, GPT-6 Luna and DeepSeek V4.1 Flash through OpenRouter and sends its traces to Langfuse. The Python and TypeScript APIs follow the same contract and the same prompts. The end-to-end suite, the system bench and the component benches read the same shared cases.">
+          <svg viewBox="0 0 1280 680" role="img" aria-label="The browser calls the Next.js BFF, which calls the Go API with the identity headers. The API calls Jev and GPT-6 Luna through OpenRouter and sends its traces to Langfuse. The Python and TypeScript APIs follow the same contract and the same prompts. The end-to-end suite, the system bench and the component benches read the same shared cases.">
             <defs>
               <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                 <path class="ah" d="M0,0 L10,5 L0,10 z"/>
@@ -88,7 +88,7 @@
             <text class="t-body" x="728" y="172">GPT-6 Luna</text>
             <text class="t-mono" x="616" y="194">recount</text>
             <circle class="dot model" cx="718" cy="190" r="4"/>
-            <text class="t-body" x="728" y="194">DeepSeek V4.1 Flash</text>
+            <text class="t-body" x="728" y="194">GPT-6 Luna, no reasoning</text>
             <text class="t-mono" x="616" y="216">identify</text>
             <circle class="dot model" cx="718" cy="212" r="4"/>
             <text class="t-body" x="728" y="216">Jev ×N</text>
@@ -109,14 +109,13 @@
 
             <rect class="group" x="1000" y="56" width="264" height="236" rx="8"/>
             <text class="t-title" x="1016" y="82">OpenRouter</text>
-            <text class="t-sub" x="1248" y="82" text-anchor="end">one key, three models</text>
+            <text class="t-sub" x="1248" y="82" text-anchor="end">one key, two models</text>
             <rect class="box model" x="1016" y="98" width="232" height="84" rx="6"/>
             <text class="t-title" x="1030" y="122">Jev 1.13</text>
             <text class="t-sub" x="1030" y="140">typed choices, calibrated confidence</text>
             <text class="t-mono muted" x="1030" y="162">/api/alpha/decisions</text>
             <rect class="box model" x="1016" y="194" width="232" height="84" rx="6"/>
             <text class="t-title" x="1030" y="216">GPT-6 Luna</text>
-            <text class="t-title" x="1030" y="234">DeepSeek V4.1 Flash</text>
             <text class="t-sub" x="1030" y="252">strict JSON output, same prompt</text>
             <text class="t-mono muted" x="1030" y="270">/api/v1/chat/completions</text>
 
@@ -208,7 +207,7 @@
       <p>What <code>POST /v1/quotes</code> does with example 5 of the brief: the three volumes and <em>La chèvre</em>. Every stage may refuse the cart with a stable code; the models never set an amount.</p>
       <figure>
         <div class="frame">
-          <svg viewBox="0 0 1200 300" role="img" aria-label="The stages in a row: HTTP body, prepare, guard, then parse and recount side by side, identify, judge, price. For example 5, guard makes 2 Jev calls, parse 1 Luna call and recount 1 DeepSeek call, identify 4 Jev calls, judge 9 Jev calls and compares both readings in code, then the code sets 56.00 euros. Every stage has its refusal exit, and any model failure gives 502.">
+          <svg viewBox="0 0 1200 300" role="img" aria-label="The stages in a row: HTTP body, prepare, guard, then parse and recount side by side, identify, judge, price. For example 5, guard makes 2 Jev calls, parse 1 Luna call and recount 1 Luna call, identify 4 Jev calls, judge 9 Jev calls and compares both readings in code, then the code sets 56.00 euros. Every stage has its refusal exit, and any model failure gives 502.">
             <defs>
               <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                 <path class="ah" d="M0,0 L10,5 L0,10 z"/>
@@ -228,7 +227,7 @@
             <text class="t-mono t-strong" x="214" y="92">prepare</text>
             <circle class="dot code" cx="218" cy="111" r="4"/>
             <text class="t-body" x="228" y="115">code</text>
-            <text class="t-sub" x="214" y="140">≤ 2048 tokens</text>
+            <text class="t-sub" x="214" y="140">≤ 256 tokens</text>
 
             <rect class="box model" x="364" y="66" width="140" height="92" rx="8"/>
             <text class="t-mono t-strong" x="380" y="92">guard</text>
@@ -244,7 +243,7 @@
             <rect class="box model" x="530" y="116" width="140" height="46" rx="8"/>
             <text class="t-mono t-strong" x="546" y="135">recount</text>
             <circle class="dot model" cx="550" cy="148" r="4"/>
-            <text class="t-body" x="560" y="152">DeepSeek ×1</text>
+            <text class="t-body" x="560" y="152">Luna ×1</text>
 
             <rect class="box model" x="696" y="66" width="140" height="92" rx="8"/>
             <text class="t-mono t-strong" x="712" y="92">identify</text>
@@ -315,7 +314,7 @@
             <tr><td><strong>Go API</strong></td><td><code>Go 1.26</code> <code>net/http</code> <code>log/slog</code> <code>o200k_base, O(n log n) merge</code></td><td>The pipeline, pricing in cents, RFC 9457 errors. The tokenizer is compiled in: counting needs no network.</td></tr>
             <tr><td><strong>TypeScript API</strong></td><td><code>Node 26</code> <code>Hono</code> <code>openai</code> <code>Ajv</code> <code>js-tiktoken ranks</code></td><td>The same pipeline on Node, run from its <code>.ts</code> files with no build step. Every model answer is checked against the schema.</td></tr>
             <tr><td><strong>Python API</strong></td><td><code>Python 3.14</code> <code>uv</code> <code>FastAPI</code> <code>httpx</code> <code>openai</code> <code>tiktoken</code> <code>mypy --strict</code></td><td>The same pipeline on asyncio. The tokenizer's vocabulary is fetched once against a pinned checksum, and never at runtime.</td></tr>
-            <tr><td><strong>Agents and models</strong></td><td><code>trpc-agent-go 1.11.2</code> <code>OpenRouter</code> <code>Jev 1.13</code> <code>GPT-6 Luna</code> <code>DeepSeek V4.1 Flash</code></td><td>Jev decides (guard, identify, judge); Luna extracts under a strict schema and DeepSeek recounts with the same prompt; trpc-agent-go carries the agent, the traces and the evaluation.</td></tr>
+            <tr><td><strong>Agents and models</strong></td><td><code>trpc-agent-go 1.11.2</code> <code>OpenRouter</code> <code>Jev 1.13</code> <code>GPT-6 Luna</code> </td><td>Jev decides (guard, identify, judge); Luna extracts under a strict schema, and recounts with the same prompt, without reasoning; trpc-agent-go carries the agent, the traces and the evaluation.</td></tr>
             <tr><td><strong>Observability</strong></td><td><code>Langfuse 4</code> <code>OpenTelemetry</code> <code>Postgres 17</code> <code>ClickHouse 25.12</code> <code>Redis 7</code> <code>MinIO</code></td><td>One trace per request, one span per stage; the benches keep their datasets and experiments there.</td></tr>
             <tr><td><strong>Tests and benches</strong></td><td><code>go test -race</code> <code>pytest</code> <code>Vitest 5</code> <code>Testing Library</code> <code>Ajv 2020-12</code></td><td>Deterministic fake engines in CI; live benches only with <code>RUN_LIVE=1</code>.</td></tr>
             <tr><td><strong>Tooling</strong></td><td><code>Task</code> <code>Docker Compose</code> <code>GitHub Actions</code> <code>golangci-lint 2</code> <code>ESLint</code> <code>Prettier</code></td><td>One command per gesture: <code>task ci</code>, <code>task e2e</code>, <code>task langfuse:up</code>, <code>task bench</code>, <code>task docs</code>.</td></tr>

@@ -19,6 +19,12 @@ info:
     reading by another model) → `identify` (each distinct title of both) →
     `judge` (is the reading faithful to the text? do both readings count the
     same copies of each film?) → `price`.
+    The recount is a second opinion: one that fails, answers off its schema or
+    is too slow (retried once when it failed fast) does not fail the quote,
+    which goes on with the parse alone and says so (`usage.stages[].degraded`).
+    With no recount to count against, a line that asks for more than one copy
+    is not priced: `503 quantity_unverified`, to retry; carts of single copies
+    are priced.
     Any stage may reject the cart with a `422` problem that says which and why.
 
     Amounts are integer cents. Errors are RFC 9457 problems
@@ -116,6 +122,8 @@ paths:
           $ref: "#/components/responses/Internal"
         "502":
           $ref: "#/components/responses/EngineUnavailable"
+        "503":
+          $ref: "#/components/responses/QuantityUnverified"
 
 components:
   parameters:
@@ -212,8 +220,8 @@ components:
                 title: Cart rejected
                 status: 422
                 code: too_long
-                detail: The cart counts 3120 tokens, the limit is 2048.
-                tokens: { count: 3120, max: 2048 }
+                detail: The cart counts 412 tokens, the limit is 256.
+                tokens: { count: 412, max: 256 }
     Internal:
       description: An unexpected failure.
       headers:
@@ -225,6 +233,21 @@ components:
             $ref: "#/components/schemas/Problem"
     EngineUnavailable:
       description: A model engine (Jev, the LLM) could not be reached or answered out of contract.
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+    QuantityUnverified:
+      description: |
+        The cart was read and the judge holds the reading faithful, but its
+        quantities could not be cross-checked right now (the recount failed or
+        was too slow, so the quote is `degraded`) and a line asks for more than
+        one copy. Nothing is wrong with the cart: try again. A cart whose lines
+        all ask for one copy is priced all the same.
       headers:
         X-Request-Id:
           $ref: "#/components/headers/RequestId"
@@ -475,6 +498,14 @@ components:
           type: integer
           minimum: 0
           description: Input tokens counted (prepare).
+        degraded:
+          type: boolean
+          description: >-
+            The stage failed (an engine down, an answer off its schema, too
+            slow) and the quote was made without it. Only `recount` can be
+            degraded: it is a second opinion, and the judge is still the
+            guard. Absent when the stage did its work; true once, over the
+            readings, when it did not.
 
     Problem:
       type: object
@@ -538,6 +569,8 @@ components:
           spaces aside) are merged first; two spellings of one volume are two titles.
         - `unfaithful_reading` (422): the judge does not hold the reading faithful.
         - `engine_unavailable` (502): a model engine failed.
+        - `quantity_unverified` (503): the quantities could not be cross-checked
+          (the recount failed) and a line asks for more than one copy; retry.
         - `not_found` (404), `method_not_allowed` (405), `internal` (500).
       enum:
         - malformed_request
@@ -550,6 +583,7 @@ components:
         - quantity_too_large
         - unfaithful_reading
         - engine_unavailable
+        - quantity_unverified
         - not_found
         - method_not_allowed
         - internal

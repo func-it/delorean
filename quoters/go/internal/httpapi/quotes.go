@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -62,6 +63,7 @@ func (s *server) answer(r *http.Request, q pipeline.Quote, err error) *response 
 	var rej *pipeline.Rejection
 	switch {
 	case errors.As(err, &rej):
+		exchangeOf(r).degraded = degraded(rej.Report)
 		return problemResponse(r, s.rejected(rej), nil)
 	case errors.Is(err, pipeline.ErrEngine):
 		return problemResponse(r, newProblem(http.StatusBadGateway, ProblemCodeEngineUnavailable,
@@ -69,7 +71,13 @@ func (s *server) answer(r *http.Request, q pipeline.Quote, err error) *response 
 	case err != nil:
 		return problemResponse(r, internalProblem(), err)
 	}
+	exchangeOf(r).degraded = degraded(q.Report)
 	return jsonResponse(http.StatusOK, "application/json", s.quote(q))
+}
+
+// degraded: a stage of the report failed and the answer was made without it.
+func degraded(r pipeline.Report) bool {
+	return slices.ContainsFunc(r.Stages, func(u pipeline.Usage) bool { return u.Degraded })
 }
 
 func checkHeaders(p CreateQuoteParams) error {
@@ -229,6 +237,9 @@ func (s *server) usage(r pipeline.Report) Usage {
 		}
 		if u.Model != "" {
 			stages[i].Model = new(u.Model)
+		}
+		if u.Degraded {
+			stages[i].Degraded = new(true)
 		}
 		if u.Stage == pipeline.StagePrepare {
 			stages[i].Tokens = new(u.Tokens)

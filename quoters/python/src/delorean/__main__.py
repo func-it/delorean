@@ -115,6 +115,7 @@ async def serve(settings: Settings) -> None:
                 guard_min_confidence=settings.guard_min_confidence,
                 judge_threshold=settings.judge_threshold,
                 read_attempts=settings.read_attempts,
+                recount_timeout=settings.recount_timeout,
                 tracer=tracer,
                 prompts=versions,
             )

@@ -23,7 +23,6 @@ What every engine keeps to:
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Final
 
 import httpx
 import openai
@@ -37,9 +36,6 @@ from delorean.pipeline import Engines
 from delorean.prompts import Prompts
 from delorean.telemetry import Tracer
 
-CALL_TIMEOUT: Final = 20.0
-"""Seconds one model call may take; the request's own budget bounds it too."""
-
 
 @asynccontextmanager
 async def open_live_engines(settings: LiveSettings, prompts: Prompts, tracer: Tracer) -> AsyncIterator[Engines]:
@@ -50,11 +46,17 @@ async def open_live_engines(settings: LiveSettings, prompts: Prompts, tracer: Tr
     async with (
         # Jev's pool keeps as many connections as a set sends at once, times a
         # few quotes under way
-        httpx.AsyncClient(timeout=CALL_TIMEOUT, limits=httpx.Limits(max_keepalive_connections=64)) as http,
-        _llm(settings.openrouter_api_key, settings.parse_base_url) as parse_llm,
-        _llm(settings.openrouter_api_key, settings.recount_base_url) as recount_llm,
+        httpx.AsyncClient(timeout=settings.model_timeout, limits=httpx.Limits(max_keepalive_connections=64)) as http,
+        _llm(settings.openrouter_api_key, settings.parse_base_url, settings.model_timeout) as parse_llm,
+        _llm(settings.openrouter_api_key, settings.recount_base_url, settings.model_timeout) as recount_llm,
     ):
-        jev = Jev(key=settings.openrouter_api_key, model=settings.jev_model, client=http, tracer=tracer)
+        jev = Jev(
+            key=settings.openrouter_api_key,
+            model=settings.jev_model,
+            client=http,
+            tracer=tracer,
+            timeout=settings.model_timeout,
+        )
         yield Engines(
             name="live",
             guard=JevGuard(jev, prompts.guard),
@@ -65,6 +67,7 @@ async def open_live_engines(settings: LiveSettings, prompts: Prompts, tracer: Tr
                 prompt=prompts.parse_films if settings.parse_identifies else prompts.parse,
                 names_films=settings.parse_identifies,
                 tracer=tracer,
+                timeout=settings.model_timeout,
             ),
             # the recount reads parse.json, always: a second opinion on the count
             recounter=LlmReader(
@@ -73,6 +76,7 @@ async def open_live_engines(settings: LiveSettings, prompts: Prompts, tracer: Tr
                 effort=settings.recount_effort,
                 prompt=prompts.parse,
                 tracer=tracer,
+                timeout=settings.model_timeout,
             ),
             identifier=JevIdentifier(
                 jev,
@@ -85,8 +89,8 @@ async def open_live_engines(settings: LiveSettings, prompts: Prompts, tracer: Tr
         )
 
 
-def _llm(key: str, base_url: str) -> openai.AsyncOpenAI:
-    """An OpenAI-compatible API: OpenRouter, or a local server to bench."""
-    return openai.AsyncOpenAI(
-        api_key=key, base_url=base_url, default_headers=HEADERS, timeout=CALL_TIMEOUT, max_retries=0
-    )
+def _llm(key: str, base_url: str, timeout: float) -> openai.AsyncOpenAI:
+    """An OpenAI-compatible API: OpenRouter, or a local server to bench.
+    timeout bounds each phase of a call (connecting, writing, reading): the
+    readers and Jev also bound the whole call themselves (MODEL_TIMEOUT)."""
+    return openai.AsyncOpenAI(api_key=key, base_url=base_url, default_headers=HEADERS, timeout=timeout, max_retries=0)
