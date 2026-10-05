@@ -1389,3 +1389,31 @@ func TestQuoteKeepsTheFirstRecount(t *testing.T) {
 		t.Errorf("findings %+v, want the count check of the last reading, against the kept recount", rej.Judgement.Findings)
 	}
 }
+
+// Only an engine's failure degrades the recount. A failure that is no
+// engine's — a bug — is not swallowed: the quote fails as it would from any
+// stage. The recount's own time running out is an engine that did not answer
+// in time, whatever the error it returns.
+func TestQuoteDegradesOnEngineFailuresOnly(t *testing.T) {
+	bug := errors.New("a bug, not an engine")
+	_, err := newPipeline(t, func(p *pipeline.Pipeline) { p.Engines.Recounter = parserFails(bug) }).
+		Quote(t.Context(), pipeline.Request{Cart: "Heat"})
+	if err == nil || !errors.Is(err, bug) || errors.Is(err, pipeline.ErrEngine) || !strings.HasPrefix(err.Error(), "recount: ") {
+		t.Errorf("err = %v, want the bug, as a failure of the recount that is no engine's", err)
+	}
+
+	bare := parserFunc(func(ctx context.Context, _ string, _ *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
+		<-ctx.Done()
+		return nil, pipeline.Usage{Engine: "hung", Calls: 1}, ctx.Err() // no engine error around it
+	})
+	q, err := newPipeline(t, func(p *pipeline.Pipeline) {
+		p.Engines.Recounter = bare
+		p.RecountTimeout = 60 * time.Millisecond
+	}).Quote(t.Context(), pipeline.Request{Cart: "Heat"})
+	if err != nil {
+		t.Fatalf("err = %v, want a quote: the recount's time ran out", err)
+	}
+	if recount := q.Report.Stages[3]; recount.Stage != pipeline.StageRecount || !recount.Degraded || recount.Calls != 1 || recount.Engine != "hung" {
+		t.Errorf("recount usage %+v, want degraded, the call that went out counted, its engine known", recount)
+	}
+}

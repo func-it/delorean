@@ -148,7 +148,9 @@ func (p *Pipeline) judge(ctx context.Context, r *run, n int, text string, judged
 // The recount is a second opinion: one that fails, answers off its schema or
 // is too slow (recount) does not fail the quote. The reading goes on without
 // it — no recount, no count check, the stage's usage Degraded — and the judge
-// stays the guard. Only a request that is over fails on the recount.
+// stays the guard. Only a request that is over fails on the recount — and a
+// failure that is no engine's (a bug) is not swallowed: it fails the quote as
+// it would from any stage.
 func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt int, again *Retry, kept []cart.Mention, isKept bool) (raw, reading, recount []cart.Mention, counted bool, err error) {
 	type read struct {
 		raw, mentions []cart.Mention
@@ -197,8 +199,8 @@ func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt i
 		// no recount call, span or usage: the kept one stands for this reading too
 		r.account(parsed.usage)
 	} else {
-		// a failure of the recount itself, not of the request nor of a parse that failed beside it
-		recounted.usage.Degraded = recounted.err != nil && !parseFailed && ctx.Err() == nil
+		// an engine's failure of the recount itself, not of the request nor of a parse that failed beside it
+		recounted.usage.Degraded = recounted.err != nil && errors.Is(recounted.err, ErrEngine) && !parseFailed && ctx.Err() == nil
 		recounted.usage = endRecount(recounted.usage, recounted.mentions, recounted.err)
 		r.account(parsed.usage, recounted.usage)
 	}
@@ -214,6 +216,8 @@ func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt i
 		return parsed.raw, parsed.mentions, kept, true, nil
 	case recounted.err != nil && ctx.Err() != nil:
 		return nil, nil, nil, false, failed(ctx, StageRecount, recounted.err)
+	case recounted.err != nil && !errors.Is(recounted.err, ErrEngine):
+		return nil, nil, nil, false, fmt.Errorf("%s: %w", StageRecount, recounted.err)
 	}
 	return parsed.raw, parsed.mentions, recounted.mentions, recounted.err == nil, nil
 }
@@ -224,6 +228,14 @@ func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt i
 // is left. The usage adds up the calls. Not a word to the recounter about
 // what failed: it reads blind.
 func (p *Pipeline) recount(ctx context.Context, text string) ([]cart.Mention, Usage, error) {
+	parent := ctx
+	// the recount's own time running out is an engine that did not answer in time
+	timedOut := func(err error) error {
+		if err != nil && !errors.Is(err, ErrEngine) && errors.Is(err, context.DeadlineExceeded) && parent.Err() == nil {
+			return fmt.Errorf("%w: %w", ErrEngine, err)
+		}
+		return err
+	}
 	if p.RecountTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, p.RecountTimeout)
@@ -232,14 +244,14 @@ func (p *Pipeline) recount(ctx context.Context, text string) ([]cart.Mention, Us
 	start := time.Now()
 	m, u, err := p.recountOnce(ctx, text)
 	if err == nil || p.RecountTimeout <= 0 || ctx.Err() != nil || time.Since(start) >= p.RecountTimeout/2 {
-		return m, u, err
+		return m, u, timedOut(err)
 	}
 	m, again, err := p.recountOnce(ctx, text)
 	u.Calls += again.Calls
 	u.CostUSD += again.CostUSD
 	u.Ms += again.Ms
 	u.Engine, u.Model = cmp.Or(u.Engine, again.Engine), cmp.Or(u.Model, again.Model)
-	return m, u, err
+	return m, u, timedOut(err)
 }
 
 func (p *Pipeline) recountOnce(ctx context.Context, text string) ([]cart.Mention, Usage, error) {
