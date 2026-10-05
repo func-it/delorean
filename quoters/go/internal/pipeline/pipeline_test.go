@@ -1334,6 +1334,28 @@ func TestQuoteParseFailureIsNoDegradedRecount(t *testing.T) {
 	}
 }
 
+// A recount that failed is not asked again once the parse beside it has failed,
+// whichever of the two failed first: what the failure of both cost does not
+// depend on the race.
+func TestQuoteParseFailureEndsTheRecountAfterOneCall(t *testing.T) {
+	for range 50 {
+		q, err := newPipeline(t, func(p *pipeline.Pipeline) { p.RecountTimeout = time.Minute }).
+			Quote(t.Context(), pipeline.Request{Cart: "Heat\n" + fake.EngineDown})
+		if !errors.Is(err, pipeline.ErrEngine) {
+			t.Fatalf("err = %v, want the parse's failure", err)
+		}
+		calls := 0
+		for _, s := range q.Report.Stages {
+			if s.Stage == pipeline.StageRecount {
+				calls = s.Calls
+			}
+		}
+		if calls != 1 {
+			t.Fatalf("recount calls = %d, want 1: not asked again beside a parse that failed", calls)
+		}
+	}
+}
+
 // Degraded, identify is told no recount: its output says so.
 func TestQuoteTraceDegradedIdentify(t *testing.T) {
 	spans := recordSpans(t)

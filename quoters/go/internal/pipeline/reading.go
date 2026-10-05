@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/func-it/delorean/quoters/go/internal/cart"
@@ -163,11 +164,18 @@ func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt i
 	rctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	var parsed, recounted read
+	// settled closes when the parse is over, parseFailed says it failed (and
+	// cancelled the recount beside it): a recount that failed waits for it
+	// before it is asked again, so that what a failure of both costs does not
+	// depend on which came first
+	settled := make(chan struct{})
+	var parseFailed atomic.Bool
 	// the recount's span is closed once both readings settled: whether it is
 	// degraded depends on the parse beside it
 	var endRecount func(u Usage, out any, err error) Usage
 	var wg sync.WaitGroup
 	wg.Go(func() {
+		defer close(settled)
 		sctx, done := timed(ctx, StageParse, attempt)
 		raw, u, err := p.Engines.Parser.Parse(sctx, text, again)
 		var m []cart.Mention
@@ -175,6 +183,7 @@ func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt i
 			m, err = Tally(raw)
 		}
 		if err != nil {
+			parseFailed.Store(true)
 			cancel()
 		}
 		// the span shows the reading; a refusal of it is the quote's
@@ -188,7 +197,7 @@ func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt i
 		wg.Go(func() {
 			sctx, done := timed(rctx, StageRecount, attempt)
 			start := time.Now()
-			m, u, err := p.recount(sctx, text)
+			m, u, err := p.recount(sctx, text, settled, &parseFailed)
 			if u.Ms == 0 { // its own time, not the parse's it then waits for
 				u.Ms = time.Since(start).Milliseconds()
 			}
@@ -197,19 +206,19 @@ func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt i
 	}
 	wg.Wait()
 	var rej *Rejection
-	parseFailed := parsed.err != nil && !errors.As(parsed.err, &rej)
+	parseFailure := parsed.err != nil && !errors.As(parsed.err, &rej)
 	if isKept {
 		// no recount call, span or usage: the kept one stands for this reading too
 		r.account(parsed.usage)
 	} else {
 		// an engine's failure of the recount itself, not of the request nor of a parse that failed beside it
-		recounted.usage.Degraded = recounted.err != nil && errors.Is(recounted.err, ErrEngine) && !parseFailed && ctx.Err() == nil
+		recounted.usage.Degraded = recounted.err != nil && errors.Is(recounted.err, ErrEngine) && !parseFailure && ctx.Err() == nil
 		recounted.usage = endRecount(recounted.usage, recounted.mentions, recounted.err)
 		r.account(parsed.usage, recounted.usage)
 	}
 
 	switch {
-	case parseFailed:
+	case parseFailure:
 		return nil, nil, nil, false, failed(ctx, StageParse, parsed.err)
 	case rej != nil:
 		return nil, nil, nil, false, rej
@@ -229,8 +238,9 @@ func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt i
 // a second time, when the first call failed in under half of it — an answer
 // off its schema comes quickly, a slow model does not get faster — with what
 // is left. The usage adds up the calls. Not a word to the recounter about
-// what failed: it reads blind.
-func (p *Pipeline) recount(ctx context.Context, text string) ([]cart.Mention, Usage, error) {
+// what failed: it reads blind. Before it is asked again it waits for the
+// parse beside it (settled), and is not asked again if the parse failed.
+func (p *Pipeline) recount(ctx context.Context, text string, settled <-chan struct{}, parseFailed *atomic.Bool) ([]cart.Mention, Usage, error) {
 	parent := ctx
 	// the recount's own time running out is an engine that did not answer in time
 	timedOut := func(err error) error {
@@ -247,6 +257,14 @@ func (p *Pipeline) recount(ctx context.Context, text string) ([]cart.Mention, Us
 	start := time.Now()
 	m, u, err := p.recountOnce(ctx, text)
 	if err == nil || p.RecountTimeout <= 0 || ctx.Err() != nil || time.Since(start) >= p.RecountTimeout/2 {
+		return m, u, timedOut(err)
+	}
+	select {
+	case <-settled:
+	case <-ctx.Done():
+		return m, u, timedOut(err)
+	}
+	if parseFailed.Load() {
 		return m, u, timedOut(err)
 	}
 	m, again, err := p.recountOnce(ctx, text)
