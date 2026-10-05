@@ -87,6 +87,7 @@ def usage(report: pipeline.Report, *, engines: Literal["live", "fake"]) -> contr
                 duration_ms=u.ms,
                 cost_usd=u.cost_usd,
                 tokens=u.tokens,
+                degraded=True if u.degraded else None,
             )
             for u in report.stages
         ],

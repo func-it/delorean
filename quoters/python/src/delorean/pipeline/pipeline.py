@@ -66,6 +66,11 @@ class Pipeline:
     read_attempts: int = 3
     """The most readings of one cart, the first included: a reading the judge
     refuses is read again, told what failed."""
+    recount_timeout: float | None = None
+    """Seconds the recount has, a retry included (RECOUNT_TIMEOUT, 6 s in the
+    service): past them the reading goes on without it (degraded). It is
+    asked a second time when the first call failed in under half of them.
+    None: the request's budget alone, and no retry."""
     tracer: Tracer = field(default_factory=NoTracer)
     prompts: Mapping[str, str] = field(default_factory=dict)
     """The version of each prompt file, for the trace."""
@@ -119,6 +124,8 @@ class Pipeline:
             metadata["attempts"] = run.readings
         if isinstance(outcome, Quote):
             metadata["total_cents"] = outcome.price.total_cents
+        if any(u.degraded for u in run.report.stages):
+            metadata["degraded"] = Stage.RECOUNT.value
         metadata["prompts"] = dict(self.prompts)
         trace.annotate(metadata)
         trace.score("cost_usd", run.report.cost_usd)
@@ -157,7 +164,7 @@ class Pipeline:
             readings = await self._read_twice(run, text, retry)
             if isinstance(readings, Rejection):
                 return readings
-            parsed, recounted = readings
+            parsed, recounted = readings  # recounted None: degraded, no recount
             if parsed.reading:
                 reading, recount = await self._identify(run, memory, parsed.reading, recounted)
                 judgement = await self._judge(run, memory, text, reading, recount)
@@ -179,14 +186,17 @@ class Pipeline:
             judgement=replace(judgement, attempts=self.read_attempts),
         )
 
-    async def _read_twice(self, run: _Run, text: str, retry: Retry | None) -> tuple[_Parsed, list[Mention]] | Rejection:
+    async def _read_twice(
+        self, run: _Run, text: str, retry: Retry | None
+    ) -> tuple[_Parsed, list[Mention] | None] | Rejection:
         """The parse and the recount, side by side. The parse decides first:
         its failure, which cancels the recount; then its refusal, which waits
-        for the recount and reports what both took; then the recount's
-        failure."""
+        for the recount and reports what both took. The recount's own failure
+        decides nothing: the reading goes on without it (None)."""
         # both start before anything can cancel them: each opens its span
-        parse = asyncio.create_task(self._parse(run, text, retry))
-        recount = asyncio.create_task(self._recount(run, text))
+        beside = _Beside()
+        parse = asyncio.create_task(self._parse(run, text, retry, beside))
+        recount = asyncio.create_task(self._recount(run, text, beside))
         try:
             parsed = await parse
             if isinstance(parsed, Rejection):
@@ -203,15 +213,26 @@ class Pipeline:
                 if not task.cancelled():
                     task.exception()
 
-    async def _parse(self, run: _Run, text: str, retry: Retry | None) -> _Parsed | Rejection:
+    async def _parse(
+        self, run: _Run, text: str, retry: Retry | None, beside: _Beside | None = None
+    ) -> _Parsed | Rejection:
         """The parser's reading, told what failed when it reads again. Too
         many copies of a title is refused on any attempt: a safety limit,
         whichever reading crosses it. No film is refused on the first
-        attempt; on a later one it is a failed attempt, the loop's to judge."""
-        with run.stage(Stage.PARSE) as stage:
-            answered, usage = await self.engines.parser.read(text, retry)
-            parsed = _Parsed(answered=answered, reading=rules.merge(answered))
-            stage.done(usage, parsed.reading)
+        attempt; on a later one it is a failed attempt, the loop's to judge.
+        `beside` tells the recount when the parse has settled, and whether it
+        failed: then the recount no longer matters."""
+        beside = beside or _Beside()
+        try:
+            with run.stage(Stage.PARSE) as stage:
+                answered, usage = await self.engines.parser.read(text, retry)
+                parsed = _Parsed(answered=answered, reading=rules.merge(answered))
+                stage.done(usage, parsed.reading)
+        except BaseException:
+            beside.failed = True
+            raise
+        finally:
+            beside.settled.set()
         # the refusal is the quote's, not the parse's: its span shows the reading
         if run.attempt == 1 and not parsed.reading:
             return run.reject(Code.NO_FILM, "The text names no film to buy.")
@@ -219,26 +240,83 @@ class Pipeline:
             return run.reject(Code.QUANTITY_TOO_LARGE, _too_many(copies), copies=copies)
         return parsed
 
-    async def _recount(self, run: _Run, text: str) -> list[Mention]:
+    async def _recount(self, run: _Run, text: str, beside: _Beside | None = None) -> list[Mention] | None:
         """The recounter's reading, merged: blind, never told what failed, so it
         stays a second opinion. It is compared, never refused: a recount over
-        the copy limit fails the count check, if anything."""
+        the copy limit fails the count check, if anything.
+
+        A recount that fails, answers off its schema or is too slow does not
+        fail the quote: None, the stage degraded — no count check, and the
+        judge still the guard. Only a request that is over, or a parse that
+        failed beside it, fails on it: then the recount's failure is a failure,
+        as the parse's is. Whether it is degraded is decided once the parse has
+        settled, so that it does not depend on which failed first."""
+        beside = beside or _Beside.alone()
         with run.stage(Stage.RECOUNT) as stage:
-            mentions, usage = await self.engines.recounter.read(text)
-            recounted = rules.merge(mentions)
+            try:
+                recounted, usage = await self._recount_within(text, beside)
+            except _RecountError as failed:
+                waiting = time.perf_counter()
+                await beside.settled.wait()
+                stage.waited = time.perf_counter() - waiting
+                if beside.failed:
+                    failed.error.usage = failed.usage
+                    raise failed.error from None
+                stage.degrade(failed.usage, failed.error)
+                return None
             stage.done(usage, recounted)
         return recounted
 
+    async def _recount_within(self, text: str, beside: _Beside) -> tuple[list[Mention], Usage]:
+        """The recount within recount_timeout: a second time when the first
+        call failed in under half of it — an answer off its schema comes
+        quickly, a slow model does not get faster — with what is left; never
+        when the parse beside it failed. The usage adds up both calls.
+        Without recount_timeout, one call and no retry."""
+        if self.recount_timeout is None:
+            try:
+                return await self._recount_once(text)
+            except EngineError as err:
+                raise _RecountError(err, _usage_of(err)) from err
+        loop = asyncio.get_running_loop()
+        started, budget = loop.time(), self.recount_timeout
+        taken: Usage | None = None
+        try:
+            async with asyncio.timeout_at(started + budget):
+                try:
+                    return await self._recount_once(text)
+                except EngineError as err:
+                    taken = _usage_of(err)
+                    if beside.failed or loop.time() - started >= budget / 2:
+                        raise _RecountError(err, taken) from err
+                try:
+                    mentions, usage = await self._recount_once(text)
+                except EngineError as err:
+                    raise _RecountError(err, _added(taken, _usage_of(err))) from err
+                return mentions, _added(taken, usage)
+        except TimeoutError as err:
+            raise _RecountError(EngineError("no answer in time"), taken or _UNKNOWN) from err
+
+    async def _recount_once(self, text: str) -> tuple[list[Mention], Usage]:
+        mentions, usage = await self.engines.recounter.read(text)
+        try:
+            return rules.merge(mentions), usage
+        except EngineError as err:
+            err.usage = err.usage or usage
+            raise
+
     async def _identify(
-        self, run: _Run, memory: _Memory, parsed: list[Mention], recounted: list[Mention]
-    ) -> tuple[list[Line], list[Line]]:
-        """Both readings' lines, identifying only the titles no earlier attempt
-        has, and none the parse gave a film to (PARSE_IDENTIFIES): an
-        identification is never asked twice."""
-        read = rules.films_read(parsed, recounted)
+        self, run: _Run, memory: _Memory, parsed: list[Mention], recounted: list[Mention] | None
+    ) -> tuple[list[Line], list[Line] | None]:
+        """Both readings' lines — the parse's alone without a recount —
+        identifying only the titles no earlier attempt has, and none the parse
+        gave a film to (PARSE_IDENTIFIES): an identification is never asked
+        twice."""
+        readings = [parsed] if recounted is None else [parsed, recounted]
+        read = rules.films_read(*readings)
         unknown = [
             t
-            for t in rules.distinct_titles(parsed, recounted)
+            for t in rules.distinct_titles(*readings)
             if title_key(t) not in memory.identified and title_key(t) not in read
         ]
         with run.stage(Stage.IDENTIFY) as stage:
@@ -250,17 +328,18 @@ class Pipeline:
                 stage.span.describe({"cache_hits": 0})
             known = {**memory.identified, **read}
             reading = rules.lines(parsed, known)
-            recount = rules.lines(recounted, known)
+            recount = None if recounted is None else rules.lines(recounted, known)
             stage.done(usage, {"reading": reading, "recount": recount})
         return reading, recount
 
     async def _judge(
-        self, run: _Run, memory: _Memory, text: str, reading: list[Line], recount: list[Line]
+        self, run: _Run, memory: _Memory, text: str, reading: list[Line], recount: list[Line] | None
     ) -> Judgement:
         """The judgement of a reading. One an earlier attempt judged — the same
         lines, in any order — is not put to Jev again: a wrong reading Jev
         refuses two times in three must not get three throws. Only `count` is
-        computed anew, against this attempt's recount."""
+        computed anew, against this attempt's recount; without one (degraded)
+        there is nothing to count against."""
         with run.stage(Stage.JUDGE) as stage:
             usage = None
             judged = memory.judged.get(rules.facts(reading))
@@ -268,7 +347,8 @@ class Pipeline:
                 findings, usage = await self.engines.judge.judge(text, reading)
                 judged = rules.Judged.of(rules.judged(findings, reading), reading)
                 memory.judged[rules.facts(reading)] = judged
-            findings = [*judged.findings(reading), *rules.count_findings(reading, recount)]
+            counted = [] if recount is None else rules.count_findings(reading, recount)
+            findings = [*judged.findings(reading), *counted]
             judgement = replace(rules.judgement(findings), attempts=run.attempt)
             stage.done(usage, judgement)
         return judgement
@@ -340,6 +420,7 @@ class _Run:
         started = time.perf_counter()
         kind = _SPAN_KINDS.get(stage, "span")
         metadata = {"attempt": self.attempt} if stage in _PER_ATTEMPT else None
+        running: _Stage | None = None
         try:
             with self.tracer.span(stage, kind=kind, metadata=metadata) as span:
                 running = _Stage(span)
@@ -347,13 +428,23 @@ class _Run:
         except EngineError as err:
             err.stage = err.stage or stage
             # a failed stage ran too: a refusal beside it reports what it took
-            self._account(stage, started, err.usage or Usage(engine="unknown"), tokens=None)
+            waited = running.waited if running else 0.0
+            self._account(stage, started + waited, err.usage or Usage(engine="unknown"), tokens=None)
             raise
+        assert running is not None
         if not running.ended:
             raise RuntimeError(f"stage {stage} ended without saying what it took")
-        self._account(stage, started, running.usage or Usage(engine=LOCAL.engine), tokens=running.tokens)
+        self._account(
+            stage,
+            started + running.waited,  # its own time, not what it waited for
+            running.usage or Usage(engine=LOCAL.engine),
+            tokens=running.tokens,
+            degraded=running.degraded,
+        )
 
-    def _account(self, stage: Stage, started: float, usage: Usage, *, tokens: int | None) -> None:
+    def _account(
+        self, stage: Stage, started: float, usage: Usage, *, tokens: int | None, degraded: bool = False
+    ) -> None:
         self.report.record(
             StageUsage(
                 stage=stage,
@@ -363,6 +454,7 @@ class _Run:
                 ms=_ms_since(started),
                 cost_usd=usage.cost_usd,
                 tokens=tokens,
+                degraded=degraded,
             )
         )
 
@@ -393,6 +485,9 @@ class _Stage:
     ended: bool = False
     usage: Usage | None = None
     tokens: int | None = None
+    degraded: bool = False
+    waited: float = 0.0
+    """Seconds the stage spent waiting for another, not on its own work."""
 
     def done(self, usage: Usage | None, output: object, *, tokens: int | None = None) -> None:
         """What the stage took — None when it called no engine, reusing what an
@@ -401,6 +496,12 @@ class _Stage:
         self.span.output(_traced(output))
         if usage and usage.cache_hits is not None:
             self.span.describe({"cache_hits": usage.cache_hits})
+
+    def degrade(self, usage: Usage, error: EngineError) -> None:
+        """The stage failed but the quote goes on without it: what it took,
+        and a warning in its span, not an error."""
+        self.ended, self.usage, self.degraded = True, usage, True
+        self.span.warn(error)
 
 
 @dataclass(frozen=True, slots=True)
@@ -419,6 +520,50 @@ class _Memory:
 
     identified: dict[str, Identification] = field(default_factory=dict)
     judged: dict[frozenset[rules.Fact], rules.Judged] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class _Beside:
+    """The parse beside a recount: whether it has settled, and failed."""
+
+    settled: asyncio.Event = field(default_factory=asyncio.Event)
+    failed: bool = False
+
+    @classmethod
+    def alone(cls) -> _Beside:
+        """A recount with no parse beside it: nothing to wait for."""
+        beside = cls()
+        beside.settled.set()
+        return beside
+
+
+class _RecountError(Exception):
+    """The recount's failure, with what its calls took: the quote goes on
+    without it."""
+
+    def __init__(self, error: EngineError, usage: Usage) -> None:
+        super().__init__(str(error))
+        self.error, self.usage = error, usage
+
+
+_UNKNOWN: Final = Usage(engine="unknown")
+"""What a call took when its engine could not say."""
+
+
+def _usage_of(error: EngineError) -> Usage:
+    return error.usage or _UNKNOWN
+
+
+def _added(first: Usage | None, then: Usage) -> Usage:
+    """Two calls of one stage as one usage: calls and cost add up."""
+    if first is None:
+        return then
+    return Usage(
+        engine=first.engine if first.engine != _UNKNOWN.engine else then.engine,
+        model=first.model or then.model,
+        calls=first.calls + then.calls,
+        cost_usd=first.cost_usd + then.cost_usd,
+    )
 
 
 def _failure(error: BaseException) -> str:

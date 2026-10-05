@@ -113,6 +113,9 @@ func endTrace(span trace.Span, q Quote, err error, m Measures, answer string) {
 	if m.Attempts > 0 {
 		span.SetAttributes(attribute.Int(attrTraceMetadata+"attempts", m.Attempts))
 	}
+	if m.Degraded {
+		span.SetAttributes(attribute.String(attrTraceMetadata+"degraded", string(StageRecount)))
+	}
 	var rej *Rejection
 	out := ""
 	switch {
@@ -146,7 +149,10 @@ func startStage(ctx context.Context, s Stage, attempt int) (context.Context, tra
 	return ctx, span
 }
 
-func endStage(span trace.Span, out any, err error) {
+// endStage closes a stage's span. A stage that failed but did not fail the
+// quote (degraded) is a warning, not an error: the trace of the quote is not
+// one of a failure.
+func endStage(span trace.Span, out any, err error, degraded bool) {
 	defer span.End()
 	if !span.IsRecording() {
 		return
@@ -155,6 +161,12 @@ func endStage(span trace.Span, out any, err error) {
 	switch {
 	case errors.As(err, &rej): // a refusal is the stage's answer, not its failure
 		span.SetAttributes(attribute.String(attrObservationOutput, refusal(rej)))
+	case err != nil && degraded:
+		span.RecordError(err)
+		span.SetAttributes(
+			attribute.String(attrObservationLevel, "WARNING"),
+			attribute.String(attrStatusMessage, "degraded: "+err.Error()),
+		)
 	case err != nil:
 		fail(span, err)
 	default:

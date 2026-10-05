@@ -128,7 +128,11 @@ scripts/e2e-fake.sh    the end-to-end suite against this quoter on fake engines
   is another (a 500).
 - **Structured concurrency.** Each set of model calls runs in an `asyncio`
   TaskGroup, bounded to 16 in flight, and nothing outlives a request. The
-  parse and the recount run side by side, and the parse decides first. Read
+  parse and the recount run side by side, and the parse decides first. The
+  recount is a second opinion: within `RECOUNT_TIMEOUT` (6 s), asked once
+  more when it failed in under half of it, and when it still fails the quote
+  goes on with the parse alone, its stage `degraded` (a warning in the
+  trace, not an error). Read
   again, a request keeps what it learnt (`_Memory`): a title is identified
   once, and a reading already judged is not put to Jev again.
 - **One client per engine, for the whole process.** Jev, the parse and the
@@ -139,6 +143,8 @@ scripts/e2e-fake.sh    the end-to-end suite against this quoter on fake engines
   parsed by a strict model and held to the questions asked. The parse and the
   recount use the official `openai` SDK with a strict `json_schema` response
   format and no client retries; their answers are validated again on return.
+  Every model call, Jev's and the readers', is bounded by `MODEL_TIMEOUT`
+  (6 s), and a request by `REQUEST_TIMEOUT` (15 s).
 - **Traces.** The Langfuse SDK (v4, OpenTelemetry) runs on a `TracerProvider`
   of its own (`service.name=delorean`), so the global OpenTelemetry state is
   untouched.

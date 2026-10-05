@@ -206,11 +206,30 @@ async def test_create_quote(api: httpx.AsyncClient) -> None:
         "prepare", "guard", "parse", "recount", "identify", "judge", "price",
     ]  # fmt: skip
     assert [s["stage"] for s in usage["stages"] if "tokens" in s] == ["prepare"], "only prepare counts tokens"
+    assert not [s for s in usage["stages"] if "degraded" in s], "degraded only when a stage is"
     assert datetime.now(UTC) - datetime.fromisoformat(q["created_at"]) < timedelta(minutes=1)
     assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z", q["created_at"]), "UTC, to the millisecond"
     assert b'"confidence":1,' in response.content, "numbers as JSON.stringify writes them"
     compact = json.dumps(response.json(), ensure_ascii=False, separators=(",", ":")).encode()
     assert response.content == compact, "compact, in the contract's order"
+
+
+async def test_a_degraded_recount_says_so(api: httpx.AsyncClient) -> None:
+    response = await api.post("/v1/quotes", content='{"cart": "Back to the Future 1\\n#fake:recount_offschema"}')
+    assert response.status_code == 200, response.text
+    q = conforms(response, "Quote", "application/json")
+    assert q["total_cents"] == 1500, "priced on the parse"
+    (recount,) = [s for s in q["usage"]["stages"] if s["stage"] == "recount"]
+    assert recount == {
+        "stage": "recount",
+        "engine": "fake",
+        "calls": 1,
+        "duration_ms": recount["duration_ms"],
+        "cost_usd": 0,
+        "degraded": True,
+    }
+    assert list(recount)[-1] == "degraded", "in the contract's order"
+    assert [c["check"] for c in q["judge"]["checks"]] == ["asked", "identity", "missing"], "no count check"
 
 
 @pytest.mark.parametrize(

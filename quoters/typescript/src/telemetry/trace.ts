@@ -29,6 +29,8 @@ export interface Observation {
   traceAttributes(attributes: { metadata: Record<string, unknown> }): void;
   /** Marks the observation failed: an error, not a refusal. */
   fail(error: unknown): void;
+  /** Marks a failure that did not fail the quote (a degraded stage): a warning, not an error. */
+  warn(error: unknown): void;
 }
 
 /** Metadata kept as typed attributes (an attempt is the number 2, as Go writes it, not the string "2"). */
@@ -83,6 +85,11 @@ export async function observe<T>(
           if (error instanceof Error) span.recordException(error);
           span.setStatus({ code: SpanStatusCode.ERROR, message });
           observation.update({ level: 'ERROR', statusMessage: message });
+        },
+        warn: (error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          if (error instanceof Error) span.recordException(error);
+          observation.update({ level: 'WARNING', statusMessage: `degraded: ${message}` });
         },
       }),
     );

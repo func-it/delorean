@@ -1,12 +1,14 @@
 package pipeline
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/func-it/delorean/quoters/go/internal/cart"
 )
@@ -47,7 +49,7 @@ func (p *Pipeline) readAgain(ctx context.Context, r *run, text string) (Reading,
 	attempts := max(p.ReadAttempts, 1)
 	for n := 1; n <= attempts; n++ {
 		r.attempts = n
-		raw, reading, recount, err := p.readTwice(ctx, r, text, n, again)
+		raw, reading, recount, counted, err := p.readTwice(ctx, r, text, n, again)
 		if err != nil {
 			return Reading{}, err
 		}
@@ -56,15 +58,22 @@ func (p *Pipeline) readAgain(ctx context.Context, r *run, text string) (Reading,
 		var lines, recounted []cart.Line
 		if len(reading) > 0 {
 			sctx, end := r.stage(ctx, StageIdentify, n)
-			both, u, err := Identify(sctx, p.Engines.Identifier, known, reading, recount)
+			readings := [][]cart.Mention{reading}
+			if counted {
+				readings = append(readings, recount)
+			}
+			both, u, err := Identify(sctx, p.Engines.Identifier, known, readings...)
 			if err == nil {
-				lines, recounted = both[0], both[1]
+				lines = both[0]
+				if counted {
+					recounted = both[1]
+				}
 			}
 			end(u, map[string][]cart.Line{"reading": lines, "recount": recounted}, err)
 			if err != nil {
 				return Reading{}, failed(ctx, StageIdentify, err)
 			}
-			if j, err = p.judge(ctx, r, n, text, judged, lines, recounted); err != nil {
+			if j, err = p.judge(ctx, r, n, text, judged, lines, recounted, counted); err != nil {
 				return Reading{}, err
 			}
 		}
@@ -84,8 +93,9 @@ func (p *Pipeline) readAgain(ctx context.Context, r *run, text string) (Reading,
 
 // judge judges the lines of attempt n against the recount: Jev only when it
 // has not judged the same lines yet — their findings are kept in judged, and
-// put in the order of the lines now — then the count, anew.
-func (p *Pipeline) judge(ctx context.Context, r *run, n int, text string, judged map[string]Judgement, lines, recounted []cart.Line) (Judgement, error) {
+// put in the order of the lines now — then the count, anew, when there is a
+// recount (counted).
+func (p *Pipeline) judge(ctx context.Context, r *run, n int, text string, judged map[string]Judgement, lines, recounted []cart.Line, counted bool) (Judgement, error) {
 	sctx, end := r.stage(ctx, StageJudge, n)
 	key := readingKey(lines)
 	j, seen := judged[key]
@@ -103,7 +113,10 @@ func (p *Pipeline) judge(ctx context.Context, r *run, n int, text string, judged
 		}
 	}
 	if err == nil {
-		j = Recounted(j, lines, recounted)
+		// without a recount (degraded) there is nothing to count against
+		if counted {
+			j = Recounted(j, lines, recounted)
+		}
 		j.Attempts = n
 	}
 	end(u, j, err)
@@ -116,11 +129,16 @@ func (p *Pipeline) judge(ctx context.Context, r *run, n int, text string, judged
 // readTwice reads text with the parser — told what failed, again not nil —
 // and the recounter, blind, side by side, and accounts for both, the parse
 // first. It returns the parse's reading as read and merged, and the recount
-// merged. On every attempt a parse that fails decides first, and cancels the
-// recount; then a reading refused — too many copies, or no film on the first
-// attempt — then a recount that fails. A later reading with no film is no
-// refusal: it comes back empty.
-func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt int, again *Retry) (raw, reading, recount []cart.Mention, err error) {
+// merged; counted is false when there is no recount. On every attempt a parse
+// that fails decides first, and cancels the recount; then a reading refused —
+// too many copies, or no film on the first attempt. A later reading with no
+// film is no refusal: it comes back empty.
+//
+// The recount is a second opinion: one that fails, answers off its schema or
+// is too slow (recount) does not fail the quote. The reading goes on without
+// it — no recount, no count check, the stage's usage Degraded — and the judge
+// stays the guard. Only a request that is over fails on the recount.
+func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt int, again *Retry) (raw, reading, recount []cart.Mention, counted bool, err error) {
 	type read struct {
 		raw, mentions []cart.Mention
 		usage         Usage
@@ -129,6 +147,9 @@ func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt i
 	rctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	var parsed, recounted read
+	// the recount's span is closed once both readings settled: whether it is
+	// degraded depends on the parse beside it
+	var endRecount func(u Usage, out any, err error) Usage
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		sctx, done := timed(ctx, StageParse, attempt)
@@ -149,27 +170,64 @@ func (p *Pipeline) readTwice(ctx context.Context, r *run, text string, attempt i
 	})
 	wg.Go(func() {
 		sctx, done := timed(rctx, StageRecount, attempt)
-		m, u, err := p.Engines.Recounter.Parse(sctx, text, nil)
-		if err == nil {
-			m, err = Tally(m)
+		start := time.Now()
+		m, u, err := p.recount(sctx, text)
+		if u.Ms == 0 { // its own time, not the parse's it then waits for
+			u.Ms = time.Since(start).Milliseconds()
 		}
-		recounted = read{nil, m, done(u, m, err), err}
+		endRecount, recounted = done, read{nil, m, u, err}
 	})
 	wg.Wait()
+	var rej *Rejection
+	parseFailed := parsed.err != nil && !errors.As(parsed.err, &rej)
+	// a failure of the recount itself, not of the request nor of a parse that failed beside it
+	recounted.usage.Degraded = recounted.err != nil && !parseFailed && ctx.Err() == nil
+	recounted.usage = endRecount(recounted.usage, recounted.mentions, recounted.err)
 	r.account(parsed.usage, recounted.usage)
 
-	var rej *Rejection
 	switch {
-	case parsed.err != nil && !errors.As(parsed.err, &rej):
-		return nil, nil, nil, failed(ctx, StageParse, parsed.err)
+	case parseFailed:
+		return nil, nil, nil, false, failed(ctx, StageParse, parsed.err)
 	case rej != nil:
-		return nil, nil, nil, rej
+		return nil, nil, nil, false, rej
 	case len(parsed.mentions) == 0 && attempt == 1:
-		return nil, nil, nil, &Rejection{Code: CodeNoFilm, Detail: "The text names no film to buy."}
-	case recounted.err != nil:
-		return nil, nil, nil, failed(ctx, StageRecount, recounted.err)
+		return nil, nil, nil, false, &Rejection{Code: CodeNoFilm, Detail: "The text names no film to buy."}
+	case recounted.err != nil && ctx.Err() != nil:
+		return nil, nil, nil, false, failed(ctx, StageRecount, recounted.err)
 	}
-	return parsed.raw, parsed.mentions, recounted.mentions, nil
+	return parsed.raw, parsed.mentions, recounted.mentions, recounted.err == nil, nil
+}
+
+// recount asks the recounter for its reading, tallied, within RecountTimeout:
+// a second time, when the first call failed in under half of it — an answer
+// off its schema comes quickly, a slow model does not get faster — with what
+// is left. The usage adds up the calls. Not a word to the recounter about
+// what failed: it reads blind.
+func (p *Pipeline) recount(ctx context.Context, text string) ([]cart.Mention, Usage, error) {
+	if p.RecountTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, p.RecountTimeout)
+		defer cancel()
+	}
+	start := time.Now()
+	m, u, err := p.recountOnce(ctx, text)
+	if err == nil || p.RecountTimeout <= 0 || ctx.Err() != nil || time.Since(start) >= p.RecountTimeout/2 {
+		return m, u, err
+	}
+	m, again, err := p.recountOnce(ctx, text)
+	u.Calls += again.Calls
+	u.CostUSD += again.CostUSD
+	u.Ms += again.Ms
+	u.Engine, u.Model = cmp.Or(u.Engine, again.Engine), cmp.Or(u.Model, again.Model)
+	return m, u, err
+}
+
+func (p *Pipeline) recountOnce(ctx context.Context, text string) ([]cart.Mention, Usage, error) {
+	m, u, err := p.Engines.Recounter.Parse(ctx, text, nil)
+	if err == nil {
+		m, err = Tally(m)
+	}
+	return m, u, err
 }
 
 // readingKey is the same for two readings of the same lines — title,

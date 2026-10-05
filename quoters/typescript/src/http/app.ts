@@ -224,10 +224,12 @@ export function createApp(config: AppConfig): Hono<Env> {
         if (cause !== undefined && !c.req.raw.signal.aborted) trace.fail(cause);
         trace.traceIO({ output: body });
         const attempts = report?.attempts;
+        const degraded = report?.stages.some((s) => s.degraded === true) === true;
         trace.traceAttributes({
           metadata: {
             outcome,
             ...(attempts !== undefined && { attempts }),
+            ...(degraded && { degraded: 'recount' }),
             ...(quoteId !== undefined && { quote_id: quoteId }),
             ...(totalCents !== undefined && { total_cents: totalCents }),
           },

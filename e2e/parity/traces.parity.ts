@@ -29,10 +29,11 @@ const probes: Probe[] = [
   cart('unfaithful, read three times', 'Back to the Future 1 #fake:unfaithful'),
   cart('read again', 'Back to the Future 2\nRonin #fake:reread'),
   cart('miscount', 'Back to the Future 1 #fake:miscount'),
+  cart('recount off schema, degraded', 'Back to the Future 1\n#fake:recount_offschema'),
   cart('an engine down, 502', 'Back to the Future 1\n#fake:engine_down'),
   cart('too many copies', '1001 x Heat'),
   cart('empty', ' '),
-  cart('too long', 'Back to the Future '.repeat(600)),
+  cart('too long', 'Back to the Future '.repeat(100)),
   ...loadQuoteCases().map((c) => cart(`case ${c.id}`, c.input.cart)),
 ].map((p, i) => ({ ...p, headers: { ...p.headers, 'X-Request-Id': `trace-${String(i).padStart(3, '0')}` } }));
 

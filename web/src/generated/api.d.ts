@@ -197,6 +197,8 @@ export interface components {
             cost_usd: number;
             /** @description Input tokens counted (prepare). */
             tokens?: number;
+            /** @description The stage failed (an engine down, an answer off its schema, too slow) and the quote was made without it. Only `recount` can be degraded: it is a second opinion, and the judge is still the guard. Absent when the stage did its work; true once, over the readings, when it did not. */
+            degraded?: boolean;
         };
         /** @description RFC 9457 problem details, with a stable `code` and the facts behind it. */
         Problem: {

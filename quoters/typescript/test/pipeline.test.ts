@@ -3,6 +3,7 @@ import type { Line } from '../src/cart.ts';
 import { DIRECTIVE } from '../src/engines/fake.ts';
 import {
   EngineError,
+  type EngineUsage,
   type Finding,
   type Guard,
   type Identifier,
@@ -262,17 +263,14 @@ describe('Pipeline.quote, the two readings', () => {
     expect(rej.report.costUsd).toBe(0.002);
   });
 
-  it('answers the parse refusal before the recount failure, the recount failure before the reading goes on', async () => {
+  it('answers the parse refusal before anything of the recount, whose failure the refusal still reports', async () => {
     const recounter: Reader = {
       read: () => Promise.reject(new EngineError('recount down', { usage: { engine: 'qwen', calls: 1, costUsd: 0 } })),
     };
     const rej = await rejection(quote(newPipeline({ recounter }), '#fake:nothing'));
     expect(rej.code).toBe('no_film');
     expect(rej.report.stages.map((s) => s.stage)).toEqual(['prepare', 'guard', 'parse', 'recount']);
-
-    const error = await quote(newPipeline({ recounter }), 'Heat').catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(EngineError);
-    expect((error as Error).message).toBe('recount: recount down');
+    expect(rej.report.stages.at(-1)).toMatchObject({ stage: 'recount', engine: 'qwen', calls: 1, degraded: true });
   });
 });
 
@@ -339,7 +337,6 @@ describe('Pipeline.quote engine failures', () => {
     ['a quantity of 0', { parser: reads({ title: 'Heat', quantity: 0 }) }, 'Heat'],
     ['a quantity that is not an integer', { parser: reads({ title: 'Heat', quantity: 1.5 }) }, 'Heat'],
     ['a mention without title', { parser: reads({ title: ' ', quantity: 1 }) }, 'Heat'],
-    ['a recount out of contract', { recounter: reads({ title: 'Heat', quantity: -1 }) }, 'Heat'],
     ['an identification missing', { identifier: identifiesAs() }, 'Heat'],
     ['a film out of the contract', { identifier: identifiesAs({ film: 'bttf_4', confidence: 1 }) }, 'Heat'],
     ['a confidence over 1', { identifier: identifiesAs({ film: 'other', confidence: 1.2 }) }, 'Heat'],
@@ -661,7 +658,7 @@ describe('Pipeline.quote, reading again', () => {
     expect(rej.facts.copies).toEqual({ title: 'Heat', count: 5000, max: 1000 });
   });
 
-  it('answers a recount failure on a later attempt with a 502, even beside a reading without film', async () => {
+  it('goes on when the recount fails on a later attempt, even beside a reading without film', async () => {
     let attempt = 0;
     const parser: Reader = {
       read: () => Promise.resolve({ mentions: attempt === 0 ? [{ title: 'Heat', quantity: 1 }] : [], usage: free }),
@@ -672,9 +669,10 @@ describe('Pipeline.quote, reading again', () => {
           ? Promise.resolve({ mentions: [{ title: 'Heat', quantity: 2 }], usage: free })
           : Promise.reject(new EngineError('recount down')),
     };
-    const error = await quote(newPipeline({ parser, recounter }), '2 x Heat').catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(EngineError);
-    expect((error as Error).message).toBe('recount: recount down');
+    const rej = await rejection(quote(newPipeline({ parser, recounter }), '2 x Heat'));
+    expect(rej.code).toBe('unfaithful_reading');
+    expect(rej.facts.judgement?.attempts).toBe(3);
+    expect(rej.report.stages.find((s) => s.stage === 'recount')).toMatchObject({ degraded: true });
   });
 
   it("reuses a judged reading's findings in the new reading's line order", async () => {
@@ -789,5 +787,121 @@ describe('Pipeline.quote, reading again', () => {
     expect(identified).toEqual([['Heat', 'Ronin', 'Alien']]);
     // the second reading is the first in another order: not put to Jev again
     expect(judged).toBe(2);
+  });
+});
+
+// The recount is a second opinion: one that fails, answers off its schema or
+// is too slow does not fail the quote. It goes on with the parse alone — no
+// count check, the judge still holds the reading — and says so.
+describe('Pipeline.quote, a recount that fails', () => {
+  const offSchema = (usage: EngineUsage = { engine: 'flaky', calls: 1, costUsd: 0.5 }) =>
+    new EngineError('recount: answer off schema', { usage });
+  const recountOf = (q: { report: { stages: readonly { stage: string }[] } }) =>
+    q.report.stages.find((s) => s.stage === 'recount');
+
+  it.each([
+    ['a recount down', { read: () => Promise.reject(offSchema()) } satisfies Reader],
+    ['a recount quantity of 0', reads({ title: 'Heat', quantity: 0 })],
+    ['a recount without title', reads({ title: ' ', quantity: 1 })],
+  ])('%s: priced on the parse, no count check, the recount degraded', async (_, recounter) => {
+    const q = await quote(newPipeline({ recounter }), '2 x Heat');
+    expect(q.price.totalCents).toBe(4000);
+    expect(q.judgement.findings.filter((f) => f.check === 'count')).toEqual([]);
+    expect(q.report.stages.map((s) => [s.stage, s.degraded === true])).toEqual([
+      ['prepare', false],
+      ['guard', false],
+      ['parse', false],
+      ['recount', true],
+      ['identify', false],
+      ['judge', false],
+      ['price', false],
+    ]);
+  });
+
+  it('still has the judge refuse a reading, and read it again', async () => {
+    const recounter: Reader = { read: () => Promise.reject(offSchema()) };
+    const rej = await rejection(quote(newPipeline({ recounter }), `Heat\n${DIRECTIVE.unfaithful}`));
+    expect(rej.code).toBe('unfaithful_reading');
+    expect(rej.facts.judgement?.attempts).toBe(3);
+  });
+
+  it('asks a recount that failed fast once more, and one right the second time is a recount like any other', async () => {
+    let calls = 0;
+    const flaky: Reader = {
+      read: () =>
+        ++calls === 1
+          ? Promise.reject(offSchema())
+          : Promise.resolve({
+              mentions: [{ title: 'Heat', quantity: 2 }],
+              usage: { engine: 'flaky', calls: 1, costUsd: 0.5 },
+            }),
+    };
+    const q = await quote(newPipeline({ recounter: flaky }, { recountTimeoutMs: 60_000 }), '2 x Heat');
+    expect(recountOf(q)).toMatchObject({ calls: 2, costUsd: 1 });
+    expect(recountOf(q)).not.toHaveProperty('degraded');
+    expect(q.judgement.findings).toContainEqual({ check: 'count', label: 'other: 2 read, 2 recounted', score: 1 });
+  });
+
+  it('asks no more than twice: still off schema, the recount degrades', async () => {
+    let calls = 0;
+    const broken: Reader = {
+      read: () => {
+        calls++;
+        return Promise.reject(offSchema());
+      },
+    };
+    const q = await quote(newPipeline({ recounter: broken }, { recountTimeoutMs: 60_000 }), '2 x Heat');
+    expect(calls).toBe(2);
+    expect(recountOf(q)).toMatchObject({ calls: 2, costUsd: 1, degraded: true });
+  });
+
+  it('does not ask again a recount that failed slowly: a slow model does not get faster', async () => {
+    let calls = 0;
+    const slow: Reader = {
+      read: async () => {
+        calls++;
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        throw offSchema();
+      },
+    };
+    const q = await quote(newPipeline({ recounter: slow }, { recountTimeoutMs: 100 }), 'Heat');
+    expect(calls).toBe(1);
+    expect(recountOf(q)).toMatchObject({ calls: 1, degraded: true });
+  });
+
+  it('cuts a recount that does not answer at its timeout, and goes on in that time', async () => {
+    const hung: Reader = {
+      read: (_, { signal }) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => {
+            reject(new EngineError('recount: no answer in time', { usage: { engine: 'hung', calls: 1, costUsd: 0 } }));
+          });
+        }),
+    };
+    const started = performance.now();
+    const q = await quote(newPipeline({ recounter: hung }, { recountTimeoutMs: 80 }), 'Heat');
+    expect(performance.now() - started).toBeLessThan(2_000);
+    expect(recountOf(q)).toMatchObject({ calls: 1, degraded: true });
+  });
+
+  it('fails on the recount only when the request is over', async () => {
+    const hung: Reader = {
+      read: (_, { signal }) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => {
+            reject(new Error('aborted'));
+          });
+        }),
+    };
+    const pipeline = newPipeline({ recounter: hung }, { recountTimeoutMs: 60_000 });
+    const error = await pipeline.quote({ cart: 'Heat' }, AbortSignal.timeout(50)).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(EngineError);
+  });
+
+  it(`degrades on ${DIRECTIVE.recountOffSchema}: two fake calls, then the parse alone`, async () => {
+    const q = await quote(newPipeline({}, { recountTimeoutMs: 6_000 }), `2 x Heat\n${DIRECTIVE.recountOffSchema}`);
+    expect(q.price.totalCents).toBe(4000);
+    expect(recountOf(q)).toMatchObject({ engine: 'fake', calls: 2, costUsd: 0, degraded: true });
+    expect(q.judgement.findings.filter((f) => f.check === 'count')).toEqual([]);
   });
 });

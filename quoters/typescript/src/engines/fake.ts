@@ -32,6 +32,8 @@ export const DIRECTIVE = {
   miscount: '#fake:miscount',
   /** Leaves the last mention out of the first reading only: the cart is priced on the second. */
   reread: '#fake:reread',
+  /** Makes the recount answer off its schema at every call: the quote goes on without it. */
+  recountOffSchema: '#fake:recount_offschema',
 };
 const DIRECTIVE_PREFIX = '#fake:';
 
@@ -96,9 +98,18 @@ const parser: Reader = {
   read: (text, _call, retry) => read(text, !retry && hasLine(text, DIRECTIVE.reread)),
 };
 
-/** Reads every mention, blind; but for a text with a #fake:miscount line, one more copy of the first. */
+/**
+ * Reads every mention, blind; but for a text with a #fake:miscount line, one
+ * more copy of the first; with a #fake:recount_offschema line it answers off
+ * its schema.
+ */
 const recounter: Reader = {
   async read(text) {
+    if (hasLine(text, DIRECTIVE.recountOffSchema)) {
+      throw new EngineError(`fake recount: engine unavailable: answer off schema (${DIRECTIVE.recountOffSchema})`, {
+        usage: usage(),
+      });
+    }
     const reading = await read(text, false);
     const [first] = reading.mentions;
     if (first && hasLine(text, DIRECTIVE.miscount)) first.quantity += 1;

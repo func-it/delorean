@@ -114,12 +114,19 @@ export function usageViolations(usage: Usage, health: Health, last: Stage, attem
   if (ran !== expected) found.push(`usage.stages ran ${ran || 'nothing'}, expected ${expected}`);
 
   for (const stage of usage.stages) {
+    if (stage.degraded !== undefined && (stage.stage !== 'recount' || !stage.degraded)) {
+      found.push(
+        `usage.stages ${stage.stage} says degraded: ${stage.degraded}; only the recount can be, and only true`,
+      );
+    }
     const isModel = MODEL_STAGES.includes(stage.stage);
     if (!isModel && stage.cost_usd !== 0) {
       found.push(`usage.stages ${stage.stage} costs ${stage.cost_usd} USD, yet calls no model`);
     }
     if (isModel && health.engines === 'fake') {
-      const [least, most] = FAKE_CALLS[stage.stage]?.(attempts) ?? [1, 1];
+      const [fewest, usual] = FAKE_CALLS[stage.stage]?.(attempts) ?? [1, 1];
+      // a degraded recount was asked once more on each reading, its failure being fast
+      const [least, most] = stage.degraded ? [fewest, 2 * usual] : [fewest, usual];
       if (stage.engine !== 'fake' || stage.calls < least || stage.calls > most || stage.cost_usd !== 0) {
         const calls =
           least !== most ? `${least} to ${most} free calls` : least === 1 ? 'one free call' : `${least} free calls`;

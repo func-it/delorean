@@ -34,6 +34,9 @@ ENGINE_DOWN: Final = "#fake:engine_down"
 """A line of its own: the parse fails as an engine fails."""
 MISCOUNT: Final = "#fake:miscount"
 """A line of its own: the recount reads one more copy of the first mention."""
+RECOUNT_OFFSCHEMA: Final = "#fake:recount_offschema"
+"""A line of its own: the recount answers off its schema, at every call; the
+quote goes on without it."""
 _DIRECTIVE: Final = "#fake:"
 
 USAGE: Final = Usage(engine="fake", calls=1)
@@ -140,7 +143,8 @@ class FakeReader:
     The parse leaves out its last mention when the text has a #fake:reread
     line and it reads for the first time, untold; told what failed, it reads
     everything. The recount reads everything, plus one copy of the first
-    mention when the text has a #fake:miscount line."""
+    mention when the text has a #fake:miscount line; with a
+    #fake:recount_offschema line it answers off its schema."""
 
     def __init__(self, *, recount: bool = False, pace: Pace = INSTANT) -> None:
         self._recount = recount
@@ -149,6 +153,8 @@ class FakeReader:
     async def read(self, text: str, retry: Retry | None = None) -> tuple[list[Mention], Usage]:
         await self._pace("recount" if self._recount else "parse", text)
         lines = text.split("\n")
+        if self._recount and RECOUNT_OFFSCHEMA in lines:
+            raise EngineError(f"fake recount: engine unavailable: answer off schema ({RECOUNT_OFFSCHEMA})", usage=USAGE)
         if ENGINE_DOWN in lines:
             raise EngineError(f"fake engine unavailable ({ENGINE_DOWN})", usage=USAGE)
         mentions = read_all(text)

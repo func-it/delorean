@@ -69,15 +69,17 @@ startup; every wrong one is reported at once, and the service does not start.
 | `PARSE_MODEL`, `PARSE_EFFORT` | `openai/gpt-6-luna`, `minimal` | the parsing LLM; effort `none` (no reasoning field), `minimal`, `low`, `medium`, `high` |
 | `PARSE_BASE_URL`, `RECOUNT_BASE_URL` | `https://openrouter.ai/api/v1` | each reader's OpenAI-compatible API (Ollama: `http://localhost:11434/v1`) |
 | `PARSE_IDENTIFIES` | `false` | the parse gives each line its film (`parse-films.json`), and identify skips those titles |
-| `RECOUNT_MODEL`, `RECOUNT_EFFORT` | `deepseek/deepseek-v4.1-flash`, `low` | the recounting LLM, of another family |
+| `RECOUNT_MODEL`, `RECOUNT_EFFORT` | `openai/gpt-6-luna`, `none` | the recounting LLM: the parser's model without reasoning, for speed; another family can be set |
 | `JEV_MODEL` | `typesafe/jev-1.13` | Jev, pinned |
-| `MAX_BODY_BYTES` | `65536` | largest body (413 above) |
-| `MAX_INPUT_TOKENS` | `2048` | largest cart, in o200k_base tokens (422 `too_long` above) |
+| `MAX_BODY_BYTES` | `8192` | largest body (413 above) |
+| `MAX_INPUT_TOKENS` | `256` | largest cart, in o200k_base tokens (422 `too_long` above) |
 | `GUARD_MIN_CONFIDENCE` | `0.5` | least confidence of a `valid` verdict |
 | `JUDGE_THRESHOLD` | `0.5` | lowest judge score priced |
 | `IDENTIFY_CACHE_SIZE` | `10000` | titles whose film is kept in memory across requests (LRU, keyed by merge key, identify version and `JEV_MODEL`); 0 turns it off |
 | `READ_ATTEMPTS` | `3` | most readings of one cart, told what failed, before `unfaithful_reading` |
-| `REQUEST_TIMEOUT` | `30s` | budget of one request, model calls included; Go's syntax (`1m30s`, `500ms`) |
+| `MODEL_TIMEOUT` | `6s` | most one model call may take, Jev's and the LLMs' (502 past it, or the recount degraded) |
+| `RECOUNT_TIMEOUT` | `6s` | the recount's time, a retry included, before the quote goes on without it |
+| `REQUEST_TIMEOUT` | `15s` | budget of one request, model calls included; Go's syntax (`1m30s`, `500ms`) |
 | `FAKE_LATENCY` | `off` | `real`: each fake call waits its stage's time, as docs/architecture.md computes it (load bench) |
 | `FAKE_CPU_MS` | `0` | milliseconds of busy CPU at the start of each fake call |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` (or `LANGFUSE_HOST`, a URL) | — | traces and scores, when all are set; a half setting is a configuration error |
@@ -126,7 +128,11 @@ scripts/e2e-fake.sh       the end-to-end suite against this quoter on fake engin
 - **Errors are values of three kinds.** A `Rejection` is a refusal (422, with
   its facts and the usage so far); an `EngineError` is a model that failed,
   answered off contract or too late (502, cause logged, never shown);
-  anything else is a bug (500). The request's deadline and the client's
+  anything else is a bug (500). The recount is the exception, a second
+  opinion: one that fails, answers off its schema or outlasts
+  `RECOUNT_TIMEOUT` (asked once more when it failed in under half of it)
+  does not fail the quote, which goes on with the parse alone, no count
+  check, its stage `degraded` in the usage and a warning in the trace. The request's deadline and the client's
   disconnect are one `AbortSignal`, passed to every engine call.
 - **A refused reading is read again** (docs/architecture.md, "read again"),
   up to `READ_ATTEMPTS` readings: the parser is told its last reading and

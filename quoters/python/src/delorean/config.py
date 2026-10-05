@@ -40,12 +40,17 @@ class LiveSettings:
     parse_identifies: bool = False
     """The parse gives each line its film too (prompts/parse-films.json), and
     identify skips those titles."""
-    recount_model: str = "deepseek/deepseek-v4.1-flash"
-    recount_effort: Effort = "low"
+    recount_model: str = "openai/gpt-6-luna"
+    """The recount: the parse's model by default, without reasoning, for a
+    second reading that does not keep the customer waiting."""
+    recount_effort: Effort = "none"
     recount_base_url: str = OPENROUTER
     jev_model: str = "typesafe/jev-1.13"
     identify_cache_size: int = 10_000
     """Titles whose film is kept in memory; 0 turns the cache off."""
+    model_timeout: float = 6.0
+    """Seconds one model call may take, Jev's and the LLMs': one that
+    outlasts it fails as an engine does."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,13 +68,16 @@ class Settings:
     """live, the models through OpenRouter, or fake, deterministic stand-ins
     for tests."""
     live: LiveSettings = field(default_factory=lambda: LiveSettings(openrouter_api_key=""))
-    max_body_bytes: int = 65536
-    max_input_tokens: int = 2048
+    max_body_bytes: int = 8192
+    max_input_tokens: int = 256
     guard_min_confidence: float = 0.5
     judge_threshold: float = 0.5
     read_attempts: int = 3
     """The most readings of one cart before unfaithful_reading."""
-    request_timeout: float = 30.0
+    recount_timeout: float = 6.0
+    """Seconds the recount has, a retry included, before the quote goes on
+    without it (degraded)."""
+    request_timeout: float = 15.0
     """The budget of one request, model calls included, in seconds."""
     fake_latency: Literal["off", "real"] = "off"
     """`real`: the fake engines take a model's time, for the load bench."""
@@ -106,6 +114,9 @@ class Settings:
             identify_cache_size=read.parsed(
                 "IDENTIFY_CACHE_SIZE", defaults.live.identify_cache_size, _int, "an integer"
             ),
+            model_timeout=read.parsed(
+                "MODEL_TIMEOUT", defaults.live.model_timeout, go_duration, 'a duration such as "30s"'
+            ),
         )
         settings = cls(
             port=port,
@@ -116,6 +127,9 @@ class Settings:
             guard_min_confidence=read.parsed("GUARD_MIN_CONFIDENCE", defaults.guard_min_confidence, float, "a number"),
             judge_threshold=read.parsed("JUDGE_THRESHOLD", defaults.judge_threshold, float, "a number"),
             read_attempts=read.parsed("READ_ATTEMPTS", defaults.read_attempts, _int, "an integer"),
+            recount_timeout=read.parsed(
+                "RECOUNT_TIMEOUT", defaults.recount_timeout, go_duration, 'a duration such as "30s"'
+            ),
             request_timeout=read.parsed(
                 "REQUEST_TIMEOUT", defaults.request_timeout, go_duration, 'a duration such as "30s"'
             ),
@@ -137,6 +151,8 @@ class Settings:
         for name, url in (("PARSE_BASE_URL", live.parse_base_url), ("RECOUNT_BASE_URL", live.recount_base_url)):
             read.check(_http_url(url), name, f"is {_quoted(url)}, not an http(s) URL")
         read.check(settings.request_timeout > 0, "REQUEST_TIMEOUT", "must be positive")
+        read.check(settings.recount_timeout > 0, "RECOUNT_TIMEOUT", "must be positive")
+        read.check(live.model_timeout > 0, "MODEL_TIMEOUT", "must be positive")
         read.check(fake_latency in {"off", "real"}, "FAKE_LATENCY", f"is {_quoted(fake_latency)}, want off or real")
         read.check(settings.fake_cpu_ms >= 0, "FAKE_CPU_MS", "must be at least 0")
         match engines:
@@ -180,6 +196,8 @@ ORDER: Final = (
     "JUDGE_THRESHOLD",
     "READ_ATTEMPTS",
     "IDENTIFY_CACHE_SIZE",
+    "MODEL_TIMEOUT",
+    "RECOUNT_TIMEOUT",
     "REQUEST_TIMEOUT",
     "FAKE_LATENCY",
     "FAKE_CPU_MS",

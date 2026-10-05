@@ -605,6 +605,9 @@ type StageUsage struct {
 
 	// Tokens Input tokens counted (prepare).
 	Tokens *int `json:"tokens,omitempty"`
+
+	// Degraded The stage failed (an engine down, an answer off its schema, too slow) and the quote was made without it. Only `recount` can be degraded: it is a second opinion, and the judge is still the guard. Absent when the stage did its work; true once, over the readings, when it did not.
+	Degraded *bool `json:"degraded,omitempty"`
 }
 
 // StageUsageStage defines model for StageUsage.Stage.

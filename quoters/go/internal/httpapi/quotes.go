@@ -230,6 +230,9 @@ func (s *server) usage(r pipeline.Report) Usage {
 		if u.Model != "" {
 			stages[i].Model = new(u.Model)
 		}
+		if u.Degraded {
+			stages[i].Degraded = new(true)
+		}
 		if u.Stage == pipeline.StagePrepare {
 			stages[i].Tokens = new(u.Tokens)
 		}

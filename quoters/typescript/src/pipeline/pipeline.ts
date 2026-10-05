@@ -6,7 +6,9 @@ import { price, type Catalog, type Price } from '../pricing.ts';
 import { observe, type ObservationType } from '../telemetry/trace.ts';
 import {
   EngineError,
+  engineFailure,
   isCancelled,
+  type Answered,
   type Call,
   type EngineUsage,
   type Engines,
@@ -26,9 +28,10 @@ import { Rejection, type GuardVerdict, type Judgement, type Report } from './rej
  *
  * The pipeline owns the order of the stages and every rule that decides;
  * each model stage is a port (ports.ts), answered by a live engine or a fake.
- * The recount reads the cart a second time, on another model, beside the
- * parse; the judge compares the two readings. prepare and price are plain
- * code and never call a model.
+ * The recount reads the cart a second time, beside the parse; the judge
+ * compares the two readings. The recount is a second opinion: one that fails
+ * does not fail the quote, which goes on without it (degraded). prepare and
+ * price are plain code and never call a model.
  */
 export interface PipelineConfig {
   engines: Engines;
@@ -42,6 +45,13 @@ export interface PipelineConfig {
   judgeThreshold: number;
   /** The most readings of one cart, the first included, before it is refused as unfaithful. */
   readAttempts: number;
+  /**
+   * The time the recount has, a retry included: past it the reading goes on
+   * without the recount (degraded). It is tried a second time when the first
+   * failed in under half of it. 0 or undefined gives it the request's whole
+   * budget and no retry.
+   */
+  recountTimeoutMs?: number;
 }
 
 /** A cart to quote, and who asks, for the trace. */
@@ -83,11 +93,14 @@ const UNKNOWN: EngineUsage = { engine: 'unknown', calls: 0, costUsd: 0 };
 /** What a stage takes when it has nothing new to ask: no call. */
 const NOT_ASKED: EngineUsage = { engine: 'local', calls: 0, costUsd: 0 };
 
-/** A reading and its recount: the parser's mentions as decoded and merged, the recount's merged. */
+/**
+ * A reading and its recount: the parser's mentions as decoded and merged, the
+ * recount's merged; no recount (undefined) when it degraded.
+ */
 interface Reading {
   decoded: Mention[];
   read: Mention[];
-  recounted: Mention[];
+  recounted: Mention[] | undefined;
 }
 
 export class Pipeline {
@@ -183,8 +196,9 @@ export class Pipeline {
         continue;
       }
 
-      // titles already identified in this request are not asked again
-      const unknown = identifications.unknown(read, recounted);
+      // titles already identified in this request are not asked again; without a recount, the parse's only
+      const readings = recounted === undefined ? [read] : [read, recounted];
+      const unknown = identifications.unknown(...readings);
       const [lines, recountedLines] = await at.stage(
         'identify',
         (call) =>
@@ -194,11 +208,11 @@ export class Pipeline {
         ({ identifications: answers }) => {
           identifications.learn(unknown, answers);
           return [
-            identifications.lines(read, [read, recounted]),
-            identifications.lines(recounted, [read, recounted]),
+            identifications.lines(read, readings),
+            recounted === undefined ? undefined : identifications.lines(recounted, readings),
           ] as const;
         },
-        { show: ([reading, recount]) => ({ reading, recount }) },
+        { show: ([reading, recount]) => ({ reading, recount: recount ?? null }) },
       );
 
       const known = judged.get(readingKey(lines));
@@ -211,7 +225,8 @@ export class Pipeline {
         ({ findings }): Judgement => {
           checkFindings(findings);
           judged.set(readingKey(lines), findings);
-          const all = [...findings, ...countFindings(lines, recountedLines)];
+          // without a recount (degraded) there is nothing to count against
+          const all = [...findings, ...(recountedLines === undefined ? [] : countFindings(lines, recountedLines))];
           return { score: Math.min(1, ...all.map((f) => f.score)), findings: all, attempts: attempt };
         },
       );
@@ -244,27 +259,38 @@ export class Pipeline {
    * the first is the one the customer's text answers for. A parse that fails
    * stops the recount, whose reading no longer matters; one that refuses
    * waits for it, and the refusal reports what both took.
+   *
+   * The recount is a second opinion: one that fails, answers off its schema or
+   * is too slow (#recount) does not fail the quote. The reading goes on
+   * without it — no recount, no count check, the stage's usage degraded — and
+   * the judge stays the guard. Only a request that is over fails on the
+   * recount.
    */
   async #readTwice(run: Run, text: string, retry: Retry | undefined, first: boolean): Promise<Reading> {
-    const { parser, recounter } = this.config.engines;
+    const { parser } = this.config.engines;
     const stopRecount = new AbortController();
+    const parse = run
+      .stage(
+        'parse',
+        (call) => parser.read(text, call, retry),
+        ({ mentions }) => ({ decoded: mentions, read: merge(mentions) }),
+        { show: ({ read }) => read },
+      )
+      .catch((error: unknown) => {
+        stopRecount.abort(error);
+        throw error;
+      });
     const [parsed, recount] = await Promise.allSettled([
-      run
-        .stage(
-          'parse',
-          (call) => parser.read(text, call, retry),
-          ({ mentions }) => ({ decoded: mentions, read: merge(mentions) }),
-          { show: ({ read }) => read },
-        )
-        .catch((error: unknown) => {
-          stopRecount.abort(error);
-          throw error;
-        }),
-      run.stage(
+      parse,
+      run.stage<Answered<{ mentions: Mention[] }>, Mention[] | undefined>(
         'recount',
-        (call) => recounter.read(text, call),
-        ({ mentions }) => merge(mentions),
-        { signal: AbortSignal.any([run.signal, stopRecount.signal]) },
+        (call) => this.#recount(text, call),
+        ({ mentions }) => mentions,
+        {
+          signal: AbortSignal.any([run.signal, stopRecount.signal]),
+          // a recount that fails beside a parse that fails is cancelled, not degraded: the parse decides first
+          degrade: { value: () => undefined, after: parse },
+        },
       ),
     ]);
     if (parsed.status === 'rejected') throw parsed.reason;
@@ -273,6 +299,48 @@ export class Pipeline {
     if (refusal && (first || refusal.code === 'quantity_too_large')) throw refusal;
     if (recount.status === 'rejected') throw recount.reason;
     return { decoded, read, recounted: recount.value };
+  }
+
+  /**
+   * The recounter's reading, merged, within `recountTimeoutMs`: a second
+   * time, when the first call failed in under half of it — an answer off its
+   * schema comes quickly, a slow model does not get faster — with what is
+   * left. The usage adds up both calls. Not a word to the recounter about
+   * what failed: it reads blind.
+   */
+  async #recount(text: string, { signal }: Call): Promise<Answered<{ mentions: Mention[] }>> {
+    const { engines, recountTimeoutMs = 0 } = this.config;
+    const budget = recountTimeoutMs > 0 ? AbortSignal.any([signal, AbortSignal.timeout(recountTimeoutMs)]) : signal;
+    const once = async (): Promise<Answered<{ mentions: Mention[] }>> => {
+      const answer = await engines.recounter.read(text, { signal: budget });
+      try {
+        return { mentions: merge(answer.mentions), usage: answer.usage };
+      } catch (error) {
+        // an answer off the reader's contract was still a call, and costs
+        throw error instanceof EngineError ? engineFailure(error, answer.usage) : error;
+      }
+    };
+    const started = performance.now();
+    try {
+      return await once();
+    } catch (error) {
+      if (
+        recountTimeoutMs <= 0 ||
+        budget.aborted ||
+        !(error instanceof EngineError) ||
+        performance.now() - started >= recountTimeoutMs / 2
+      ) {
+        throw error;
+      }
+      const first = error.usage ?? UNKNOWN;
+      try {
+        const again = await once();
+        return { mentions: again.mentions, usage: added(first, again.usage) };
+      } catch (retried) {
+        if (!(retried instanceof EngineError)) throw retried;
+        throw engineFailure(retried, added(first, retried.usage ?? UNKNOWN));
+      }
+    }
   }
 
   /** Lets a valid verdict through when it is confident enough; refuses anything else. */
@@ -290,6 +358,18 @@ export class Pipeline {
         : 'The text does not order films: gibberish, a language not understood, or off topic.';
     throw new Rejection('invalid_request', detail, { guard: v });
   }
+}
+
+/** Two calls of one engine as one usage: calls and cost added; their time too when both timed themselves. */
+function added(a: EngineUsage, b: EngineUsage): EngineUsage {
+  const model = a.model ?? b.model;
+  return {
+    engine: a.engine === UNKNOWN.engine ? b.engine : a.engine,
+    ...(model !== undefined && { model }),
+    calls: a.calls + b.calls,
+    costUsd: a.costUsd + b.costUsd,
+    ...(a.ms !== undefined && b.ms !== undefined && { ms: a.ms + b.ms }),
+  };
 }
 
 /** What a reading took up to a bug, for its trace: a bug is no error of ours to carry a report. */
@@ -330,17 +410,18 @@ class Run {
     return new Run(this.signal, attempt, this.#shared);
   }
 
-  /** Adds what a stage took to what it took on earlier attempts; its engine is the first one's. */
-  #account(stage: Stage, usage: EngineUsage, ms: number): void {
+  /** Adds what a stage took to what it took on earlier attempts; its engine is the first one's; degraded once, degraded. */
+  #account(stage: Stage, usage: EngineUsage, ms: number, degraded = false): void {
     const before = this.#shared.stages.find((u) => u.stage === stage);
     if (!before) {
-      this.#shared.stages.push({ ...usage, stage, ms });
+      this.#shared.stages.push({ ...usage, stage, ms, ...(degraded && { degraded: true }) });
       return;
     }
     if (before.model === undefined && usage.model !== undefined) before.model = usage.model;
     before.calls += usage.calls;
     before.costUsd += usage.costUsd;
     before.ms += ms;
+    if (degraded) before.degraded = true;
   }
 
   /**
@@ -348,7 +429,10 @@ class Run {
    * signal unless given another; `take` makes the stage's value of the
    * answer, or refuses it. Accounts for what the engine took, and traces the
    * value (as `show` shows it), the refusal or the failure. A failure once
-   * the signal has aborted is the engine's: it did not answer in time.
+   * the signal has aborted is the engine's: it did not answer in time. With
+   * `degrade`, a failure while the signal is still live once `degrade.after`
+   * has settled does not fail the stage: its usage says degraded, its span is
+   * a warning, and its value is `degrade.value()`'s.
    */
   stage<A extends { usage: EngineUsage }, T>(
     stage: Stage,
@@ -357,7 +441,12 @@ class Run {
     {
       signal = this.signal,
       show = (value: T): unknown => value,
-    }: { signal?: AbortSignal; show?: (value: T) => unknown } = {},
+      degrade,
+    }: {
+      signal?: AbortSignal;
+      show?: (value: T) => unknown;
+      degrade?: { value: () => T; after?: Promise<unknown> };
+    } = {},
   ): Promise<T> {
     const metadata = this.attempt === undefined ? undefined : { attempt: this.attempt };
     return observe(
@@ -365,22 +454,33 @@ class Run {
       OBSERVATION_TYPES[stage],
       async (span) => {
         const started = performance.now();
-        const account = (usage: EngineUsage) => {
+        const account = (usage: EngineUsage, degraded = false, ended = performance.now()) => {
           // engines that time their own calls keep their measure
-          this.#account(stage, usage, usage.ms ?? Math.round(performance.now() - started));
+          this.#account(stage, usage, usage.ms ?? Math.round(ended - started), degraded);
         };
         let answer: A;
         try {
           answer = await call({ signal });
         } catch (error) {
+          // as things stood when the call failed, before waiting for anything beside it
+          const ended = performance.now();
+          const aborted = signal.aborted;
+          const cancelled = isCancelled(signal);
+          if (degrade) await degrade.after?.catch(() => undefined);
+          if (degrade && !signal.aborted) {
+            // a failure of the stage itself, not of the request: the quote goes on without it
+            account(error instanceof EngineError && error.usage ? error.usage : UNKNOWN, true, ended);
+            span.warn(error);
+            return degrade.value();
+          }
           const failure =
-            error instanceof EngineError || !signal.aborted
-              ? error
-              : new EngineError('no answer in time', { cause: error });
+            error instanceof EngineError || !aborted ? error : new EngineError('no answer in time', { cause: error });
           // a stage that failed still ran: a refusal beside it reports what it took
-          account(failure instanceof EngineError && failure.usage ? failure.usage : UNKNOWN);
-          // a call cancelled (the client gone, or the parse failed beside it) did not fail; one past the deadline did
-          if (!isCancelled(signal)) span.fail(failure);
+          account(failure instanceof EngineError && failure.usage ? failure.usage : UNKNOWN, false, ended);
+          // a call cancelled (the client gone, or the parse failed beside it) did not fail; one past the deadline
+          // did, and so did a recount that failed on its own as the parse failed, an engine down under both
+          const byCancel = cancelled && (degrade === undefined || byCancellation(error, signal));
+          if (!byCancel) span.fail(failure);
           throw named(stage, failure);
         }
         account(answer.usage);
@@ -408,6 +508,20 @@ class Run {
       ...(this.#shared.readings > 0 && { attempts: this.#shared.readings }),
     };
   }
+}
+
+/**
+ * Whether `error` is the cancellation of `signal` itself, not a failure of
+ * the engine that came at the same time: its reason, or an abort, as is or
+ * as the cause of an engine's error.
+ */
+function byCancellation(error: unknown, signal: AbortSignal): boolean {
+  for (let e: unknown = error; e !== undefined && e !== null; e = (e as { cause?: unknown }).cause) {
+    if (e === signal.reason) return true;
+    if (e instanceof Error && (e.name === 'AbortError' || e.name === 'APIUserAbortError')) return true;
+    if (!(e instanceof Error)) return false;
+  }
+  return false;
 }
 
 /** An engine's failure, prefixed with the stage it failed; anything else as is. */

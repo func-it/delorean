@@ -30,6 +30,8 @@ export interface Config {
   readAttempts: number;
   /** The budget of one request, model calls included. */
   requestTimeoutMs: number;
+  /** The time the recount has, a retry included, before the quote goes on without it. */
+  recountTimeoutMs: number;
   /** The fake engines' pace, for the load bench (docs/architecture.md, "Fake latency"). */
   fake: Pace;
   /** Where the shared prompts are read from: the repository's prompts/. */
@@ -54,6 +56,8 @@ export interface LiveConfig {
   jevModel: string;
   /** The titles whose film is kept in memory, across requests; 0 keeps none. */
   identifyCacheSize: number;
+  /** How long one model call may take, Jev's and the LLMs'. */
+  modelTimeoutMs: number;
 }
 
 type Env = Record<string, string | undefined>;
@@ -72,6 +76,7 @@ export function loadConfig(env: Env): Config {
   const string = (name: string, fallback: string) => read(name, fallback, (raw) => raw, 'a string');
   const integer = (name: string, fallback: number) => read(name, fallback, parseInteger, 'an integer');
   const number = (name: string, fallback: number) => read(name, fallback, parseNumber, 'a number');
+  const duration = (name: string, fallback: number) => read(name, fallback, parseDuration, 'a duration such as "30s"');
   const check = (ok: boolean, name: string, problem: string) => {
     if (!ok) say(name, `${name} ${problem}`);
   };
@@ -87,18 +92,20 @@ export function loadConfig(env: Env): Config {
       parseEffort: string('PARSE_EFFORT', 'minimal'),
       parseBaseUrl: string('PARSE_BASE_URL', OPENROUTER_URL),
       parseIdentifies: read('PARSE_IDENTIFIES', false, parseBool, 'true or false'),
-      recountModel: string('RECOUNT_MODEL', 'deepseek/deepseek-v4.1-flash'),
-      recountEffort: string('RECOUNT_EFFORT', 'low'),
+      recountModel: string('RECOUNT_MODEL', 'openai/gpt-6-luna'),
+      recountEffort: string('RECOUNT_EFFORT', 'none'),
       recountBaseUrl: string('RECOUNT_BASE_URL', OPENROUTER_URL),
       jevModel: string('JEV_MODEL', 'typesafe/jev-1.13'),
       identifyCacheSize: integer('IDENTIFY_CACHE_SIZE', 10_000),
+      modelTimeoutMs: duration('MODEL_TIMEOUT', 6_000),
     },
-    maxBodyBytes: integer('MAX_BODY_BYTES', 65536),
-    maxInputTokens: integer('MAX_INPUT_TOKENS', 2048),
+    maxBodyBytes: integer('MAX_BODY_BYTES', 8192),
+    maxInputTokens: integer('MAX_INPUT_TOKENS', 256),
     guardMinConfidence: number('GUARD_MIN_CONFIDENCE', 0.5),
     judgeThreshold: number('JUDGE_THRESHOLD', 0.5),
     readAttempts: integer('READ_ATTEMPTS', 3),
-    requestTimeoutMs: read('REQUEST_TIMEOUT', 30_000, parseDuration, 'a duration such as "30s"'),
+    requestTimeoutMs: duration('REQUEST_TIMEOUT', 15_000),
+    recountTimeoutMs: duration('RECOUNT_TIMEOUT', 6_000),
     fake: { latency: fakeLatency === 'real' ? 'real' : 'off', cpuMs: integer('FAKE_CPU_MS', 0) },
     promptsDir: string('PROMPTS_DIR', DEFAULT_PROMPTS_DIR),
   };
@@ -122,6 +129,8 @@ export function loadConfig(env: Env): Config {
   ] as const) {
     check(isHttpUrl(base), name, `is ${JSON.stringify(base)}, not an http(s) URL`);
   }
+  check(config.live.modelTimeoutMs > 0, 'MODEL_TIMEOUT', 'must be positive');
+  check(config.recountTimeoutMs > 0, 'RECOUNT_TIMEOUT', 'must be positive');
   check(config.requestTimeoutMs > 0, 'REQUEST_TIMEOUT', 'must be positive');
   check(['off', 'real'].includes(fakeLatency), 'FAKE_LATENCY', `is ${JSON.stringify(fakeLatency)}, want off or real`);
   check(config.fake.cpuMs >= 0, 'FAKE_CPU_MS', 'must be at least 0');
@@ -164,6 +173,8 @@ const ORDER = [
   'JUDGE_THRESHOLD',
   'READ_ATTEMPTS',
   'IDENTIFY_CACHE_SIZE',
+  'MODEL_TIMEOUT',
+  'RECOUNT_TIMEOUT',
   'REQUEST_TIMEOUT',
   'FAKE_LATENCY',
   'FAKE_CPU_MS',

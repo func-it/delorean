@@ -85,6 +85,23 @@ describe('usageViolations', () => {
     ]);
   });
 
+  it('lets a degraded recount have been asked once more, and only the recount be degraded', () => {
+    const degraded = usage();
+    const recount = degraded.stages.find((s) => s.stage === 'recount')!;
+    recount.calls = 2;
+    recount.degraded = true;
+    expect(usageViolations(degraded, FAKE_HEALTH, 'price')).toEqual([]);
+    recount.calls = 3;
+    expect(usageViolations(degraded, FAKE_HEALTH, 'price')).toEqual([
+      expect.stringMatching(/^usage.stages recount: fake engines make 1 to 2 free calls/),
+    ]);
+    const judge = usage();
+    judge.stages.find((s) => s.stage === 'judge')!.degraded = true;
+    expect(usageViolations(judge, FAKE_HEALTH, 'price')).toEqual([
+      'usage.stages judge says degraded: true; only the recount can be, and only true',
+    ]);
+  });
+
   it('adds up the calls of a cart read again, on fake engines', () => {
     const again = usage();
     for (const stage of again.stages) if (stage.stage === 'parse' || stage.stage === 'recount') stage.calls = 2;

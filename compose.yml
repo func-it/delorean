@@ -15,8 +15,8 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       PARSE_MODEL: ${PARSE_MODEL:-openai/gpt-6-luna}
       PARSE_EFFORT: ${PARSE_EFFORT:-minimal}
-      RECOUNT_MODEL: ${RECOUNT_MODEL:-deepseek/deepseek-v4.1-flash}
-      RECOUNT_EFFORT: ${RECOUNT_EFFORT:-low}
+      RECOUNT_MODEL: ${RECOUNT_MODEL:-openai/gpt-6-luna}
+      RECOUNT_EFFORT: ${RECOUNT_EFFORT:-none}
       READ_ATTEMPTS: ${READ_ATTEMPTS:-3}
       JEV_MODEL: ${JEV_MODEL:-typesafe/jev-1.13}
       # traces go to the local Langfuse (deploy/langfuse), seen from the container
@@ -40,8 +40,8 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       PARSE_MODEL: ${PARSE_MODEL:-openai/gpt-6-luna}
       PARSE_EFFORT: ${PARSE_EFFORT:-minimal}
-      RECOUNT_MODEL: ${RECOUNT_MODEL:-deepseek/deepseek-v4.1-flash}
-      RECOUNT_EFFORT: ${RECOUNT_EFFORT:-low}
+      RECOUNT_MODEL: ${RECOUNT_MODEL:-openai/gpt-6-luna}
+      RECOUNT_EFFORT: ${RECOUNT_EFFORT:-none}
       READ_ATTEMPTS: ${READ_ATTEMPTS:-3}
       JEV_MODEL: ${JEV_MODEL:-typesafe/jev-1.13}
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
@@ -64,8 +64,8 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       PARSE_MODEL: ${PARSE_MODEL:-openai/gpt-6-luna}
       PARSE_EFFORT: ${PARSE_EFFORT:-minimal}
-      RECOUNT_MODEL: ${RECOUNT_MODEL:-deepseek/deepseek-v4.1-flash}
-      RECOUNT_EFFORT: ${RECOUNT_EFFORT:-low}
+      RECOUNT_MODEL: ${RECOUNT_MODEL:-openai/gpt-6-luna}
+      RECOUNT_EFFORT: ${RECOUNT_EFFORT:-none}
       READ_ATTEMPTS: ${READ_ATTEMPTS:-3}
       JEV_MODEL: ${JEV_MODEL:-typesafe/jev-1.13}
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}

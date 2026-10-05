@@ -108,8 +108,9 @@ export function probes(): Probe[] {
     quote('X-Session-Id twice', cart('Heat'), { 'X-Session-Id': ['a', 'b'] }),
     quote('empty cart', cart('')),
     quote('blank cart', cart(' \n\t ')),
-    quote('too long', cart('Back to the Future '.repeat(600))),
-    quote('one word, 60 KB', cart('a'.repeat(60_000))),
+    // under the body limit (8 KB), over the token limit (256): refused by prepare, not by the HTTP layer
+    quote('too long', cart('Back to the Future '.repeat(100))),
+    quote('one word, 8 KB', cart('a'.repeat(8_000))),
     quote('engine down', cart('Back to the Future 1 #fake:engine_down')),
     quote('unfaithful', cart('Back to the Future 1 #fake:unfaithful')),
     quote('miscount', cart('Back to the Future 1 #fake:miscount')),

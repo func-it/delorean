@@ -32,6 +32,15 @@ describe.runIf(health.engines === 'fake')('fake engines', () => {
     ]);
   });
 
+  it('prices from the parse alone when the recount answers off its schema, retried once, and says so', async () => {
+    const quote = expectQuote(await postQuote(client, 'Back to the Future 1\n2 x La chèvre\n#fake:recount_offschema'));
+    expect(quote.total_cents).toBe(5500);
+    expect(quote.judge.checks.filter((c) => c.check === 'count')).toEqual([]);
+    const recount = quote.usage.stages.find((s) => s.stage === 'recount');
+    expect(recount).toMatchObject({ calls: 2, degraded: true });
+    expect(quote.usage.stages.filter((s) => s.degraded).map((s) => s.stage)).toEqual(['recount']);
+  });
+
   it('reads again a reading the judge refuses, and prices the one it holds', async () => {
     const cart = 'Back to the Future 1\nBack to the Future 2\n#fake:reread';
     const quote = expectQuote(await postQuote(client, cart));

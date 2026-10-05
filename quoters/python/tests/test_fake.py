@@ -71,6 +71,19 @@ async def test_recount_miscounts_the_first_mention() -> None:
     assert (await fake.FakeReader(recount=True).read("#fake:miscount"))[0] == []
 
 
+async def test_recount_off_schema() -> None:
+    text = "Heat\n#fake:recount_offschema"
+    assert await fake.FakeReader().read(text) == ([Mention("Heat", 1)], fake.USAGE), "the parse reads"
+    with pytest.raises(EngineError) as raised:
+        await fake.FakeReader(recount=True).read(text)
+    assert str(raised.value) == "fake recount: engine unavailable: answer off schema (#fake:recount_offschema)"
+    assert raised.value.usage == fake.USAGE, "one call, free"
+    # only a line of its own
+    assert (await fake.FakeReader(recount=True).read("Heat #fake:recount_offschema"))[0] == [
+        Mention("Heat #fake:recount_offschema", 1)
+    ]
+
+
 @pytest.mark.parametrize("recount", [False, True])
 async def test_engine_down(recount: bool) -> None:
     with pytest.raises(EngineError):

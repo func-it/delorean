@@ -246,6 +246,28 @@ describe('the trace of a quote', () => {
     expect(scores()).toMatchObject({ outcome: 'engine_unavailable', attempts: 1 });
   });
 
+  it('marks a degraded recount a warning, not an error, and says so on the root', async () => {
+    const recounter = {
+      read: () =>
+        Promise.reject(new EngineError('answer off schema', { usage: { engine: 'r', calls: 1, costUsd: 0 } })),
+    };
+    const { response } = await post('Heat', { recounter });
+    expect(response.status).toBe(200);
+    const recount = named('recount');
+    expect(attribute(recount, 'langfuse.observation.level')).toBe('WARNING');
+    expect(attribute(recount, 'langfuse.observation.status_message')).toBe('degraded: answer off schema');
+    expect(recount?.status.code).not.toBe(2);
+    expect(attribute(named('quote'), 'langfuse.observation.level')).toBeUndefined();
+    expect(attribute(named('quote'), 'langfuse.trace.metadata.degraded')).toBe('recount');
+    expect(attribute(named('quote'), 'langfuse.trace.metadata.outcome')).toBe('priced');
+  });
+
+  it('says nothing degraded of a quote whose recount did its work', async () => {
+    await post('Heat');
+    expect(attribute(named('quote'), 'langfuse.trace.metadata.degraded')).toBeUndefined();
+    expect(attribute(named('recount'), 'langfuse.observation.level')).toBeUndefined();
+  });
+
   it('has a parse, recount, identify and judge span per attempt, the attempt in their metadata', async () => {
     await post(`Heat\nRonin\n${DIRECTIVE.reread}`);
     const attempts = (name: string) =>

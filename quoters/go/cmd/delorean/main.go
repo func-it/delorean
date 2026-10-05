@@ -132,6 +132,7 @@ func serve() error {
 		GuardMinConfidence: cfg.GuardMinConfidence,
 		JudgeThreshold:     cfg.JudgeThreshold,
 		ReadAttempts:       cfg.ReadAttempts,
+		RecountTimeout:     cfg.RecountTimeout,
 		Prompts: map[string]string{
 			"guard":    live.Version(pipeline.StageGuard),
 			"parse":    live.ParseVersion(cfg.Engines == config.EnginesLive && cfg.Live.ParseIdentifies),

@@ -257,6 +257,40 @@ func TestCreateQuote(t *testing.T) {
 	}
 }
 
+// A recount off its schema does not fail the quote: it is priced on the parse,
+// and its usage says the recount was degraded, after one retry.
+func TestCreateQuoteRecountDegraded(t *testing.T) {
+	h := newServer(t, func(c *Config) { c.Pipeline.RecountTimeout = time.Minute })
+	rec := postCart(t, h, "Back to the Future 1\n"+fake.RecountOffSchema)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	var q Quote
+	if err := json.Unmarshal(rec.Body.Bytes(), &q); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range q.Usage.Stages {
+		if degraded := s.Degraded != nil && *s.Degraded; degraded != (s.Stage == StageUsageStageRecount) {
+			t.Errorf("stage %s: degraded %v", s.Stage, s.Degraded)
+		}
+		if s.Stage == StageUsageStageRecount && s.Calls != 2 {
+			t.Errorf("recount calls = %d, want 2: one retry", s.Calls)
+		}
+	}
+	for _, c := range q.Judge.Checks {
+		if c.Check == JudgeCheckCheckCount {
+			t.Errorf("check %+v: no recount to count against", c)
+		}
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `"stage":"recount","engine":"fake","calls":2,"duration_ms":`) || !strings.Contains(body, `"cost_usd":0,"degraded":true}`) {
+		t.Errorf("body %s: want degraded:true last in the recount stage", body)
+	}
+	if strings.Count(body, `"degraded"`) != 1 {
+		t.Errorf("body %s: degraded only where it is true", body)
+	}
+}
+
 func TestCreateQuoteMalformed(t *testing.T) {
 	tests := []struct {
 		name   string

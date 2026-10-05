@@ -113,6 +113,27 @@ describe('fake recounter', () => {
   it('fails as the parse does', async () => {
     await expect(recounter.read(`Heat\n${DIRECTIVE.engineDown}`, call)).rejects.toBeInstanceOf(EngineError);
   });
+
+  it('answers off its schema at every call on a line that is exactly #fake:recount_offschema, saying what it took', async () => {
+    for (let i = 0; i < 2; i++) {
+      const error = await recounter.read(`Heat\n${DIRECTIVE.recountOffSchema}`, call).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(EngineError);
+      expect((error as EngineError).message).toBe(
+        'fake recount: engine unavailable: answer off schema (#fake:recount_offschema)',
+      );
+      expect((error as EngineError).usage).toEqual(oneFreeCall);
+    }
+  });
+
+  it('reads as usual a line that only holds the directive among other words', async () => {
+    const { mentions } = await recounter.read(`Heat ${DIRECTIVE.recountOffSchema}`, call);
+    expect(mentions).toEqual([{ title: `Heat ${DIRECTIVE.recountOffSchema}`, quantity: 1 }]);
+  });
+
+  it('leaves the parse alone on #fake:recount_offschema', async () => {
+    const { mentions } = await parser.read(`Heat\n${DIRECTIVE.recountOffSchema}`, call);
+    expect(mentions).toEqual([{ title: 'Heat', quantity: 1 }]);
+  });
 });
 
 describe('fake identifier', () => {

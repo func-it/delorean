@@ -1,0 +1,18 @@
+{
+  "id": "recomptage-hors-schema",
+  "note": "Le second lecteur répond hors de son schéma (#fake:recount_offschema), comme DeepSeek l'a fait en production le 2026-10-05 : redemandé une fois parce que l'échec est rapide, il échoue encore, et le devis est chiffré sur la seule lecture du premier, le juge restant le garde-fou ; usage le dit (recount degraded). Garde contre un 502 posé sur l'échec d'un simple second avis.",
+  "tags": [
+    "recomptage",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 1\n#fake:recount_offschema"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 1500,
+    "films": {
+      "bttf_1": 1
+    }
+  }
+}

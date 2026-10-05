@@ -9,8 +9,9 @@ import { llmReader } from './reader.ts';
 
 /**
  * The engines on real models, through OpenRouter: Jev for the guard, the
- * identification and the judge; two LLMs of different families for the
- * parse and the recount.
+ * identification and the judge; an LLM for the parse and the recount
+ * (GPT-6 Luna by default, the recount without reasoning, for speed). Each
+ * model call is bounded by MODEL_TIMEOUT.
  *
  * Two kinds of model, each for what it does well. Jev answers a typed
  * question with calibrated probabilities and never writes prose: it decides.
@@ -25,13 +26,19 @@ export function liveEngines(config: LiveConfig, prompts: Prompts, fetch?: typeof
   // one pool of kept-alive connections per engine: Jev's bursts of a quote's
   // calls, the parse's and the recount's each reuse their own connections
   const [jevAgent, parseAgent, recountAgent] = [new Agent(KEEP_ALIVE), new Agent(KEEP_ALIVE), new Agent(KEEP_ALIVE)];
-  const jev = new Jev({ key, model: config.jevModel, fetch: fetch ?? pooled(jevAgent) } satisfies JevOptions);
+  const jev = new Jev({
+    key,
+    model: config.jevModel,
+    fetch: fetch ?? pooled(jevAgent),
+    timeoutMs: config.modelTimeoutMs,
+  } satisfies JevOptions);
   const parser = llmReader(config.parseIdentifies ? prompts.parseFilms : prompts.parse, {
     key,
     model: config.parseModel,
     effort: config.parseEffort,
     baseURL: config.parseBaseUrl,
     fetch: fetch ?? pooled(parseAgent),
+    timeoutMs: config.modelTimeoutMs,
   });
   const recounter = llmReader(prompts.parse, {
     key,
@@ -39,6 +46,7 @@ export function liveEngines(config: LiveConfig, prompts: Prompts, fetch?: typeof
     effort: config.recountEffort,
     baseURL: config.recountBaseUrl,
     fetch: fetch ?? pooled(recountAgent),
+    timeoutMs: config.modelTimeoutMs,
   });
   const identifier = cachedIdentifier(
     jevIdentifier(jev, prompts.identify),

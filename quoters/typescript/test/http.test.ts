@@ -115,6 +115,19 @@ describe('POST /v1/quotes', () => {
     expect(quote.usage.stages[1]).not.toHaveProperty('tokens');
     expect(quote.usage).not.toHaveProperty('trace_id');
     expect(Date.parse(quote.created_at)).not.toBeNaN();
+    expect(quote.usage.stages.filter((s) => 'degraded' in s)).toEqual([]);
+  });
+
+  it('prices a cart without its recount, and says the recount degraded, last in its stage', async () => {
+    const response = await postCart(newApp(), `2 x Heat\n${DIRECTIVE.recountOffSchema}`);
+    expect(response.status).toBe(200);
+    const quote = (await response.json()) as Quote;
+    expect(quote.total_cents).toBe(4000);
+    expect(quote.judge.checks.filter((c) => c.check === 'count')).toEqual([]);
+    const recount = quote.usage.stages.find((s) => s.stage === 'recount');
+    expect(Object.keys(recount ?? {})).toEqual(['stage', 'engine', 'calls', 'duration_ms', 'cost_usd', 'degraded']);
+    expect(recount).toMatchObject({ engine: 'fake', degraded: true });
+    expect(quote.usage.stages.filter((s) => s.degraded === true).map((s) => s.stage)).toEqual(['recount']);
   });
 
   it.each([

@@ -369,6 +369,24 @@ async def test_live_engines_are_wired_from_the_settings(prompts: Prompts) -> Non
         assert isinstance(engines.judge, JevJudge)
 
 
+async def test_every_model_call_is_bounded_by_model_timeout(prompts: Prompts) -> None:
+    settings = LiveSettings(openrouter_api_key="k", model_timeout=4.5)
+    async with open_live_engines(settings, prompts, NoTracer()) as engines:
+        assert isinstance(engines.parser, LlmReader)
+        assert isinstance(engines.recounter, LlmReader)
+        assert isinstance(engines.guard, JevGuard)
+        for reader in (engines.parser, engines.recounter):
+            assert reader._client.timeout == 4.5, "each LLM call"
+            assert reader._client.max_retries == 0, "no retry in the request path"
+        assert engines.guard._jev._client.timeout == httpx.Timeout(4.5), "each Jev call"
+
+
+async def test_the_recount_is_luna_without_reasoning_by_default(prompts: Prompts) -> None:
+    async with open_live_engines(LiveSettings(openrouter_api_key="k"), prompts, NoTracer()) as engines:
+        assert isinstance(engines.recounter, LlmReader)
+        assert (engines.recounter.model, engines.recounter._effort) == ("openai/gpt-6-luna", "none")
+
+
 def films(answers: dict[str, str]) -> Recorder:
     return Recorder(lambda body: {"film": {"choice": answers[body["state"]["film_title"]], "confidence": 0.9}})
 

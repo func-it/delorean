@@ -13,12 +13,12 @@ browser ──► web (Next.js: UI + BFF, session) ──► quoter (go | python
                                                     ├─ prepare   code     size, tokens
                                                     ├─ guard     Jev      is it an order? does it speak to the system? → valid | injection | invalid
                                                     ├─ parse     LLM      [{title, quantity}]                ┐ in parallel
-                                                    ├─ recount   LLM 2    the same, by another model         ┘
+                                                    ├─ recount   LLM      the same, again: a second opinion  ┘
                                                     ├─ identify  Jev      one title → bttf_1|2|3|other, in parallel
                                                     ├─ judge     Jev+code is the reading faithful? do both readings count the same?
                                                     └─ price     code     integer cents
                                                     │
-                                                    └─► OpenRouter (Jev, GPT-6 Luna, DeepSeek) · traces ► Langfuse
+                                                    └─► OpenRouter (Jev, GPT-6 Luna) · traces ► Langfuse
 ```
 
 - **The BFF** (Next.js route handlers) holds the session (anonymous, started
@@ -103,7 +103,7 @@ after the total crossed the limit. Details: [`web/README.md`](../web/README.md#d
 | 1 | `prepare` | code | `422 empty_cart`, `422 too_long` (> `MAX_INPUT_TOKENS`) |
 | 2 | `guard` | Jev, two `noul` requests in parallel | `422 injection`, `422 invalid_request` |
 | 3 | `parse` | LLM, structured output | `422 no_film` (no film to buy), `422 quantity_too_large` (more than 1000 copies of one film) |
-| 3′ | `recount` | another LLM, same instruction and schema, beside `parse` | — |
+| 3′ | `recount` | a second reader, same instruction and schema, beside `parse` | — (one that fails is left out: degraded) |
 | 4 | `identify` | Jev, one `choice` request per distinct title of both readings, in parallel | — |
 | 5 | `judge` | Jev, one `noul` question per observable fact, in parallel; code compares the two readings; a refused reading is read again, up to 3 readings | `422 unfaithful_reading` |
 | 6 | `price` | code | — |
@@ -132,11 +132,13 @@ any call:
    instruction hidden there would reach the models and no reviewer;
 2. empty or blank → `empty_cart`;
 3. count the tokens with a real BPE tokenizer (`o200k_base`, embedded, no
-   network); above `MAX_INPUT_TOKENS` (default 2048) → `too_long`, with
+   network); above `MAX_INPUT_TOKENS` (default 256) → `too_long`, with
    `tokens.count` and `tokens.max` in the problem.
 
 Jev's tokenizer is not published: `o200k_base` is an estimate, and the margin
-between 2048 and 32k more than covers the difference.
+between 256 and 32k more than covers the difference. 256 is far above a
+real cart (the longest text of the shared cases is 478 bytes) and keeps a
+long text, which costs more and reads worse, from reaching the models.
 
 ### 2. guard: two questions, three verdicts
 
@@ -228,11 +230,11 @@ can be benched. Its effort (`PARSE_EFFORT`, `RECOUNT_EFFORT`) is `none`,
 `minimal`, `low`, `medium` or `high`; with `none` the request carries no
 reasoning field, which a model without reasoning refuses.
 
-### 3′. recount: a second reading, by another model
+### 3′. recount: a second reading
 
-Beside `parse`, in parallel, another model (`RECOUNT_MODEL`, default
-`deepseek/deepseek-v4.1-flash`, of another family than the parser) reads the same text
-with the same instruction and schema. Its titles are identified with the
+Beside `parse`, in parallel, a second reader (`RECOUNT_MODEL` at
+`RECOUNT_EFFORT`, by default `openai/gpt-6-luna` without reasoning) reads the
+same text with the same instruction and schema. Its titles are identified with the
 parser's, then the code compares the two readings film by film (the three
 volumes, and every other film counted together: what the price depends on).
 A disagreement on any of them fails the judge's `count` check.
@@ -245,8 +247,29 @@ fooled by the text. It also closes the gap no question caught: "Retour vers
 le futur 2" and "BTTF 2" read as one copy of volume 2, where the recount
 finds two.
 
-The recount never sets the price: the parser's reading does. A recount that
-fails is an engine failure (`502`), as for any other stage.
+The recount was DeepSeek V4.1 Flash, of another family than the parser: the
+most accurate reader on the bench, but 11 s at p90, and it ran beside the parse,
+so it set a quote's latency. A customer waited 23 s for its answer off schema,
+then a `502`. It is now GPT-6 Luna without reasoning (137 / 138 on the
+`reading` bench, 3.2 s at p90). The price: one model can make the same slip
+in both readings, which then agree; two families would less often.
+
+The recount never sets the price: the parser's reading does. And it is a
+second opinion, not a dependency:
+
+- it has `RECOUNT_TIMEOUT` (6 s), a retry included, besides `MODEL_TIMEOUT`
+  (6 s) on every model call;
+- one that fails (an engine down, an answer off its schema, too slow) is
+  asked once more when its failure came in under half of `RECOUNT_TIMEOUT`
+  (an answer off schema comes fast; a slow model does not get faster), with
+  the time left, blind as ever;
+- one that fails still does not fail the quote: the reading goes on with the
+  parse alone, its titles alone identified, no `count` check, and the judge
+  holds it to the text as always. The stage's usage says `"degraded": true`
+  (its calls, both tries, added up), its span is a `WARNING`, and the trace's
+  metadata `degraded: recount`;
+- only a request that is over (`REQUEST_TIMEOUT`, or the client gone) fails
+  on the recount, as on any stage.
 
 ### 4. identify: one title, one request
 
@@ -367,9 +390,9 @@ wrong reading it refuses two times in three would pass 70 % of the time
   is a safety limit, whichever reading crosses it.
 - On every attempt the order is the same: a parse that fails is a `502`;
   then a reading refusal (`no_film` on the first attempt,
-  `quantity_too_large` on any) wins over a recount that fails; then a
-  recount that fails is a `502`. A later attempt with no film is not a
-  refusal, so a recount failure beside it is a `502`.
+  `quantity_too_large` on any). A recount that fails, on any attempt, is
+  left out of that reading (degraded), never a `502` unless the request is
+  over.
 - Usage adds up over the attempts, stage by stage, real calls only: `parse`
   with 3 calls is a cart read three times; `identify` and `judge` count only
   the calls they made (none for titles already identified or a reading
@@ -379,7 +402,7 @@ wrong reading it refuses two times in three would pass 70 % of the time
 - An engine failure on any attempt is a `502`, as on the first.
 - A `422`'s usage lists every stage that ran, a failed one included (its
   calls, duration and the cost billed so far): a refusal beside a recount
-  that failed still shows the recount.
+  that failed still shows the recount, degraded.
 
 ### 6. price: the calculation
 
@@ -506,7 +529,11 @@ production.
   `quantity_too_large`.
 - **recount**: the same reading as parse; if a line of the text is exactly
   `#fake:miscount`, one more copy of the first mention, so `count` fails for
-  its film.
+  its film; if a line is exactly `#fake:recount_offschema`, it fails at every
+  call as an answer off its schema would (`fake recount: engine unavailable:
+  answer off schema (#fake:recount_offschema)`): asked once more, then left
+  out, the quote priced on the parse alone, the recount `degraded` with 2
+  calls.
 - **identify**: title lowercased, whitespace collapsed; `back to the future`
   followed by `1|2|3|i|ii|iii` (with or without `part `) → `bttf_N`; otherwise
   `other`. Confidence 1.
@@ -607,17 +634,19 @@ end-to-end run on fake engines 24799.
 | `PARSE_EFFORT` | `minimal` | reasoning effort for parse (`minimal` read as well as `low` on the bench, a little faster): `none` (no reasoning field), `minimal`, `low`, `medium`, `high` |
 | `PARSE_BASE_URL` | `https://openrouter.ai/api/v1` | OpenAI-compatible API of the parse (Ollama: `http://localhost:11434/v1`) |
 | `PARSE_IDENTIFIES` | `false` | the parse gives each line its film (`parse-films.json`), and identify skips those titles |
-| `RECOUNT_MODEL` | `deepseek/deepseek-v4.1-flash` | LLM for the recount, of another family than the parser |
-| `RECOUNT_EFFORT` | `low` | reasoning effort for the recount, as `PARSE_EFFORT` |
+| `RECOUNT_MODEL` | `openai/gpt-6-luna` | LLM for the recount |
+| `RECOUNT_EFFORT` | `none` | reasoning effort for the recount, as `PARSE_EFFORT`: none, for speed |
 | `RECOUNT_BASE_URL` | `https://openrouter.ai/api/v1` | OpenAI-compatible API of the recount |
 | `JEV_MODEL` | `typesafe/jev-1.13` | Jev, pinned version |
-| `MAX_BODY_BYTES` | `65536` | maximum HTTP body size |
-| `MAX_INPUT_TOKENS` | `2048` | maximum cart size, in tokens |
+| `MAX_BODY_BYTES` | `8192` | maximum HTTP body size |
+| `MAX_INPUT_TOKENS` | `256` | maximum cart size, in tokens |
 | `GUARD_MIN_CONFIDENCE` | `0.5` | minimum confidence for a `valid` |
 | `JUDGE_THRESHOLD` | `0.5` | lowest judge score accepted |
 | `READ_ATTEMPTS` | `3` | most readings of one cart before `unfaithful_reading` |
 | `IDENTIFY_CACHE_SIZE` | `10000` | titles whose film is kept in memory; 0 turns the cache off |
-| `REQUEST_TIMEOUT` | `30s` | time budget for one request, calls included |
+| `MODEL_TIMEOUT` | `6s` | longest one model call may take, Jev's and the LLMs'; past it the call fails as an engine does |
+| `RECOUNT_TIMEOUT` | `6s` | time the recount has, its retry included, before the quote goes on without it |
+| `REQUEST_TIMEOUT` | `15s` | time budget for one request, calls included |
 | `FAKE_LATENCY` | `off` | `real`: the fake engines take a model's time ([Fake latency](#fake-latency-fake_latency-fake_cpu_ms)) |
 | `FAKE_CPU_MS` | `0` | milliseconds of busy CPU per fake call |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` | — | traces, when set (local Langfuse: `task langfuse:up`, http://localhost:24794) |
@@ -725,8 +754,10 @@ tasks: `setup`, `generate`, `lint`, `format`, `test`, `run`, `run:fake`,
 - A failed span is level `ERROR`, with its status message and an
   `exception` event of the same message: a stage carries its engine's error
   (`fake engine unavailable (#fake:engine_down)`), the root the quote's
-  (`parse: …`, as the log's `err`). Both readers open their spans, the
-  recount failing on its own too. A cancelled request is not an error.
+  (`parse: …`, as the log's `err`). Both readers open their spans. A recount
+  left out is a `WARNING`, its status message `degraded: <error>`, its
+  `exception` event kept, and the root gets `degraded: recount` in its
+  metadata: the quote did not fail. A cancelled request is not an error.
 - A score goes in an ingestion event whose `id` is the score's own
   (`<traceId>-<name>`), so that a batch sent again is not counted twice; its
   `timestamp` is UTC with milliseconds.

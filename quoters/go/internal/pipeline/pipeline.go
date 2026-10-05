@@ -32,6 +32,11 @@ type Pipeline struct {
 	// ReadAttempts is the most readings of one cart, the first included,
 	// before it is refused as unfaithful; below 1, one.
 	ReadAttempts int
+	// RecountTimeout is the time the recount has, a retry included: past it
+	// the reading goes on without the recount (degraded). It is tried a
+	// second time when the first failed in under half of it. 0 gives it the
+	// request's whole budget and no retry.
+	RecountTimeout time.Duration
 	// Prompts are the versions of the prompts the engines read, by file
 	// (guard, parse, identify, judge), for the trace.
 	Prompts map[string]string
@@ -63,6 +68,8 @@ type Measures struct {
 	Attempts int
 	// Outcome is "priced", or the problem's code.
 	Outcome string
+	// Degraded: a stage failed and the quote went on without it (the recount).
+	Degraded bool
 }
 
 // Quote is a cart read, held faithful by the judge, and priced.
@@ -109,7 +116,8 @@ func (p *Pipeline) Quote(ctx context.Context, req Request) (Quote, error) {
 	case err == nil:
 		q.Report = report
 	}
-	m := Measures{TraceID: report.TraceID, CostUSD: report.CostUSD, Ms: report.Ms, Attempts: r.attempts, Outcome: outcome(err)}
+	m := Measures{TraceID: report.TraceID, CostUSD: report.CostUSD, Ms: report.Ms, Attempts: r.attempts, Outcome: outcome(err),
+		Degraded: slices.ContainsFunc(report.Stages, func(u Usage) bool { return u.Degraded })}
 	out := ""
 	if req.Answer != nil {
 		out = req.Answer(q, err)
@@ -171,6 +179,7 @@ func (r *run) account(us ...Usage) {
 		s.Calls += u.Calls
 		s.Ms += u.Ms
 		s.CostUSD += u.CostUSD
+		s.Degraded = s.Degraded || u.Degraded
 	}
 }
 
@@ -186,7 +195,7 @@ func timed(ctx context.Context, s Stage, attempt int) (_ context.Context, done f
 		if u.Ms == 0 {
 			u.Ms = time.Since(start).Milliseconds()
 		}
-		endStage(span, out, err)
+		endStage(span, out, err, u.Degraded)
 		return u
 	}
 }

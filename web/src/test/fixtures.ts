@@ -12,7 +12,7 @@ export const catalog: Catalog = {
     { distinct_volumes: 3, percent: 20 },
     { distinct_volumes: 2, percent: 10 },
   ],
-  limits: { max_body_bytes: 65536, max_input_tokens: 2048, max_copies_per_title: 1000, max_reading_attempts: 3 },
+  limits: { max_body_bytes: 8192, max_input_tokens: 256, max_copies_per_title: 1000, max_reading_attempts: 3 },
 };
 
 /** Example 5 of the brief, read with one doubtful identification. */

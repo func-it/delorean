@@ -10,7 +10,9 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"go.opentelemetry.io/otel/codes"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -403,10 +405,6 @@ func TestQuoteEngineFailures(t *testing.T) {
 				return v, pipeline.Usage{}, nil
 			})
 		}, "Heat"},
-		{"a recount down", func(p *pipeline.Pipeline) { p.Engines.Recounter = parserFails(errDown) }, "Heat"},
-		{"a recount quantity of 0", func(p *pipeline.Pipeline) {
-			p.Engines.Recounter = parserReads(cart.Mention{Title: "Heat", Quantity: 0})
-		}, "Heat"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -426,9 +424,9 @@ func parserFails(err error) pipeline.Parser {
 	})
 }
 
-// The parse decides first: its failure, then its refusal, then the
-// recount's failure. A refusal waits for the recount and reports both; a
-// failure of the parse cancels the recount.
+// The parse decides first: its failure, then its refusal. A refusal waits
+// for the recount and reports both; a failure of the parse cancels the
+// recount. The recount's own failure decides nothing (TestQuoteDegrades).
 func TestQuoteParseDecidesBeforeTheRecount(t *testing.T) {
 	recountWaits := parserFunc(func(ctx context.Context, _ string, _ *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
 		<-ctx.Done()
@@ -446,15 +444,9 @@ func TestQuoteParseDecidesBeforeTheRecount(t *testing.T) {
 		_, err = newPipeline(t, func(p *pipeline.Pipeline) { p.Engines.Recounter = parserFails(errDown) }).
 			Quote(t.Context(), pipeline.Request{Cart: cart})
 		rej := rejection(t, err)
-		if n := len(rej.Report.Stages); n != 4 || rej.Report.Stages[3] != (pipeline.Usage{Stage: pipeline.StageRecount, Engine: "down", Calls: 1, Ms: rej.Report.Stages[3].Ms}) {
+		if n := len(rej.Report.Stages); n != 4 || rej.Report.Stages[3] != (pipeline.Usage{Stage: pipeline.StageRecount, Engine: "down", Calls: 1, Ms: rej.Report.Stages[3].Ms, Degraded: true}) {
 			t.Errorf("%s: stages %+v, want the recount's usage last", name, rej.Report.Stages)
 		}
-	}
-
-	_, err = newPipeline(t, func(p *pipeline.Pipeline) { p.Engines.Recounter = parserFails(errDown) }).
-		Quote(t.Context(), pipeline.Request{Cart: "Heat"})
-	if !errors.Is(err, errDown) || !strings.HasPrefix(err.Error(), "recount: ") {
-		t.Errorf("err = %v, want the recount's failure", err)
 	}
 }
 
@@ -1002,8 +994,8 @@ func TestQuoteLaterAttempts(t *testing.T) {
 		t.Errorf("calls %v: a reading with no film is neither identified nor judged", got)
 	}
 
-	// too many copies refuse the cart on a later attempt too, before a
-	// recount that fails beside them
+	// too many copies refuse the cart on a later attempt too, whatever the
+	// recount beside them
 	parser, _ = later([]cart.Mention{{Title: "Heat", Quantity: 1001}}, nil)
 	recount := 0
 	_, err = newPipeline(t, func(p *pipeline.Pipeline) {
@@ -1030,8 +1022,10 @@ func TestQuoteLaterAttempts(t *testing.T) {
 			return fake.Recounter{}.Parse(ctx, text, again)
 		})
 	}).Quote(t.Context(), pipeline.Request{Cart: "Heat\nLa chèvre"})
-	if !errors.Is(err, errDown) || !strings.HasPrefix(err.Error(), "recount: ") {
-		t.Errorf("err = %v, want the recount's failure on the second attempt", err)
+	// a recount that fails on a later attempt degrades it, and fails nothing
+	rej = rejection(t, err)
+	if i := slices.IndexFunc(rej.Report.Stages, func(u pipeline.Usage) bool { return u.Stage == pipeline.StageRecount }); rej.Code != pipeline.CodeUnfaithfulReading || i < 0 || !rej.Report.Stages[i].Degraded {
+		t.Errorf("rejection %s, stages %+v, want unfaithful_reading, the recount degraded", rej.Code, rej.Report.Stages)
 	}
 }
 
@@ -1127,5 +1121,233 @@ func TestStageOutputs(t *testing.T) {
 	refused := outputs("1001 x Heat")
 	if got := refused["parse"]; !strings.Contains(got, `"quantity":1001`) || strings.Contains(got, "quantity_too_large") {
 		t.Errorf("parse output = %s, want the reading, not the refusal", got)
+	}
+}
+
+// The recount is a second opinion: one that fails, answers off its schema or
+// is too slow does not fail the quote. It goes on with the parse alone — no
+// count check, the judge still holds the reading — and says so.
+func TestQuoteDegrades(t *testing.T) {
+	tests := []struct {
+		name      string
+		recounter pipeline.Parser
+	}{
+		{"a recount down", parserFails(errDown)},
+		{"a recount quantity of 0", parserReads(cart.Mention{Title: "Heat", Quantity: 0})},
+		{"a recount without title", parserReads(cart.Mention{Title: " ", Quantity: 1})},
+		{"a recount off schema", fake.New().Recounter},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			q, err := newPipeline(t, func(p *pipeline.Pipeline) { p.Engines.Recounter = tt.recounter }).
+				Quote(t.Context(), pipeline.Request{Cart: "2 x Heat\n" + fake.RecountOffSchema})
+			if err != nil {
+				t.Fatalf("err = %v, want a quote", err)
+			}
+			if q.Price.TotalCents != 4000 {
+				t.Errorf("total = %d, want 4000, priced on the parse", q.Price.TotalCents)
+			}
+			for _, f := range q.Judgement.Findings {
+				if f.Check == pipeline.CheckCount {
+					t.Errorf("finding %+v: nothing to count against", f)
+				}
+			}
+			var names []pipeline.Stage
+			for _, s := range q.Report.Stages {
+				names = append(names, s.Stage)
+				if s.Degraded != (s.Stage == pipeline.StageRecount) {
+					t.Errorf("stage %s degraded = %v", s.Stage, s.Degraded)
+				}
+			}
+			if want := []pipeline.Stage{"prepare", "guard", "parse", "recount", "identify", "judge", "price"}; !slices.Equal(names, want) {
+				t.Errorf("stages = %v, want %v", names, want)
+			}
+		})
+	}
+}
+
+// Without the recount the judge is the guard: a reading it refuses is still
+// refused, after every reading.
+func TestQuoteDegradedStillJudged(t *testing.T) {
+	_, err := newPipeline(t, func(p *pipeline.Pipeline) { p.Engines.Recounter = parserFails(errDown) }).
+		Quote(t.Context(), pipeline.Request{Cart: "Heat\n" + fake.Unfaithful})
+	if rej := rejection(t, err); rej.Code != pipeline.CodeUnfaithfulReading || rej.Judgement.Attempts != 3 {
+		t.Errorf("rejection %+v, want unfaithful_reading after 3 readings", rej)
+	}
+}
+
+// A recount that fails fast is asked once more; one that comes back right the
+// second time is a recount like any other. Still wrong, it is not asked a
+// third time.
+func TestQuoteRetriesTheRecountOnce(t *testing.T) {
+	var calls atomic.Int32
+	flaky := parserFunc(func(context.Context, string, *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
+		if calls.Add(1) == 1 {
+			return nil, pipeline.Usage{Engine: "flaky", Calls: 1, CostUSD: 0.5}, fmt.Errorf("recount: %w: answer off schema", pipeline.ErrEngine)
+		}
+		return []cart.Mention{{Title: "Heat", Quantity: 2}}, pipeline.Usage{Engine: "flaky", Calls: 1, CostUSD: 0.5}, nil
+	})
+	q, err := newPipeline(t, func(p *pipeline.Pipeline) {
+		p.Engines.Recounter = flaky
+		p.RecountTimeout = time.Minute
+	}).Quote(t.Context(), pipeline.Request{Cart: "2 x Heat"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recount := q.Report.Stages[3]
+	if recount.Stage != pipeline.StageRecount || recount.Calls != 2 || recount.CostUSD != 1 || recount.Degraded {
+		t.Errorf("recount usage %+v, want 2 calls, 1.0 USD, not degraded", recount)
+	}
+	if !slices.ContainsFunc(q.Judgement.Findings, func(f pipeline.Finding) bool { return f.Check == pipeline.CheckCount && f.Score == 1 }) {
+		t.Errorf("findings %+v, want a count check", q.Judgement.Findings)
+	}
+
+	var failures atomic.Int32
+	q, err = newPipeline(t, func(p *pipeline.Pipeline) {
+		p.Engines.Recounter = parserFunc(func(context.Context, string, *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
+			failures.Add(1)
+			return nil, pipeline.Usage{Engine: "down", Calls: 1}, errDown
+		})
+		p.RecountTimeout = time.Minute
+	}).Quote(t.Context(), pipeline.Request{Cart: "2 x Heat"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recount := q.Report.Stages[3]; recount.Calls != 2 || !recount.Degraded || failures.Load() != 2 {
+		t.Errorf("recount usage %+v after %d calls, want 2 calls, degraded", recount, failures.Load())
+	}
+}
+
+// A recount that fails slowly is not asked again — a slow model does not get
+// faster — and one that does not answer is cut at RecountTimeout: the quote
+// goes on in the time of the parse and that, not the request's.
+func TestQuoteRecountTimeBounded(t *testing.T) {
+	var calls atomic.Int32
+	slowFail := parserFunc(func(context.Context, string, *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
+		calls.Add(1)
+		time.Sleep(60 * time.Millisecond)
+		return nil, pipeline.Usage{Engine: "slow", Calls: 1}, fmt.Errorf("recount: %w: answer off schema", pipeline.ErrEngine)
+	})
+	q, err := newPipeline(t, func(p *pipeline.Pipeline) {
+		p.Engines.Recounter = slowFail
+		p.RecountTimeout = 100 * time.Millisecond
+	}).Quote(t.Context(), pipeline.Request{Cart: "Heat"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := calls.Load(); n != 1 || !q.Report.Stages[3].Degraded {
+		t.Errorf("%d calls, usage %+v, want 1 call, degraded: a failure past half the time is not retried", n, q.Report.Stages[3])
+	}
+
+	hangs := parserFunc(func(ctx context.Context, _ string, _ *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
+		<-ctx.Done()
+		return nil, pipeline.Usage{Engine: "hung", Calls: 1}, fmt.Errorf("recount: %w: %w", pipeline.ErrEngine, ctx.Err())
+	})
+	start := time.Now()
+	q, err = newPipeline(t, func(p *pipeline.Pipeline) {
+		p.Engines.Recounter = hangs
+		p.RecountTimeout = 80 * time.Millisecond
+	}).Quote(t.Context(), pipeline.Request{Cart: "Heat"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if took := time.Since(start); took > 2*time.Second || !q.Report.Stages[3].Degraded || q.Report.Stages[3].Calls != 1 {
+		t.Errorf("took %v, usage %+v, want one call, degraded at the recount's timeout", took, q.Report.Stages[3])
+	}
+}
+
+// Only a request that is over fails on the recount.
+func TestQuoteDeadlineFailsOnTheRecount(t *testing.T) {
+	p := newPipeline(t, func(p *pipeline.Pipeline) {
+		p.Engines.Recounter = parserFunc(func(ctx context.Context, _ string, _ *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
+			<-ctx.Done()
+			return nil, pipeline.Usage{Engine: "hung", Calls: 1}, ctx.Err()
+		})
+		p.RecountTimeout = time.Minute
+	})
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer cancel()
+	_, err := p.Quote(ctx, pipeline.Request{Cart: "Heat"})
+	if !errors.Is(err, pipeline.ErrEngine) || !errors.Is(err, context.DeadlineExceeded) || !strings.HasPrefix(err.Error(), "recount: ") {
+		t.Errorf("err = %v, want the recount's ErrEngine for the request's deadline", err)
+	}
+}
+
+// A degraded recount is a warning in the trace, not an error, and the quote
+// says so on its root.
+func TestQuoteTraceDegraded(t *testing.T) {
+	spans := recordSpans(t)
+	var measured []pipeline.Measures
+	p := newPipeline(t, func(p *pipeline.Pipeline) {
+		p.Engines.Recounter = parserFails(errDown)
+		p.Measured = func(m pipeline.Measures) { measured = append(measured, m) }
+	})
+	if _, err := p.Quote(t.Context(), pipeline.Request{Cart: "Heat"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range spans.Ended() {
+		attrs := map[string]string{}
+		for _, kv := range s.Attributes() {
+			attrs[string(kv.Key)] = kv.Value.String()
+		}
+		switch s.Name() {
+		case "recount":
+			if s.Status().Code == codes.Error || attrs["langfuse.observation.level"] != "WARNING" ||
+				!strings.HasPrefix(attrs["langfuse.observation.status_message"], "degraded: ") {
+				t.Errorf("recount span: status %v, attributes %v, want a warning", s.Status(), attrs)
+			}
+		case "quote":
+			if attrs["langfuse.trace.metadata.degraded"] != "recount" || attrs["langfuse.trace.metadata.outcome"] != "priced" {
+				t.Errorf("quote span attributes %v, want degraded: recount, priced", attrs)
+			}
+		default:
+			if s.Status().Code == codes.Error {
+				t.Errorf("span %s is an error", s.Name())
+			}
+		}
+	}
+	if len(measured) != 1 || !measured[0].Degraded {
+		t.Errorf("measured %+v, want degraded", measured)
+	}
+}
+
+// A recount that fails beside a parse that fails is not degraded: the quote
+// fails on the parse, whichever ended first.
+func TestQuoteParseFailureIsNoDegradedRecount(t *testing.T) {
+	for range 20 {
+		_, err := newPipeline(t, nil).Quote(t.Context(), pipeline.Request{Cart: "Heat\n" + fake.EngineDown})
+		if !errors.Is(err, pipeline.ErrEngine) || !strings.HasPrefix(err.Error(), "parse: ") {
+			t.Fatalf("err = %v, want the parse's failure", err)
+		}
+	}
+	spans := recordSpans(t)
+	if _, err := newPipeline(t, nil).Quote(t.Context(), pipeline.Request{Cart: "Heat\n" + fake.EngineDown}); err == nil {
+		t.Fatal("no error")
+	}
+	for _, s := range spans.Ended() {
+		for _, kv := range s.Attributes() {
+			if s.Name() == "recount" && string(kv.Key) == "langfuse.observation.level" && kv.Value.String() == "WARNING" {
+				t.Errorf("recount span is a degraded warning beside a parse that failed")
+			}
+		}
+	}
+}
+
+// Degraded, identify is told no recount: its output says so.
+func TestQuoteTraceDegradedIdentify(t *testing.T) {
+	spans := recordSpans(t)
+	if _, err := newPipeline(t, func(p *pipeline.Pipeline) { p.Engines.Recounter = parserFails(errDown) }).
+		Quote(t.Context(), pipeline.Request{Cart: "Heat"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range spans.Ended() {
+		if s.Name() != "identify" {
+			continue
+		}
+		for _, kv := range s.Attributes() {
+			if string(kv.Key) == "langfuse.observation.output" && !strings.HasSuffix(kv.Value.String(), `,"recount":null}`) {
+				t.Errorf("identify output %s, want recount null", kv.Value.String())
+			}
+		}
 	}
 }

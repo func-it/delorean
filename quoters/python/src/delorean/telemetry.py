@@ -52,6 +52,11 @@ class Observation(Protocol):
 
     def fail(self, error: BaseException) -> None: ...
 
+    def warn(self, error: BaseException) -> None:
+        """A failure that did not fail the quote (a degraded stage): level
+        WARNING, not ERROR."""
+        ...
+
 
 class Generation(Observation, Protocol):
     """One model call."""
@@ -122,6 +127,9 @@ class _Nothing:
         pass
 
     def fail(self, error: BaseException) -> None:
+        pass
+
+    def warn(self, error: BaseException) -> None:
         pass
 
     def usage(self, *, input_tokens: int, output_tokens: int, cost_usd: float) -> None:
@@ -208,6 +216,14 @@ class _Recorded:
         exception event that carries it too."""
         message = str(error) or type(error).__name__
         self._observed.update(level="ERROR", status_message=message)
+        self._span.record_exception(error, attributes={"exception.message": message})
+
+    def warn(self, error: BaseException) -> None:
+        """Level WARNING, `degraded: ` and the error's message as the status
+        message, and the exception event: the stage failed, the quote did
+        not."""
+        message = str(error) or type(error).__name__
+        self._observed.update(level="WARNING", status_message=f"degraded: {message}")
         self._span.record_exception(error, attributes={"exception.message": message})
 
     def usage(self, *, input_tokens: int, output_tokens: int, cost_usd: float) -> None:

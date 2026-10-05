@@ -107,6 +107,7 @@ function usage(r: Report, { engines, traceId }: Context): Usage {
       duration_ms: s.ms,
       cost_usd: s.costUsd,
       ...(s.stage === 'prepare' && { tokens: s.tokens ?? 0 }),
+      ...(s.degraded === true && { degraded: true }),
     })),
   };
 }

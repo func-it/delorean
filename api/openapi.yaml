@@ -19,6 +19,9 @@ info:
     reading by another model) → `identify` (each distinct title of both) →
     `judge` (is the reading faithful to the text? do both readings count the
     same copies of each film?) → `price`.
+    The recount is a second opinion: one that fails, answers off its schema or
+    is too slow (retried once when it failed fast) does not fail the quote,
+    which goes on with the parse alone and says so (`usage.stages[].degraded`).
     Any stage may reject the cart with a `422` problem that says which and why.
 
     Amounts are integer cents. Errors are RFC 9457 problems
@@ -212,8 +215,8 @@ components:
                 title: Cart rejected
                 status: 422
                 code: too_long
-                detail: The cart counts 3120 tokens, the limit is 2048.
-                tokens: { count: 3120, max: 2048 }
+                detail: The cart counts 412 tokens, the limit is 256.
+                tokens: { count: 412, max: 256 }
     Internal:
       description: An unexpected failure.
       headers:
@@ -475,6 +478,14 @@ components:
           type: integer
           minimum: 0
           description: Input tokens counted (prepare).
+        degraded:
+          type: boolean
+          description: >-
+            The stage failed (an engine down, an answer off its schema, too
+            slow) and the quote was made without it. Only `recount` can be
+            degraded: it is a second opinion, and the judge is still the
+            guard. Absent when the stage did its work; true once, over the
+            readings, when it did not.
 
     Problem:
       type: object

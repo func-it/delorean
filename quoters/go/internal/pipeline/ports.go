@@ -44,6 +44,9 @@ type Usage struct {
 	CostUSD float64
 	// Tokens is the input the prepare stage counted.
 	Tokens int
+	// Degraded: the stage failed and the quote went on without it. Only the
+	// recount can: it is a second opinion, and the judge is still the guard.
+	Degraded bool
 }
 
 // Verdict is the guard's reading of a request.

@@ -164,6 +164,22 @@ func TestRecounter(t *testing.T) {
 	}
 }
 
+// A RecountOffSchema line makes the recount answer off its schema, at every
+// call; the parse reads on, as if the line were not there.
+func TestRecounterOffSchema(t *testing.T) {
+	text := "Heat\n" + RecountOffSchema
+	for range 2 {
+		_, u, err := Recounter{}.Parse(t.Context(), text, nil)
+		if !errors.Is(err, pipeline.ErrEngine) || err.Error() != "fake recount: engine unavailable: answer off schema (#fake:recount_offschema)" {
+			t.Errorf("err = %v, want the recount off schema", err)
+		}
+		checkUsage(t, u)
+	}
+	if got, _, err := (Parser{}).Parse(t.Context(), text, nil); err != nil || !reflect.DeepEqual(got, []cart.Mention{{Title: "Heat", Quantity: 1}}) {
+		t.Errorf("Parse = %+v, %v; want Heat alone", got, err)
+	}
+}
+
 func TestIdentifier(t *testing.T) {
 	tests := []struct {
 		title string
