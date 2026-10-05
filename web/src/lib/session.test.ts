@@ -1,16 +1,10 @@
-import { redirect } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fakeCookieStore } from "@/test/cookies";
 
-import { createSession, destroySession, getSession, isValidUsername, requireSession } from "./session";
+import { createSession, ensureSession, getSession, isValidUsername } from "./session";
 
 vi.mock("next/headers", () => ({ cookies: vi.fn() }));
-vi.mock("next/navigation", () => ({
-  redirect: vi.fn(() => {
-    throw new Error("NEXT_REDIRECT");
-  }),
-}));
 
 const SECRET = "a-test-secret-that-is-long-enough-to-seal";
 
@@ -88,19 +82,23 @@ describe("session cookie", () => {
     expect(await getSession()).toBeNull();
   });
 
-  it("ends the session on destroy", async () => {
-    await createSession("marty");
-    await destroySession();
-    expect(await getSession()).toBeNull();
+  it("starts an anonymous session with a generated name when there is none, and keeps it after", async () => {
+    const started = await ensureSession();
+
+    expect(started.username).toMatch(/^visiteur-[0-9a-f]{8}$/);
+    expect(isValidUsername(started.username)).toBe(true);
+    expect(await getSession()).toEqual(started);
+    expect(await ensureSession()).toEqual(started);
+  });
+
+  it("keeps a session that already has a name", async () => {
+    const marty = await createSession("marty");
+
+    expect(await ensureSession()).toEqual(marty);
   });
 
   it("refuses an invalid username", async () => {
     await expect(createSession("marty mcfly")).rejects.toThrow("Invalid username");
-  });
-
-  it("redirects to the login page when a page requires a session", async () => {
-    await expect(requireSession()).rejects.toThrow("NEXT_REDIRECT");
-    expect(redirect).toHaveBeenCalledWith("/login");
   });
 });
 

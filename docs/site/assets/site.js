@@ -7,7 +7,7 @@ import { marked } from "../vendor/marked.esm.js";
 // a no-cors request, so its content stays unreadable but its arrival proves
 // the service is up.
 const SERVICES = [
-  { name: "Web app", detail: "UI and BFF · :24790", url: "http://localhost:24790", probe: "http://localhost:24790/login" },
+  { name: "Web app", detail: "UI and BFF · :24790", url: "http://localhost:24790", probe: "http://localhost:24790/" },
   { name: "Go quoter", detail: "/healthz · :24791", url: "http://localhost:24791/healthz", probe: "http://localhost:24791/healthz" },
   { name: "TypeScript quoter", detail: "/healthz · :24793", url: "http://localhost:24793/healthz", probe: "http://localhost:24793/healthz" },
   { name: "Python quoter", detail: "/healthz · :24792", url: "http://localhost:24792/healthz", probe: "http://localhost:24792/healthz" },

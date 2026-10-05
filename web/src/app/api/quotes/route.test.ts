@@ -93,15 +93,18 @@ describe("POST /api/quotes", () => {
     expect(await response.json()).toEqual(body);
   });
 
-  it("requires a session", async () => {
-    fakeCookieStore();
+  it("starts an anonymous session for a visitor without one, and keeps it", async () => {
+    const store = fakeCookieStore();
     const quoter = stubQuoter(async () => Response.json(quote));
 
-    const response = await postQuote({ cart: "Back to the Future 1" });
+    expect((await postQuote({ cart: "Back to the Future 1" })).status).toBe(200);
+    expect((await postQuote({ cart: "Back to the Future 1" })).status).toBe(200);
 
-    expect(response.status).toBe(401);
-    expect(await response.json()).toMatchObject({ code: "no_session", status: 401 });
-    expect(quoter).not.toHaveBeenCalled();
+    const [first, second] = quoter.mock.calls.map(([request]) => request.headers);
+    expect(first.get("X-User-Id")).toMatch(/^visiteur-[0-9a-f]{8}$/);
+    expect(first.get("X-Session-Id")).toMatch(UUID);
+    expect(second.get("X-Session-Id")).toBe(first.get("X-Session-Id"));
+    expect(store.values.has("delorean_session")).toBe(true);
   });
 
   it.each(["typescript", "http://169.254.169.254/latest/meta-data"])(

@@ -3,7 +3,7 @@ import { resolveQuoter } from "@/lib/quoters";
 import { problemJson, problemResponse, relay } from "@/lib/bff";
 import { clientIp } from "@/lib/client-ip";
 import { isProblem, type Problem } from "@/lib/contract";
-import { getSession, type Session } from "@/lib/session";
+import { ensureSession, type Session } from "@/lib/session";
 import { cartDigest, type StrikeKey, strikeKeys, strikeLimits, type StrikeStore, strikeStore } from "@/lib/strikes";
 
 interface QuoteBody {
@@ -14,7 +14,7 @@ interface QuoteBody {
 
 /**
  * Prices a cart: forwards `{ cart }` to the quoter's `POST /v1/quotes` with
- * the session identity, and relays the answer (a Quote, or a Problem the UI
+ * the session identity (an anonymous session is started when the visitor has none), and relays the answer (a Quote, or a Problem the UI
  * explains).
  *
  * The strike rule (lib/strikes.ts) comes first: a session or a username with
@@ -32,8 +32,7 @@ interface QuoteBody {
 export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
 
-  const session = await getSession();
-  if (!session) return problemResponse(401, "no_session", "Log in before pricing a cart.", requestId);
+  const session = await ensureSession();
 
   const strikes = strikeStore();
   const keys = strikeKeys(session, clientIp(request.headers), strikeLimits());

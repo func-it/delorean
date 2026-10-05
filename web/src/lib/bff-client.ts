@@ -1,4 +1,4 @@
-import { type Catalog, isProblem, type Problem, type ProblemCode, type Quote } from "@/lib/contract";
+import { isProblem, type Problem, type ProblemCode, type Quote } from "@/lib/contract";
 
 /** What the browser gets from the BFF: the payload, or a problem to explain. */
 export type BffResult<T> = { ok: true; data: T } | { ok: false; problem: Problem };
@@ -11,16 +11,11 @@ export function requestQuote(cart: string, quoter: string): Promise<BffResult<Qu
   });
 }
 
-export function requestCatalog(quoter: string, signal: AbortSignal): Promise<BffResult<Catalog>> {
-  return callBff(`/api/catalog?${new URLSearchParams({ quoter })}`, { signal });
-}
-
 async function callBff<T>(path: string, init: RequestInit): Promise<BffResult<T>> {
   let response: Response;
   try {
     response = await fetch(path, init);
-  } catch (error) {
-    if (init.signal?.aborted) throw error;
+  } catch {
     // The BFF itself is out of reach (offline, server restarting): same advice as a silent quoter.
     return { ok: false, problem: localProblem("quoter_unavailable", 0) };
   }

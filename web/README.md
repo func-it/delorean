@@ -1,6 +1,9 @@
 # web: the interface and the BFF
 
-Next.js (App Router): the page where you write your cart, and the BFF (route
+Next.js (App Router): one page where you write your cart and read the price
+(a title, a text area, a button; the total, the lines and the saga discount;
+one sentence for a refusal; the reading, the judge and the cost behind a
+discreet « détails »; the price rules in one line in the footer), and the BFF (route
 handlers) that holds the session, hides the quoter URLs from the browser and
 forwards `X-User-Id`, `X-Session-Id` and `X-Request-Id`. See
 [`docs/architecture.md`](../docs/architecture.md).
@@ -28,7 +31,7 @@ docker run -p 24790:24790 -e SESSION_SECRET=… -e QUOTER_URL=http://go:24791 de
 | Variable | Default | Purpose |
 |---|---|---|
 | `SESSION_SECRET` | development secret, with a warning | seals the session cookie; at least 32 characters, **required in production** |
-| `QUOTERS` | — | quoters as JSON, name → URL: `{"go":"http://localhost:24791","python":"http://localhost:24792"}`; the first one is the default; with two or more, the header shows a selector |
+| `QUOTERS` | — | quoters as JSON, name → URL: `{"go":"http://localhost:24791","python":"http://localhost:24792"}`; the first one is the default; the page uses it, or the one named by `?quoter=python` in the URL (no selector on screen) |
 | `QUOTER_URL` | `http://localhost:24791` | a single quoter, when `QUOTERS` is not set |
 | `SESSION_COOKIE_SECURE` | `true` in production | `false` when the app is served over plain HTTP (`docker compose` locally): some browsers reject a `Secure` cookie received over HTTP, even from localhost |
 | `QUOTER_TIMEOUT_MS` | `35000` | maximum wait for a quoter (a little more than its 30 s) |
@@ -57,8 +60,10 @@ by URL.
 
 ## Session
 
-**Identification, not authentication**: a username, without a password, used
-to group traces by user and by visit. The cookie (`httpOnly`, `SameSite=Lax`,
+**Identification, not authentication**: no login page. The first quote of a
+visitor starts an anonymous session with a generated name
+(`visiteur-1a2b3c4d`), used to group traces by visit and to key the
+[strike rule](#strike-rule) and the budget. The cookie (`httpOnly`, `SameSite=Lax`,
 `Secure` in production) is encrypted and signed by iron-session; it contains
 `{username, sessionId, createdAt}`.
 
@@ -66,13 +71,12 @@ to group traces by user and by visit. The cookie (`httpOnly`, `SameSite=Lax`,
 
 | Route | Quoter | Notes |
 |---|---|---|
-| `POST /api/quotes` | `POST /v1/quotes` | body `{cart, quoter?}`; the quoter's status and JSON are passed through unchanged, after the [strike rule](#strike-rule) |
-| `GET /api/catalog?quoter=` | `GET /v1/catalog` | revalidated every 60 s |
+| `POST /api/quotes` | `POST /v1/quotes` | starts the anonymous session if there is none; body `{cart, quoter?}`; the quoter's status and JSON are passed through unchanged, after the [strike rule](#strike-rule) |
+| `GET /api/catalog?quoter=` | `GET /v1/catalog` | revalidated every 60 s; no session needed; the page no longer calls it |
 
 On top of the contract's codes, the BFF adds its own, in the same format
 (RFC 9457):
 
-- `no_session` (401): no valid session;
 - `too_many_refusals` (429): the session, the username or the client address
   is blocked by the strike rule; `Retry-After` and `retry_after_s` say for how
   many more seconds;
@@ -109,19 +113,19 @@ costs model calls. So the BFF limits the tries (`src/lib/strikes.ts`):
   released in a `finally`, whatever the answer. Without this, requests sent in
   parallel would all reach the guard before the first refusal came back.
 
-The UI explains all three in French: the wait in minutes, "Ce panier a déjà
-été refusé", and "Un devis est déjà en cours".
+The UI says each in one French sentence: the wait in minutes, "Ce panier a déjà
+été refusé…", and "Un devis est déjà en cours…".
 
-The session and the username are the visitor's choice (identification, not
-authentication), so the address is the key a client cannot change by logging
-in again. The memory, which ignores who sends the text, holds whatever the
+The session and its generated name cost nothing to renew (clear the cookie;
+identification, not authentication), so the address is the key a client
+cannot change. The memory, which ignores who sends the text, holds whatever the
 keys.
 
 An address gets looser limits than a visitor because a carrier's NAT puts many
 mobile customers behind one IPv4: ten refusals among them before a block, four
 quotes at once before a `quote_in_progress`. The price, on purpose: an attacker
 gets that much room per address, and still only three refusals per session
-and username, which cost a new login each.
+and username, each renewed by clearing the cookie.
 
 ### Storage
 

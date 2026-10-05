@@ -2,12 +2,12 @@ import "server-only";
 
 import { getIronSession, type SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 
 /**
- * Sessions identify, they do not authenticate: a visitor picks a username,
- * with no password, so that the quoter traces can group requests by user and
- * by session. Nothing here proves who the visitor is.
+ * Sessions identify, they do not authenticate: there is no login, the first
+ * quote of a visitor starts an anonymous session with a generated name
+ * (`visiteur-1a2b3c4d`), so that the strike rule and the traces can group
+ * requests by session. Nothing here proves who the visitor is.
  *
  * The session lives in a stateless cookie, sealed with iron-session
  * (AES-256-CBC encryption + HMAC-SHA-256 integrity). iron-session over jose:
@@ -98,11 +98,9 @@ export async function getSession(): Promise<Session | null> {
   return { username, sessionId, createdAt };
 }
 
-/** For pages: the current session, or a redirect to the login page. */
-export async function requireSession(): Promise<Session> {
-  const session = await getSession();
-  if (!session) redirect("/login");
-  return session;
+/** The current session, or a new anonymous one. Route Handlers and Server Functions only (it may set a cookie). */
+export async function ensureSession(): Promise<Session> {
+  return (await getSession()) ?? createSession(`visiteur-${crypto.randomUUID().slice(0, 8)}`);
 }
 
 /** Starts a new session. Server Functions and Route Handlers only (it sets a cookie). */
@@ -114,8 +112,4 @@ export async function createSession(username: string): Promise<Session> {
   session.createdAt = new Date().toISOString();
   await session.save();
   return { username: session.username, sessionId: session.sessionId, createdAt: session.createdAt };
-}
-
-export async function destroySession(): Promise<void> {
-  (await ironSession()).destroy();
 }
