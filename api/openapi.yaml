@@ -44,14 +44,14 @@ tags:
   - name: catalog
     description: What the shop sells and how it prices it.
   - name: health
-    description: Liveness and identity of the implementation.
+    description: Liveness and identity of the service.
 
 paths:
   /healthz:
     get:
       tags: [health]
       operationId: getHealth
-      summary: Liveness, and which implementation and engines answer.
+      summary: Liveness, and which engines answer.
       responses:
         "200":
           description: The service is up.
@@ -445,11 +445,8 @@ components:
     Usage:
       type: object
       additionalProperties: false
-      required: [implementation, engines, duration_ms, cost_usd, stages]
+      required: [engines, duration_ms, cost_usd, stages]
       properties:
-        implementation:
-          type: string
-          enum: [typescript]
         engines:
           type: string
           enum: [live, fake]
@@ -594,14 +591,11 @@ components:
     Health:
       type: object
       additionalProperties: false
-      required: [status, implementation, version, engines, tracing, prompts]
+      required: [status, version, engines, tracing, prompts]
       properties:
         status:
           type: string
           const: ok
-        implementation:
-          type: string
-          enum: [typescript]
         version:
           type: string
         engines:
@@ -617,7 +611,7 @@ components:
           description: |
             The version of each prompt file the service runs (`prompts/`):
             the first 8 hex digits of the SHA-256 of the file's bytes. Two
-            implementations with the same versions ask the models the same
+            services with the same versions ask the models the same
             questions; the system bench compares only those.
           properties:
             guard: {type: string, pattern: "^[0-9a-f]{8}$"}

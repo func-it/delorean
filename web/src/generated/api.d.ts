@@ -11,7 +11,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Liveness, and which implementation and engines answer. */
+        /** Liveness, and which engines answer. */
         get: operations["getHealth"];
         put?: never;
         post?: never;
@@ -168,8 +168,6 @@ export interface components {
             score: number;
         };
         Usage: {
-            /** @enum {string} */
-            implementation: "typescript";
             /**
              * @description `fake` engines are deterministic stand-ins for tests; never in production.
              * @enum {string}
@@ -256,8 +254,6 @@ export interface components {
         Health: {
             /** @constant */
             status: "ok";
-            /** @enum {string} */
-            implementation: "typescript";
             version: string;
             /** @enum {string} */
             engines: "live" | "fake";
@@ -266,7 +262,7 @@ export interface components {
             /**
              * @description The version of each prompt file the service runs (`prompts/`):
              *     the first 8 hex digits of the SHA-256 of the file's bytes. Two
-             *     implementations with the same versions ask the models the same
+             *     services with the same versions ask the models the same
              *     questions; the system bench compares only those.
              */
             prompts: {
