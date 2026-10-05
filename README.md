@@ -41,17 +41,17 @@ volume is priced and counts in the discount's base, but it is not a new volume.
 | 5 | Back to the Future 1, 2, 3 and *La chèvre* | **56 €** | (3 × 15 − 20 %) + 20 |
 
 They are tests, and they pass on the fake engines, from the cart as typed to
-the total: [`quoters/typescript/test/brief.test.ts`](quoters/typescript/test/brief.test.ts)
-(`cd quoters/typescript && npm test -- brief`). The same five carts are
+the total: [`quoter/test/brief.test.ts`](quoter/test/brief.test.ts)
+(`cd quoter && npm test -- brief`). The same five carts are
 shared cases ([`cases/quote/enonce-*.json`](cases/quote)) that the end-to-end
 suite plays against a running service.
 
 ### Where the price is computed
 
-[`quoters/typescript/src/pricing.ts`](quoters/typescript/src/pricing.ts): about
+[`quoter/src/pricing.ts`](quoter/src/pricing.ts): about
 a hundred lines, integer cents, no model, no text. It takes lines already
 identified (a film, a quantity) and returns the price; its unit tests are in
-[`test/pricing.test.ts`](quoters/typescript/test/pricing.test.ts). A model
+[`test/pricing.test.ts`](quoter/test/pricing.test.ts). A model
 never sees an amount and the code never sees the customer's words: the rest of
 this repository is how a text becomes those lines, and what happens when it
 cannot.
@@ -129,7 +129,7 @@ curl -s localhost:24793/v1/quotes -H 'content-type: application/json' \
 # 5600
 ```
 
-Without Docker, Node 26 is enough: `task setup`, then `task ts:run:fake` (the
+Without Docker, Node 26 is enough: `task setup`, then `task quoter:run:fake` (the
 quoter on :24793) and `cd web && npm run dev` (the web app on :24790).
 
 ## Tests
@@ -185,7 +185,7 @@ are in [`docs/architecture.md`](docs/architecture.md).
 
 ```
 api/openapi.yaml      the contract, source of truth
-quoters/typescript/   the quoter: pipeline, engines, pricing, API (Node)
+quoter/   the quoter: pipeline, engines, pricing, API (Node)
 web/                  Next.js: the page, the BFF, the session, the budget
 prompts/              every word put to a model
 cases/                the cases the end-to-end suite and the system bench play
@@ -201,6 +201,6 @@ scripts/              end-to-end and browser-test runners, docs, Langfuse secret
   judge, fake engines and configuration.
 - [`docs/testing.md`](docs/testing.md): tests, cases, benches and their results.
 - [`api/openapi.yaml`](api/openapi.yaml): the HTTP contract.
-- [`quoters/typescript/README.md`](quoters/typescript/README.md),
+- [`quoter/README.md`](quoter/README.md),
   [`web/README.md`](web/README.md) and [`e2e/README.md`](e2e/README.md): each
   part on its own.

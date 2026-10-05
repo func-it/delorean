@@ -15,10 +15,10 @@ name: delorean
 services:
   # The quoter, on :24793. Built from the repository's root: the image carries
   # the shared prompts/.
-  quoter-typescript:
+  quoter:
     build:
       context: .
-      dockerfile: quoters/typescript/Dockerfile
+      dockerfile: quoter/Dockerfile
     environment:
       ENGINES: ${ENGINES:-fake}
       # the limits of a cart, one figure from the browser to the quoter (the same variables in the web app)
@@ -67,7 +67,7 @@ services:
     build:
       context: ./web
     environment:
-      QUOTER_URL: http://quoter-typescript:24793
+      QUOTER_URL: http://quoter:24793
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET (32+ characters) in .env}
       # served over plain HTTP on localhost: a Secure cookie would be dropped by some browsers
       SESSION_COOKIE_SECURE: "false"
@@ -110,7 +110,7 @@ services:
       retries: 3
       start_period: 20s
     depends_on:
-      quoter-typescript:
+      quoter:
         condition: service_healthy
     # the least a process needs: no capability, no way to gain one, an image it cannot write to
     cap_drop: [ALL]

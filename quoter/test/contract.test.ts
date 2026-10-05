@@ -16,7 +16,7 @@ interface Schema {
   additionalProperties?: Schema | boolean;
 }
 
-const contract = parse(readFileSync(new URL('../../../api/openapi.yaml', import.meta.url), 'utf8')) as {
+const contract = parse(readFileSync(new URL('../../api/openapi.yaml', import.meta.url), 'utf8')) as {
   components: { schemas: Record<string, Schema> };
 };
 

@@ -1,6 +1,6 @@
 # Architecture
 
-This document is the reference for the quoter (TypeScript, `quoters/typescript`)
+This document is the reference for the quoter (TypeScript, `quoter`)
 and the web app in front of it. The HTTP contract is `api/openapi.yaml`; what
 follows describes what the contract cannot say: the order of the stages, the
 thresholds, the engines, the fake test engines, the shared cases and the

@@ -1,11 +1,11 @@
 # delorean — the quoter: the API of api/openapi.yaml, on Node.
-# Included by the root Taskfile as ts: task ts:test, task ts:run:fake…
+# Included by the root Taskfile as quoter: task quoter:test, task quoter:run:fake…
 version: "3"
 
 vars:
   VERSION:
     sh: git describe --tags --always --dirty 2>/dev/null || echo dev
-  IMAGE: delorean-typescript
+  IMAGE: delorean-quoter
 
 tasks:
   setup:
@@ -15,7 +15,7 @@ tasks:
   generate:
     desc: The contract's types, from api/openapi.yaml
     cmds: [npm run generate]
-    sources: [../../api/openapi.yaml]
+    sources: [../api/openapi.yaml]
     generates: [src/generated/openapi.ts]
 
   lint:
@@ -32,7 +32,7 @@ tasks:
 
   run:
     desc: "The API on the live engines, :24793 (OPENROUTER_API_KEY, LANGFUSE_* from the root .env)"
-    dotenv: [../../.env]
+    dotenv: [../.env]
     env: { DELOREAN_VERSION: "{{.VERSION}}" }
     cmds: [node src/main.ts]
 
@@ -45,4 +45,4 @@ tasks:
     desc: "The image {{.IMAGE}}:<version>, built from the repository's root"
     dir: ../..
     cmds:
-      - docker build -f quoters/typescript/Dockerfile --build-arg VERSION={{.VERSION}} -t {{.IMAGE}}:{{.VERSION}} -t {{.IMAGE}}:latest .
+      - docker build -f quoter/Dockerfile --build-arg VERSION={{.VERSION}} -t {{.IMAGE}}:{{.VERSION}} -t {{.IMAGE}}:latest .

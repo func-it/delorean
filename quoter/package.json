@@ -1,5 +1,5 @@
 {
-  "name": "@delorean/quoter-typescript",
+  "name": "@delorean/quoter",
   "private": true,
   "description": "The delorean quoter: the API of api/openapi.yaml, on Node.",
   "type": "module",
@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node src/main.ts",
     "dev": "node --watch src/main.ts",
-    "generate": "openapi-typescript ../../api/openapi.yaml -o src/generated/openapi.ts",
+    "generate": "openapi-typescript ../api/openapi.yaml -o src/generated/openapi.ts",
     "test": "vitest run",
     "typecheck": "tsc",
     "lint": "eslint .",

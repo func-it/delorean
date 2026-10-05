@@ -1,6 +1,6 @@
 import "server-only";
 
-import { type Quoter, quoterClient, quoterTimeoutMs } from "@/lib/quoters";
+import { type Quoter, quoterClient, quoterTimeoutMs } from "@/lib/quoter";
 import { isProblem, type Problem, type ProblemCode } from "@/lib/contract";
 
 type QuoterClient = ReturnType<typeof quoterClient>;

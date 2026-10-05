@@ -54,7 +54,7 @@ export interface Prompts {
 const CHECKS: readonly Check[] = ['asked', 'identity', 'missing', 'count'];
 
 /** The repository's prompts, from this file's place in it. */
-export const DEFAULT_PROMPTS_DIR = fileURLToPath(new URL('../../../prompts/', import.meta.url));
+export const DEFAULT_PROMPTS_DIR = fileURLToPath(new URL('../../prompts/', import.meta.url));
 
 /** Reads and checks the prompt files of `dir`. Throws, naming the file and the field, on anything off. */
 export function loadPrompts(dir: string): Prompts {

@@ -1,7 +1,7 @@
 # The image is built from the repository's root (for prompts/), out of these
 # files and nothing else.
 *
-!quoters/typescript/package.json
-!quoters/typescript/package-lock.json
-!quoters/typescript/src/
+!quoter/package.json
+!quoter/package-lock.json
+!quoter/src/
 !prompts/*.json

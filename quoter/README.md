@@ -1,10 +1,10 @@
-# quoters/typescript: the quoter
+# Quoter
 
-The delorean API ([`api/openapi.yaml`](../../api/openapi.yaml)) on Node 26: the
-pipeline, the prompts (read from [`prompts/`](../../prompts)) and the fake
-engines. The end-to-end suite ([`e2e/`](../../e2e)) holds it to the contract,
+The delorean API ([`api/openapi.yaml`](../api/openapi.yaml)) on Node 26: the
+pipeline, the prompts (read from [`prompts/`](../prompts)) and the fake
+engines. The end-to-end suite ([`e2e/`](../e2e)) holds it to the contract,
 and the system bench measures it on accuracy, latency and cost.
-[`docs/architecture.md`](../../docs/architecture.md) is the specification;
+[`docs/architecture.md`](../docs/architecture.md) is the specification;
 this file says how the quoter runs and why it is built the way it is.
 
 ## Run
@@ -15,7 +15,7 @@ ENGINES=fake npm start         # :24793, deterministic fake engines, no key, no 
 OPENROUTER_API_KEY=… npm start # :24793, the real models through OpenRouter
 ```
 
-or, from the repository's root, `task ts:run:fake` and `task ts:run` (which
+or, from the repository's root, `task quoter:run:fake` and `task quoter:run` (which
 reads `OPENROUTER_API_KEY` and `LANGFUSE_*` from the root `.env`).
 
 `node src/main.ts version` prints the version, `node src/main.ts tokenizer`
@@ -34,9 +34,9 @@ curl -s localhost:24793/v1/quotes -d '{"cart": "Back to the Future 1\nBack to th
 In Docker, the image is built from the repository's root, for `prompts/`:
 
 ```sh
-docker build -f quoters/typescript/Dockerfile -t delorean-typescript .   # or task ts:docker
-docker run -p 24793:24793 -e ENGINES=fake delorean-typescript
-docker compose up --build quoter-typescript                              # with the root .env
+docker build -f quoter/Dockerfile -t delorean-quoter .   # or task quoter:docker
+docker run -p 24793:24793 -e ENGINES=fake delorean-quoter
+docker compose up --build quoter                              # with the root .env
 ```
 
 ## Test
@@ -59,7 +59,7 @@ configuration.
 ## Configure
 
 The variables and defaults of
-[docs/architecture.md](../../docs/architecture.md#configuration), all read at
+[docs/architecture.md](../docs/architecture.md#configuration), all read at
 startup; every wrong one is reported at once, and the service does not start.
 
 | Variable | Default | Purpose |
@@ -195,7 +195,7 @@ scripts/e2e-fake.sh       the end-to-end suite against this quoter on fake engin
   measures accuracy, latency and cost.
 - **The component benches** (guard, identify, reading, judge) were run with a
   tool in another language that is no longer in this repository; their results
-  are in [`docs/testing.md`](../../docs/testing.md).
+  are in [`docs/testing.md`](../docs/testing.md).
 
 One thing JavaScript cannot do: a quantity past 2^53 loses
 precision instead of saturating. Such a cart is refused as

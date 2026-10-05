@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: quoters/typescript
+        working-directory: quoter
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -82,7 +82,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
-            quoters/typescript/package-lock.json
+            quoter/package-lock.json
             e2e/package-lock.json
       - run: npm ci
       - name: Generated types match the contract
@@ -98,4 +98,4 @@ jobs:
         run: scripts/e2e-fake.sh
       - name: Image builds
         working-directory: .
-        run: docker build -f quoters/typescript/Dockerfile -t delorean-typescript:ci .
+        run: docker build -f quoter/Dockerfile -t delorean-quoter:ci .

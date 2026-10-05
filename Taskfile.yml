@@ -3,36 +3,36 @@
 version: "3"
 
 includes:
-  ts:
-    taskfile: ./quoters/typescript/Taskfile.yml
-    dir: ./quoters/typescript
+  quoter:
+    taskfile: ./quoter/Taskfile.yml
+    dir: ./quoter
 
 tasks:
   setup:
     desc: Dependencies of every part (the quoter, web, e2e)
     cmds:
-      - task: ts:setup
+      - task: quoter:setup
       - cd web && npm ci
       - cd e2e && npm ci
 
   generate:
     desc: Code generated from api/openapi.yaml, in every part
     cmds:
-      - task: ts:generate
+      - task: quoter:generate
       - cd web && npm run generate
       - cd e2e && npm run generate
 
   lint:
     desc: Linters and type checks of every part
     cmds:
-      - task: ts:lint
+      - task: quoter:lint
       - cd web && npm run lint && npm run typecheck
       - cd e2e && npm run lint && npm run typecheck && npm run format:check
 
   test:
     desc: Unit tests of every part — no model is called
     cmds:
-      - task: ts:test
+      - task: quoter:test
       - cd web && npm test
       - cd e2e && npm test
 

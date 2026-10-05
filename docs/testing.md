@@ -5,7 +5,7 @@ fourth calls the real models and only starts on purpose.
 
 | Level | What it proves | Where | Cost |
 |---|---|---|---|
-| Unit tests | each part does what it says | `quoters/typescript`, `web`, `e2e` | none |
+| Unit tests | each part does what it says | `quoter`, `web`, `e2e` | none |
 | Contract | the quoter speaks the HTTP of the contract | generated code, response validation | none |
 | End-to-end | the whole API behaves, on deterministic fake engines | `e2e/` | none |
 | Benches | the real models read carts well enough, at what latency and cost | `e2e/` | OpenRouter |
@@ -14,10 +14,10 @@ fourth calls the real models and only starts on purpose.
 
 ```sh
 task test          # every part: the quoter, the web app, the e2e harness
-task ts:test       # the quoter alone
+task quoter:test       # the quoter alone
 ```
 
-- **The five examples of the brief** (`quoters/typescript/test/brief.test.ts`):
+- **The five examples of the brief** (`quoter/test/brief.test.ts`):
   the quoter's pipeline, on the fake engines, prices 36 €, 27 €, 15 €, 48 €
   and 56 €, with the saga discount of each. It is the first test to read.
 - **Quoter (TypeScript)**: Vitest. Pricing is fully covered; the pipeline is
@@ -387,7 +387,7 @@ picked by its tag.
 
 ```sh
 task langfuse:up                                  # http://localhost:24794
-task ts:run:fake                                  # LANGFUSE_* from .env
+task quoter:run:fake                                  # LANGFUSE_* from .env
 task langfuse:report                              # quotes, cost, latency, outcomes (live engines)
 task langfuse:report -- --from 2026-10-01         # since a date
 task langfuse:report -- --engines fake            # the fake engines' quotes (e2e runs); --engines all for both

@@ -9,7 +9,7 @@ import {
   unansweredQuoteCostUsd,
 } from "@/lib/budget";
 import { rateLimit, rateLimiter } from "@/lib/rate";
-import { configuredQuoter } from "@/lib/quoters";
+import { configuredQuoter } from "@/lib/quoter";
 import { problemJson, problemResponse, relay } from "@/lib/bff";
 import { clientIp } from "@/lib/client-ip";
 import { isProblem, type Problem } from "@/lib/contract";

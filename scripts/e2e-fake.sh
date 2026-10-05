@@ -9,7 +9,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 port="${PORT:-24799}"
 log="$(mktemp)"
 
-env -u OPENROUTER_API_KEY ENGINES=fake PORT="$port" node "$root/quoters/typescript/src/main.ts" >"$log" 2>&1 &
+env -u OPENROUTER_API_KEY ENGINES=fake PORT="$port" node "$root/quoter/src/main.ts" >"$log" 2>&1 &
 pid=$!
 trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
 

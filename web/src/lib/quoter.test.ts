@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { configuredQuoter, quoterTimeoutMs } from "./quoters";
+import { configuredQuoter, quoterTimeoutMs } from "./quoter";
 
 describe("the configured quoter", () => {
   beforeEach(() => {
@@ -12,8 +12,8 @@ describe("the configured quoter", () => {
   });
 
   it("takes QUOTER_URL", () => {
-    vi.stubEnv("QUOTER_URL", "http://quoter-typescript:24793");
-    expect(configuredQuoter()).toEqual({ name: "quoter", url: "http://quoter-typescript:24793" });
+    vi.stubEnv("QUOTER_URL", "http://quoter:24793");
+    expect(configuredQuoter()).toEqual({ name: "quoter", url: "http://quoter:24793" });
   });
 
   it.each(["file:///etc/passwd", "not a url", "ftp://quoter:21"])("fails loudly when QUOTER_URL is %s", (value) => {
