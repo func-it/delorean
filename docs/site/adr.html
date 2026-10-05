@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Delorean docs · API</title>
-  <meta name="description" content="The Delorean HTTP contract: endpoints, problem codes and schemas, read from api/openapi.yaml.">
+  <title>Delorean docs · Decisions</title>
+  <meta name="description" content="Why Delorean reads a cart with models and not with a deterministic parser, what was measured, and when the other choice is better.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 13V22M12 13 4 4M12 13l8-9' fill='none' stroke='%23f2a516' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,29 +21,27 @@
       <ul class="nav">
         <li><a href="index.html">Overview</a></li>
         <li><a href="architecture.html">Architecture</a></li>
-        <li><a href="api.html" aria-current="page">API</a></li>
+        <li><a href="api.html">API</a></li>
         <li><a href="testing.html">Testing</a></li>
-        <li><a href="adr.html">Decisions</a></li>
+        <li><a href="adr.html" aria-current="page">Decisions</a></li>
       </ul>
     </div>
   </header>
 
   <div class="layout">
-    <article class="doc" id="doc" aria-live="polite"><p class="notice">Loading api/openapi.yaml…</p></article>
+    <article class="doc" id="doc" aria-live="polite"><p class="notice">Loading docs/adr/0001-lire-le-panier-avec-des-modeles.md…</p></article>
     <aside class="rail" id="rail" aria-label="Services, links and outline"></aside>
   </div>
 
-  <footer class="footer">Read from the repository's <code>api/openapi.yaml</code> at load time.</footer>
+  <footer class="footer">Rendered from the repository's <code>docs/adr/0001-lire-le-panier-avec-des-modeles.md</code>.</footer>
 
   <script type="module">
-    import { renderRail, renderToc, scrollToHash, prepare } from "./assets/site.js";
-    import { renderApi } from "./assets/api.js";
+    import { renderRail, renderMarkdown, renderToc, scrollToHash } from "./assets/site.js";
 
     const rail = document.getElementById("rail");
     const doc = document.getElementById("doc");
     renderRail(rail);
-    await renderApi("content/openapi.yaml", doc);
-    prepare(doc);
+    await renderMarkdown("content/adr-0001.md", doc);
     renderToc(doc, rail);
     scrollToHash();
   </script>

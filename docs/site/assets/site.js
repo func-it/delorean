@@ -25,6 +25,8 @@ const PAGES = {
   "docs/testing.md": "testing.html",
   "testing.md": "testing.html",
   "api/openapi.yaml": "api.html",
+  "docs/adr/0001-lire-le-panier-avec-des-modeles.md": "adr.html",
+  "adr/0001-lire-le-panier-avec-des-modeles.md": "adr.html",
 };
 
 const OPEN_ICON =

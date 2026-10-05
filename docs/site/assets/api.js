@@ -173,7 +173,7 @@ export async function renderApi(url, target) {
     <p><a class="button" href="${esc(url)}" target="_blank" rel="noopener">Open the raw contract (api/openapi.yaml)</a></p>
     ${block(info.description)}
     <h2 id="servers">Servers</h2>
-    ${table(["URL", "Implementation"], servers)}
+    ${table(["URL", "Server"], servers)}
     <h2 id="endpoints">Endpoints</h2>
     ${operations(spec)}
     ${problem ? `<h2 id="problem-codes">Problem codes</h2>${block(problem.description)}` : ""}
