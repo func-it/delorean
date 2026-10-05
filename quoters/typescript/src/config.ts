@@ -1,5 +1,4 @@
 import { OPENROUTER_URL } from './engines/live/reader.ts';
-import type { Pace } from './engines/pace.ts';
 import { DEFAULT_PROMPTS_DIR } from './prompts.ts';
 import { langfuseFromEnv, type Langfuse } from './telemetry/langfuse.ts';
 
@@ -13,8 +12,8 @@ class ConfigurationError extends Error {
 
 /**
  * The service's settings, from the environment (docs/architecture.md,
- * "Configuration"): the same variables and defaults as the other
- * implementations, and every one that is wrong said before anything starts.
+ * "Configuration"): every variable that is wrong is said before anything
+ * starts.
  * Langfuse is configured apart (telemetry/langfuse.ts).
  */
 export interface Config {
@@ -32,8 +31,6 @@ export interface Config {
   requestTimeoutMs: number;
   /** The time the recount has, a retry included, before the quote goes on without it. */
   recountTimeoutMs: number;
-  /** The fake engines' pace, for the load bench (docs/architecture.md, "Fake latency"). */
-  fake: Pace;
   /** Where the shared prompts are read from: the repository's prompts/. */
   promptsDir: string;
   /** The Langfuse project traces and scores go to; undefined, no tracing. */
@@ -80,7 +77,6 @@ export function loadConfig(env: Env): Config {
   };
 
   const engines = string('ENGINES', 'live');
-  const fakeLatency = string('FAKE_LATENCY', 'off');
   const config: Config = {
     port: integer('PORT', 24793),
     engines: engines === 'fake' ? 'fake' : 'live',
@@ -103,7 +99,6 @@ export function loadConfig(env: Env): Config {
     readAttempts: integer('READ_ATTEMPTS', 3),
     requestTimeoutMs: duration('REQUEST_TIMEOUT', 15_000),
     recountTimeoutMs: duration('RECOUNT_TIMEOUT', 6_000),
-    fake: { latency: fakeLatency === 'real' ? 'real' : 'off', cpuMs: integer('FAKE_CPU_MS', 0) },
     promptsDir: string('PROMPTS_DIR', DEFAULT_PROMPTS_DIR),
   };
 
@@ -143,8 +138,6 @@ export function loadConfig(env: Env): Config {
   if (!bad('RECOUNT_TIMEOUT') && !bad('REQUEST_TIMEOUT')) {
     check(config.requestTimeoutMs >= config.recountTimeoutMs, 'REQUEST_TIMEOUT', 'must be at least RECOUNT_TIMEOUT');
   }
-  check(['off', 'real'].includes(fakeLatency), 'FAKE_LATENCY', `is ${JSON.stringify(fakeLatency)}, want off or real`);
-  check(config.fake.cpuMs >= 0, 'FAKE_CPU_MS', 'must be at least 0');
   if (engines !== 'live' && engines !== 'fake') {
     say('ENGINES', `ENGINES is ${JSON.stringify(engines)}, want live or fake`);
   } else if (engines === 'live') {
@@ -158,7 +151,7 @@ export function loadConfig(env: Env): Config {
     say('LANGFUSE', line);
   });
   if (problems.length > 0) {
-    // in the order of the configuration table, Langfuse last, as every quoter says them
+    // in the order of the configuration table, Langfuse last
     const rank = (name: string) => (ORDER.includes(name) ? ORDER.indexOf(name) : ORDER.length);
     throw new ConfigurationError(problems.toSorted((a, b) => rank(a.name) - rank(b.name)).map((p) => p.line));
   }
@@ -186,8 +179,6 @@ const ORDER = [
   'MODEL_TIMEOUT',
   'RECOUNT_TIMEOUT',
   'REQUEST_TIMEOUT',
-  'FAKE_LATENCY',
-  'FAKE_CPU_MS',
 ];
 
 /** The reasoning efforts a reader may be asked; none sends no reasoning field. */
@@ -235,8 +226,8 @@ const UNITS_MS: Record<string, number> = {
 };
 
 /**
- * A duration as Go writes it (`time.ParseDuration`'s syntax), in whole milliseconds
- * (a finer value is rounded): "30s", "1m30s", "1.5s", "500ms".
+ * A duration in whole milliseconds (a finer value is rounded): a number and a
+ * unit, or several in a row: "30s", "1m30s", "1.5s", "500ms".
  */
 export function parseDuration(raw: string): number | undefined {
   if (raw === '0') return 0;

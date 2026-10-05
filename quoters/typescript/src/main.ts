@@ -12,7 +12,6 @@ import type { Server } from 'node:http';
 import { serve } from '@hono/node-server';
 import { loadConfig, type Config } from './config.ts';
 import { fakeEngines } from './engines/fake.ts';
-import { paced } from './engines/pace.ts';
 import { liveEngines } from './engines/live/index.ts';
 import { createApp } from './http/app.ts';
 import { healthcheck } from './healthcheck.ts';
@@ -109,11 +108,8 @@ async function run(config: Config, log: Logger): Promise<void> {
 /** The engines `config` names. */
 function newEngines(config: Config, prompts: Prompts, log: Logger): Engines {
   if (config.engines === 'live') return liveEngines(config.live, prompts);
-  log.log('WARN', 'fake engines: deterministic stand-ins for tests, never in production', {
-    latency: config.fake.latency,
-    cpu_ms: config.fake.cpuMs,
-  });
-  return paced(fakeEngines(), config.fake);
+  log.log('WARN', 'fake engines: deterministic stand-ins for tests, never in production');
+  return fakeEngines();
 }
 
 /** The HTTP server, once it listens. */

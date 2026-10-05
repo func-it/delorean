@@ -29,7 +29,6 @@ describe('loadConfig', () => {
       readAttempts: 3,
       requestTimeoutMs: 15_000,
       recountTimeoutMs: 6_000,
-      fake: { latency: 'off', cpuMs: 0 },
       promptsDir: DEFAULT_PROMPTS_DIR,
     });
   });
@@ -183,16 +182,10 @@ describe('loadConfig', () => {
     });
   });
 
-  it('reads the fake pace, and says what is wrong with it after REQUEST_TIMEOUT, before Langfuse', () => {
-    expect(loadConfig({ ENGINES: 'fake', FAKE_LATENCY: 'real', FAKE_CPU_MS: '5' }).fake).toEqual({
-      latency: 'real',
-      cpuMs: 5,
-    });
+  it('says what is wrong with REQUEST_TIMEOUT before Langfuse', () => {
     expect(() =>
       loadConfig({
         ENGINES: 'fake',
-        FAKE_CPU_MS: '-1',
-        FAKE_LATENCY: 'fast',
         REQUEST_TIMEOUT: '1',
         LANGFUSE_PUBLIC_KEY: 'pk',
       }),
@@ -200,8 +193,6 @@ describe('loadConfig', () => {
       [
         'configuration:',
         'REQUEST_TIMEOUT="1" is not a duration such as "30s"',
-        'FAKE_LATENCY is "fast", want off or real',
-        'FAKE_CPU_MS must be at least 0',
         'Langfuse is half configured: LANGFUSE_SECRET_KEY and LANGFUSE_BASE_URL (or LANGFUSE_HOST) missing',
       ].join('\n'),
     );
