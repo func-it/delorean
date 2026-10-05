@@ -28,6 +28,11 @@ describe('cases/quote', () => {
   });
 
   it.each(refused)('$id: expects a refusal some stage gives', ({ expect: expected }) => {
+    // a cart refused for what is in it is a 422; one that could not be counted right now, a 503 to retry
+    if (expected.code === 'quantity_unverified') {
+      expect(expected.status).toBe(503);
+      return;
+    }
     expect(expected.status).toBe(422);
     expect(REJECTED_BY[expected.code]).toBeDefined();
   });

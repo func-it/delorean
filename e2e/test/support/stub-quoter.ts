@@ -244,6 +244,14 @@ export async function startStubQuoter(options: StubOptions = {}): Promise<Stub> 
       return reject('unfaithful_reading', judge && { judge: { ...judge, attempts } });
     }
 
+    // No recount succeeded and a line asks for several copies: nothing counted them (quantity_unverified).
+    if (offSchema && reading.some((l) => l.quantity > 1)) {
+      return problem(503, 'quantity_unverified', {
+        detail: 'The quantities could not be cross-checked and a line asks for more than one copy: try again.',
+        usage: usage(),
+      });
+    }
+
     ran('price');
     const priced = reading.map((l) => ({
       ...l,
