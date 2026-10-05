@@ -1,8 +1,0 @@
-# The image is built from the repository's root (for prompts/), out of these
-# files and nothing else.
-*
-!quoters/go/go.mod
-!quoters/go/go.sum
-!quoters/go/cmd/
-!quoters/go/internal/
-!prompts/

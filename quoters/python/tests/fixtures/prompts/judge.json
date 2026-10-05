@@ -1,6 +1,0 @@
-{
-  "asked": {"key": "asked", "kind": "noul", "instructions": "ASKED?", "criteria": {"true": "ASKED", "false": "NOT ASKED"}},
-  "identity": {"key": "identity", "kind": "noul", "instructions": "IDENTITY?", "criteria": {"true": "SAME", "false": "NOT SAME"}},
-  "missing": {"key": "missing", "kind": "noul", "instructions": "MISSING?", "criteria": {"true": "MISSES", "false": "MISSES NONE"}},
-  "films": {"bttf_1": "FILM 1", "bttf_2": "FILM 2", "bttf_3": "FILM 3", "other": "ANOTHER FILM"}
-}
