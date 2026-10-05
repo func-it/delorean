@@ -12,12 +12,32 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, Self
+from typing import Any, Final, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from delorean.cart import Film
 from delorean.pipeline import Check, Finding
+
+FENCE_NAME: Final = "customer_message"
+"""The tag the customer's message is fenced in (prompts/parse.json says it too)."""
+
+_CLOSING_TAG: Final = re.compile("</(" + re.escape(FENCE_NAME) + ")", re.IGNORECASE)
+_LABEL_BLANKS: Final = re.compile("[ \t\n\v\f\r\u0085\u2028\u2029]+")
+
+
+def escape_fence(text: str) -> str:
+    """Writes every closing tag of the fence in text as `<\\/` and the name as
+    written, so that a text put between the tags cannot close them."""
+    return _CLOSING_TAG.sub(lambda m: "<\\/" + m[1], text)
+
+
+def tidy_label(label: str) -> str:
+    """A finding's label as the retry turn lists it: every run of blanks (space,
+    \\t \\n \\v \\f \\r, U+0085, U+2028, U+2029) one space, none at either end,
+    and the fence's closing tag escaped, so that a label can neither add a line
+    nor close the fence."""
+    return escape_fence(" ".join(part for part in _LABEL_BLANKS.split(label) if part))
 
 
 class PromptError(ValueError):
@@ -60,7 +80,8 @@ class Fence(_File):
 
 class RetryPrompt(_File):
     """The turn that asks for a new reading: `turn`, its {findings} one
-    `finding` line per failing check, {check}, {label} and {meaning}."""
+    `finding` line per failing check, {check}, {label} and {meaning}. The label
+    is tidied (`tidy_label`); the check and the meaning are ours."""
 
     turn: str
     finding: str
@@ -68,7 +89,10 @@ class RetryPrompt(_File):
     """What each check's failure means, in the model's terms."""
 
     def render(self, failed: Sequence[Finding]) -> str:
-        lines = [_fill(self.finding, check=f.check, label=f.label, meaning=self.meanings[f.check]) for f in failed]
+        lines = [
+            _fill(self.finding, check=f.check, label=tidy_label(f.label), meaning=self.meanings[f.check])
+            for f in failed
+        ]
         return _fill(self.turn, findings="\n".join(lines))
 
 
@@ -83,7 +107,7 @@ class ParsePrompt(_File):
     retry: RetryPrompt
 
     def user_turn(self, text: str) -> str:
-        return self.message.before + text + self.message.after
+        return self.message.before + escape_fence(text) + self.message.after
 
 
 def _fill(template: str, **values: str) -> str:
