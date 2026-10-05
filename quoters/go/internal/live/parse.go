@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -47,9 +48,33 @@ type Parser struct {
 	prompt  readingPrompt
 }
 
+// closingTag matches the closing tag of the fence, in any case mix.
+var closingTag = regexp.MustCompile("(?i)</(" + regexp.QuoteMeta(customerMessage) + ")")
+
+// escapeFence writes every closing tag of the fence in s as `<\/` and the
+// name as written, so that a text put between the tags cannot close them.
+func escapeFence(s string) string { return closingTag.ReplaceAllString(s, `<\/${1}`) }
+
+// labelSpace are the blanks a label's runs are collapsed on: space, \t \n \v
+// \f \r, U+0085, U+2028 and U+2029.
+func labelSpace(r rune) bool {
+	switch r {
+	case ' ', '\t', '\n', '\v', '\f', '\r', '\u0085', '\u2028', '\u2029':
+		return true
+	}
+	return false
+}
+
+// tidyLabel is a finding's label as the retry turn lists it: every run of
+// blanks one space, none at either end, and the fence's closing tag escaped,
+// so that a label can neither add a line nor close the fence.
+func tidyLabel(label string) string {
+	return escapeFence(strings.Join(strings.FieldsFunc(label, labelSpace), " "))
+}
+
 // message is the user turn of one reading: the customer's text, fenced.
 func (r readingPrompt) message(text string) string {
-	return r.Message.Before + text + r.Message.After
+	return r.Message.Before + escapeFence(text) + r.Message.After
 }
 
 // conversation is what a reading sends: the instruction and the fenced
@@ -82,11 +107,12 @@ func (r readingPrompt) readingJSON(mentions []cart.Mention) string {
 
 // retryTurn says what failed: the file's retry.turn, one retry.finding line
 // per check, its placeholders filled in one pass — a title that reads
-// {meaning} stays a title.
+// {meaning} stays a title. The label is tidied (tidyLabel); the check and the
+// meaning are ours.
 func (r readingPrompt) retryTurn(findings []pipeline.Finding) string {
 	lines := make([]string, len(findings))
 	for i, f := range findings {
-		lines[i] = strings.NewReplacer("{check}", string(f.Check), "{label}", f.Label,
+		lines[i] = strings.NewReplacer("{check}", string(f.Check), "{label}", tidyLabel(f.Label),
 			"{meaning}", r.Retry.Meanings[f.Check]).Replace(r.Retry.Finding)
 	}
 	return strings.Replace(r.Retry.Turn, "{findings}", strings.Join(lines, "\n"), 1)
