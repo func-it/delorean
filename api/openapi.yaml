@@ -4,9 +4,9 @@ info:
   version: 1.0.0
   summary: Reads a free-text DVD cart and prices it with the Back to the Future promotion.
   description: |
-    One contract, several implementations (Go, Python, TypeScript). Every
-    implementation passes the same end-to-end suite (`e2e/`) and is measured by
-    the same system bench, so the three can be compared on facts.
+    One contract: any implementation of it can run the end-to-end suite
+    (`e2e/`) and the system bench against itself. The one in this repository
+    is the TypeScript quoter.
 
     **Pricing rules** (served by `GET /v1/catalog`):
     - a Back to the Future volume costs 15.00 EUR, any other film 20.00 EUR;
@@ -30,18 +30,14 @@ info:
     Amounts are integer cents. Errors are RFC 9457 problems
     (`application/problem+json`) carrying a stable `code`.
 
-    The implementations answer the same bytes: compact JSON, keys in the
-    order this file declares them, numbers as ECMAScript writes them, times
-    in UTC with milliseconds (`docs/architecture.md`, Identical quoters).
+    An answer is compact JSON, keys in the order this file declares them,
+    numbers as ECMAScript writes them, times in UTC with milliseconds
+    (`docs/architecture.md`, Conventions of the answers).
   license:
     name: MIT
 servers:
-  - url: http://localhost:24791
-    description: Go implementation (local)
-  - url: http://localhost:24792
-    description: Python implementation (local)
   - url: http://localhost:24793
-    description: TypeScript implementation (local)
+    description: The TypeScript quoter (local)
 tags:
   - name: quotes
     description: Price a free-text cart.
