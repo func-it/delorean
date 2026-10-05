@@ -303,6 +303,31 @@ async def test_a_recount_bug_is_no_degradation(make: Make, pipeline: Pipeline, l
             'body: unknown field "discount"',
             id="unknown field",
         ),
+        pytest.param('{"Cart": "Heat"}', {}, 'body: unknown field "Cart"', id="a key in another case"),
+        pytest.param('{"CART": "Heat"}', {}, 'body: unknown field "CART"', id="a key in capitals"),
+        pytest.param(
+            '{"cart":"x","1":2,"b":3}', {}, 'body: unknown field "1"', id="an integer key first in the document"
+        ),
+        pytest.param(
+            '{"b":1,"1":2,"cart":"x"}',
+            {},
+            'body: unknown field "b"',
+            id="the first of the document, not of the integers",
+        ),
+        pytest.param('{"2":1,"cart":"x","1":3}', {}, 'body: unknown field "2"', id="integer keys around the cart"),
+        pytest.param(
+            '{ "cart" : "x" , "k" : { "cart" : 1 } , "z" : [ "y" ] }',
+            {},
+            'body: unknown field "k"',
+            id="a nested cart is not the cart",
+        ),
+        pytest.param('{"cart": "Heat", "": 1}', {}, 'body: unknown field ""', id="an empty key is a key"),
+        pytest.param(
+            '{"cart": "Heat", "a\\"b\\u2028": 1}',
+            {},
+            'body: unknown field "a\\"b\u2028"',
+            id="an unknown field quoted as JSON",
+        ),
         pytest.param(
             '{"cart": "Heat"} {"cart": "Heat"}',
             {},
@@ -445,6 +470,12 @@ async def test_a_body_of_one_long_word_is_refused_fast(api: httpx.AsyncClient) -
     p = problem_of(await api.post("/v1/quotes", content=body), 422, "too_long")
     assert time.perf_counter() - started < 0.5
     assert p["tokens"] == {"count": 8191, "max": 2048}
+
+
+async def test_a_duplicated_cart_is_the_last_one(api: httpx.AsyncClient) -> None:
+    response = await api.post("/v1/quotes", content='{"cart":"Back to the Future 1","cart":"Heat"}')
+    assert response.status_code == 200, response.text
+    assert [line["title"] for line in response.json()["lines"]] == ["Heat"]
 
 
 async def test_engine_unavailable(api: httpx.AsyncClient, logs: io.StringIO) -> None:

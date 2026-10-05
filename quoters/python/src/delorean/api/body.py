@@ -67,8 +67,11 @@ def _cart(body: bytes) -> str:
         raise _malformed("body: unexpected data after the QuoteRequest object")
     if not isinstance(value, dict):
         raise _malformed(f"body: a QuoteRequest object is expected, not a JSON {_kind(value)}")
-    if unknown := next((k for k in value if k != "cart"), None):
-        raise _malformed(f'body: unknown field "{unknown}"')
+    # the first field that is not exactly `cart`, in the order of the document (a dict keeps it, integer-looking keys
+    # included), quoted as JSON; a duplicated `cart` is the last one
+    unknown = next((k for k in value if k != "cart"), None)
+    if unknown is not None:
+        raise _malformed(f"body: unknown field {json.dumps(unknown, ensure_ascii=False)}")
     if "cart" not in value:
         raise _malformed('body: field "cart" is required')
     cart = value["cart"]
