@@ -97,6 +97,14 @@ func Load(getenv func(string) string) (Config, error) {
 	e.check(c.Live.ModelTimeout > 0, "MODEL_TIMEOUT", "must be positive")
 	e.check(c.RecountTimeout > 0, "RECOUNT_TIMEOUT", "must be positive")
 	e.check(c.RequestTimeout > 0, "REQUEST_TIMEOUT", "must be positive")
+	// a call is bounded by the recount's time, which the request's time bounds in turn;
+	// a variable that failed its own check is not compared
+	if !e.bad("MODEL_TIMEOUT") && !e.bad("RECOUNT_TIMEOUT") {
+		e.check(c.RecountTimeout >= c.Live.ModelTimeout, "RECOUNT_TIMEOUT", "must be at least MODEL_TIMEOUT")
+	}
+	if !e.bad("RECOUNT_TIMEOUT") && !e.bad("REQUEST_TIMEOUT") {
+		e.check(c.RequestTimeout >= c.RecountTimeout, "REQUEST_TIMEOUT", "must be at least RECOUNT_TIMEOUT")
+	}
 	e.check(c.FakeLatency == "off" || c.FakeLatency == "real", "FAKE_LATENCY", fmt.Sprintf("is %q, want off or real", c.FakeLatency))
 	e.check(c.FakeCPUMs >= 0, "FAKE_CPU_MS", "must be at least 0")
 	switch c.Engines {
@@ -183,6 +191,14 @@ func (e *env) float(name string, def float64) float64 {
 	return parsed(e, name, def, func(s string) (float64, error) { return strconv.ParseFloat(s, 64) }, "a number")
 }
 
+// duration reads whole milliseconds: "1.1s" is 1100 ms, whatever the other
+// quoters' arithmetic gives, and a finer value is rounded.
 func (e *env) duration(name string, def time.Duration) time.Duration {
-	return parsed(e, name, def, time.ParseDuration, `a duration such as "30s"`)
+	return parsed(e, name, def, func(s string) (time.Duration, error) {
+		d, err := time.ParseDuration(s)
+		return d.Round(time.Millisecond), err
+	}, `a duration such as "30s"`)
 }
+
+// bad reports whether name already failed a check of its own.
+func (e *env) bad(name string) bool { return e.errs[name] != nil }

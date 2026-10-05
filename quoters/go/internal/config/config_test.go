@@ -65,7 +65,7 @@ func TestLoadEveryVariable(t *testing.T) {
 		"GUARD_MIN_CONFIDENCE": "0.8",
 		"JUDGE_THRESHOLD":      "0.7",
 		"READ_ATTEMPTS":        "5",
-		"MODEL_TIMEOUT":        "4s",
+		"MODEL_TIMEOUT":        "2s",
 		"RECOUNT_TIMEOUT":      "3s",
 		"REQUEST_TIMEOUT":      "1m30s",
 		"FAKE_LATENCY":         "real",
@@ -86,7 +86,7 @@ func TestLoadEveryVariable(t *testing.T) {
 			RecountBaseURL:  "http://localhost:11434/v1",
 			ParseIdentifies: true,
 			JevModel:        "typesafe/jev-2",
-			ModelTimeout:    4 * time.Second,
+			ModelTimeout:    2 * time.Second,
 		},
 		MaxBodyBytes:       1024,
 		MaxInputTokens:     512,
@@ -187,5 +187,39 @@ func TestLoadListsErrorsInTableOrder(t *testing.T) {
 	want := []string{"PORT", "PARSE_EFFORT", "PARSE_BASE_URL", "RECOUNT_EFFORT", "RECOUNT_BASE_URL", "READ_ATTEMPTS", "MODEL_TIMEOUT", "RECOUNT_TIMEOUT", "REQUEST_TIMEOUT"}
 	if !slices.Equal(names, want) {
 		t.Errorf("lines for %v, want %v", names, want)
+	}
+}
+
+// A duration is read in whole milliseconds, and the timeouts are ordered: a
+// call, then the recount that holds it, then the request that holds both.
+func TestLoadTimeouts(t *testing.T) {
+	c, err := Load(from(map[string]string{"ENGINES": "fake", "MODEL_TIMEOUT": "1.1s", "RECOUNT_TIMEOUT": "2.0004s", "REQUEST_TIMEOUT": "0.0036s"}))
+	if err == nil || !strings.Contains(err.Error(), "REQUEST_TIMEOUT must be at least RECOUNT_TIMEOUT") {
+		t.Fatalf("err = %v, want the request's time under the recount's refused", err)
+	}
+	c, err = Load(from(map[string]string{"ENGINES": "fake", "MODEL_TIMEOUT": "1.1s", "RECOUNT_TIMEOUT": "2.0004s", "REQUEST_TIMEOUT": "9s"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Live.ModelTimeout != 1100*time.Millisecond || c.RecountTimeout != 2*time.Second {
+		t.Errorf("timeouts %v and %v, want 1100ms and 2s: whole milliseconds", c.Live.ModelTimeout, c.RecountTimeout)
+	}
+	for _, tt := range []struct {
+		vars map[string]string
+		want string
+	}{
+		{map[string]string{"MODEL_TIMEOUT": "7s"}, "RECOUNT_TIMEOUT must be at least MODEL_TIMEOUT"},
+		{map[string]string{"RECOUNT_TIMEOUT": "20s"}, "REQUEST_TIMEOUT must be at least RECOUNT_TIMEOUT"},
+		{map[string]string{"MODEL_TIMEOUT": "20s", "RECOUNT_TIMEOUT": "20s", "REQUEST_TIMEOUT": "10s"}, "REQUEST_TIMEOUT must be at least RECOUNT_TIMEOUT"},
+	} {
+		tt.vars["ENGINES"] = "fake"
+		if _, err := Load(from(tt.vars)); err == nil || !strings.Contains(err.Error(), tt.want) {
+			t.Errorf("%v: err = %v, want %q", tt.vars, err, tt.want)
+		}
+	}
+	// a variable that failed its own check is not compared with the others
+	_, err = Load(from(map[string]string{"ENGINES": "fake", "RECOUNT_TIMEOUT": "-1s", "REQUEST_TIMEOUT": "1s", "MODEL_TIMEOUT": "9s"}))
+	if err == nil || strings.Contains(err.Error(), "must be at least") || !strings.Contains(err.Error(), "RECOUNT_TIMEOUT must be positive") {
+		t.Errorf("err = %v, want only RECOUNT_TIMEOUT must be positive", err)
 	}
 }
