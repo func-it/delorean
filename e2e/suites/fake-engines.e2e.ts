@@ -54,6 +54,11 @@ describe.runIf(health.engines === 'fake')('fake engines', () => {
     expect(problem.usage?.stages.map((s) => s.stage)).not.toContain('price');
   });
 
+  it('reads a first reading with no film once more before refusing it as no_film', async () => {
+    const problem = expectProblem(await postQuote(client, '#fake:reread'), 422, 'no_film');
+    expect(problem.usage?.stages.find((s) => s.stage === 'parse')?.calls).toBe(2);
+  });
+
   it('reads again a reading the judge refuses, and prices the one it holds', async () => {
     const cart = 'Back to the Future 1\nBack to the Future 2\n#fake:reread';
     const quote = expectQuote(await postQuote(client, cart));

@@ -141,6 +141,8 @@ export async function startStubQuoter(options: StubOptions = {}): Promise<Stub> 
       .replace(/[^\P{Cc}\n\t]/gu, '')
       // format characters but the zero-width non-joiner and joiner
       .replace(/[^\P{Cf}\u{200C}\u{200D}]/gu, '')
+      // and those that draw nothing without being format characters
+      .replace(/./gsu, (c) => (drawsNothing(c) ? '' : c))
       .normalize('NFC')
       .trim();
     // A word count stands in for the o200k_base tokenizer.
@@ -199,7 +201,8 @@ export async function startStubQuoter(options: StubOptions = {}): Promise<Stub> 
           quantity: { title: tooMany.title, count: tooMany.quantity, max: maxCopies },
         });
       }
-      if (parsed.length === 0 && attempt === 1) return reject('no_film');
+      // A first reading with no film is read once more; two readings with none: no_film.
+      if (parsed.length === 0 && (attempt === 2 || attempts === 1)) return reject('no_film');
       if (parsed.length === 0) {
         // A later reading with no film fails without being judged.
         const checks = [{ check: 'missing' as const, label: 'the whole reading', score: 0 }];
@@ -342,4 +345,22 @@ async function readBody(req: IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(chunk as Buffer);
   return Buffer.concat(chunks);
+}
+
+/** Characters that draw nothing without being format characters: the quoters' own table. */
+const HIDDEN: readonly (readonly [number, number])[] = [
+  [0x034f, 0x034f],
+  [0x115f, 0x1160],
+  [0x17b4, 0x17b5],
+  [0x180b, 0x180f],
+  [0x2800, 0x2800],
+  [0x3164, 0x3164],
+  [0xfe00, 0xfe0f],
+  [0xffa0, 0xffa0],
+  [0xe0100, 0xe01ef],
+];
+
+function drawsNothing(character: string): boolean {
+  const code = character.codePointAt(0) ?? 0;
+  return HIDDEN.some(([from, to]) => code >= from && code <= to);
 }

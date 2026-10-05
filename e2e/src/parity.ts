@@ -123,6 +123,12 @@ export function probes(): Probe[] {
     // titles are kept apart by their lower-cased words, a code point at a time
     quote('titles of another case', cart('İstanbul\nistanbul\nΟΔΟΣ\nοδοσ\nΑΣ Σ\nασ σ\nẞ\nß')),
     quote('words split by the same blanks', cart('Heat\u0085Heat\nHeat\u00a0Heat\nHeat\ufeffHeat\nHeat\u001fHeat')),
+    // what draws nothing is not read, and a first reading with no film is read once more
+    quote(
+      'characters that draw nothing',
+      cart('Back\u034f to\u115f the\u3164 Fu\ufe0fture\u2800 1\n2 x \u{e0100}Heat'),
+    ),
+    quote('no film, read twice', cart('#fake:reread')),
     // a detail quotes the title the way JSON does
     quote('a detail that quotes a title', cart('1001 x Heat\u2028"é"\t!')),
   ];

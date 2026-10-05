@@ -60,7 +60,10 @@ function expectConformingProblem({ response, body }: Exchange, { router = false 
   const stage = REJECTED_BY[problem.code];
   if (response.status === 422 && stage) {
     expect(problem.usage, 'a 422 carries what the refusal cost').toBeDefined();
-    if (problem.usage) expect(usageViolations(problem.usage, health, stage, problem.judge?.attempts)).toEqual([]);
+    // no_film is said after a second reading (a first one with no film is read once more)
+    const readings =
+      problem.judge?.attempts ?? (problem.code === 'no_film' ? Math.min(2, catalog.limits.max_reading_attempts) : 1);
+    if (problem.usage) expect(usageViolations(problem.usage, health, stage, readings)).toEqual([]);
   }
   if (problem.code === 'quantity_unverified') {
     // refused once the judge held the reading: every stage up to it ran, and not the price

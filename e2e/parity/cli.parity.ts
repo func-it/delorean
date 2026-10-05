@@ -127,6 +127,14 @@ describe('the same configuration errors', () => {
     ['a base URL not http', { ...FAKE, PARSE_BASE_URL: 'ftp://x' }],
     ['a recount base URL not a URL', { ...FAKE, RECOUNT_BASE_URL: 'nowhere' }],
     ['PARSE_IDENTIFIES not a boolean', { ...FAKE, PARSE_IDENTIFIES: 'maybe' }],
+    [
+      'a parse base URL in http with a key',
+      { ENGINES: 'live', OPENROUTER_API_KEY: 'k', PARSE_BASE_URL: 'http://models.example/v1' },
+    ],
+    [
+      'a recount base URL in http with a key',
+      { ENGINES: 'live', OPENROUTER_API_KEY: 'k', RECOUNT_BASE_URL: 'http://models.example/v1' },
+    ],
     ['a confidence over 1', { ...FAKE, GUARD_MIN_CONFIDENCE: '2' }],
     ['a confidence not a number', { ...FAKE, GUARD_MIN_CONFIDENCE: 'x' }],
     ['a negative threshold', { ...FAKE, JUDGE_THRESHOLD: '-1' }],
