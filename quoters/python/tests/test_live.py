@@ -1,8 +1,10 @@
 """The live engines against recorded answers, on mock transports: what each
 asks Jev or the LLM, and how it reads the answer. No model is called."""
 
+import asyncio
 import json
-from collections.abc import Callable
+import time
+from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Any
 
 import httpx
@@ -13,7 +15,7 @@ import pytest
 from delorean.cart import Film, Line, Mention
 from delorean.config import OPENROUTER, Effort, LiveSettings
 from delorean.engines.live import open_live_engines
-from delorean.engines.live.jev import Jev
+from delorean.engines.live.jev import Ask, Jev
 from delorean.engines.live.questions import CacheKey, JevGuard, JevIdentifier, JevJudge
 from delorean.engines.live.reader import MAX_TOKENS, LlmReader
 from delorean.lru import Lru
@@ -193,9 +195,16 @@ class Llm:
     """An OpenAI-compatible endpoint that answers every call with `answer`,
     and keeps the requests."""
 
-    def __init__(self, answer: dict[str, Any], status: int = 200) -> None:
+    def __init__(
+        self,
+        answer: dict[str, Any],
+        status: int = 200,
+        *,
+        handler: Callable[[httpx2.Request], Coroutine[None, None, httpx2.Response]] | None = None,
+    ) -> None:
         self.answer, self.status = answer, status
         self.requests: list[httpx2.Request] = []
+        self._handler = handler
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         self.requests.append(request)
@@ -208,12 +217,15 @@ class Llm:
         spans: Spans | None = None,
         effort: Effort = "low",
         names_films: bool = False,
+        timeout: float | None = None,
     ) -> LlmReader:
         client = openai.AsyncOpenAI(
             api_key="k",
             base_url=OPENROUTER,
             max_retries=0,
-            http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(self)),
+            http_client=httpx2.AsyncClient(
+                transport=httpx2.MockTransport(self._handler) if self._handler else httpx2.MockTransport(self)
+            ),
         )
         tracer = spans.tracer if spans else NoTracer()
         return LlmReader(
@@ -223,6 +235,7 @@ class Llm:
             prompt=prompts.parse_films if names_films else prompts.parse,
             tracer=tracer,
             names_films=names_films,
+            timeout=timeout,
         )
 
 
@@ -379,6 +392,56 @@ async def test_every_model_call_is_bounded_by_model_timeout(prompts: Prompts) ->
             assert reader._client.timeout == 4.5, "each LLM call"
             assert reader._client.max_retries == 0, "no retry in the request path"
         assert engines.guard._jev._client.timeout == httpx.Timeout(4.5), "each Jev call"
+
+
+class Trickle(httpx.AsyncByteStream):
+    """An answer that never ends but never stops either: a byte every few
+    milliseconds, so that no phase of the call, connecting, writing or one
+    read, is slow."""
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        while True:
+            await asyncio.sleep(0.01)
+            yield b" "
+
+
+async def test_jev_bounds_the_whole_call_not_each_phase() -> None:
+    def answer(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, stream=Trickle())
+
+    # the client's own timeouts, per phase, are generous: only MODEL_TIMEOUT can end the call
+    client = httpx.AsyncClient(transport=httpx.MockTransport(answer), timeout=httpx.Timeout(30))
+    jev = Jev(key="k", client=client, tracer=NoTracer(), timeout=0.15)
+    started = time.perf_counter()
+    with pytest.raises(EngineError, match=r"jev-1.13: no answer in 0.15s"):
+        await jev.decide(Ask(state={"customer_message": "Heat"}, questions=[]))
+    assert time.perf_counter() - started < 2
+
+
+async def test_the_reader_bounds_the_whole_call_not_each_phase(prompts: Prompts) -> None:
+    async def answer(request: httpx2.Request) -> httpx2.Response:
+        await asyncio.sleep(30)
+        raise AssertionError("not cancelled")
+
+    llm = Llm({}, handler=answer)
+    started = time.perf_counter()
+    with pytest.raises(EngineError, match=r"openai/gpt-6-luna: no answer in 0.1s") as raised:
+        await llm.reader(prompts, timeout=0.1).read("Heat")
+    assert time.perf_counter() - started < 2
+    usage = raised.value.usage
+    assert usage is not None
+    model = "openai/gpt-6-luna"
+    assert (usage.engine, usage.model, usage.calls) == (model, model, 1), "the call went out"
+
+
+async def test_the_live_engines_hand_model_timeout_to_each_call(prompts: Prompts) -> None:
+    settings = LiveSettings(openrouter_api_key="k", model_timeout=4.5)
+    async with open_live_engines(settings, prompts, NoTracer()) as engines:
+        assert isinstance(engines.parser, LlmReader)
+        assert isinstance(engines.recounter, LlmReader)
+        assert isinstance(engines.guard, JevGuard)
+        assert engines.parser._timeout == engines.recounter._timeout == 4.5
+        assert engines.guard._jev._timeout == 4.5
 
 
 async def test_the_recount_is_luna_without_reasoning_by_default(prompts: Prompts) -> None:
