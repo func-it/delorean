@@ -239,10 +239,12 @@ export interface components {
          *       spaces aside) are merged first; two spellings of one volume are two titles.
          *     - `unfaithful_reading` (422): the judge does not hold the reading faithful.
          *     - `engine_unavailable` (502): a model engine failed.
+         *     - `quantity_unverified` (503): the quantities could not be cross-checked
+         *       (the recount failed) and a line asks for more than one copy; retry.
          *     - `not_found` (404), `method_not_allowed` (405), `internal` (500).
          * @enum {string}
          */
-        ProblemCode: "malformed_request" | "payload_too_large" | "empty_cart" | "too_long" | "injection" | "invalid_request" | "no_film" | "quantity_too_large" | "unfaithful_reading" | "engine_unavailable" | "not_found" | "method_not_allowed" | "internal";
+        ProblemCode: "malformed_request" | "payload_too_large" | "empty_cart" | "too_long" | "injection" | "invalid_request" | "no_film" | "quantity_too_large" | "unfaithful_reading" | "engine_unavailable" | "quantity_unverified" | "not_found" | "method_not_allowed" | "internal";
         Health: {
             /** @constant */
             status: "ok";
@@ -359,6 +361,22 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /**
+         * @description The cart was read and the judge holds the reading faithful, but its
+         *     quantities could not be cross-checked right now (the recount failed or
+         *     was too slow, so the quote is `degraded`) and a line asks for more than
+         *     one copy. Nothing is wrong with the cart: try again. A cart whose lines
+         *     all ask for one copy is priced all the same.
+         */
+        QuantityUnverified: {
+            headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
     };
     parameters: {
         /** @description Who asks (the username of the session). Traced as the Langfuse user. */
@@ -452,6 +470,7 @@ export interface operations {
             422: components["responses"]["Rejected"];
             500: components["responses"]["Internal"];
             502: components["responses"]["EngineUnavailable"];
+            503: components["responses"]["QuantityUnverified"];
         };
     };
 }

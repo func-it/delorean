@@ -144,7 +144,9 @@ implementations: they are compared on their code, not on their prompts.
   answers off its schema or takes over `RECOUNT_TIMEOUT` (6 s) is asked once
   more if it failed fast, then left out: the quote goes on with the parse
   alone, held to the text by the judge, with no count check, and its usage
-  says `degraded`. The first recount that succeeds is kept for the whole
+  says `degraded`. With nothing to count against, a cart whose lines all ask
+  for one copy is priced, and one with a line of several copies is not:
+  `503 quantity_unverified`, a refusal to retry, shown as one sentence. The first recount that succeeds is kept for the whole
   request. Every model call is bounded by `MODEL_TIMEOUT` (6 s), a request by
   `REQUEST_TIMEOUT` (15 s); the three must be ordered so.
 - **A refused reading is read again, never re-judged as is.** A reading the

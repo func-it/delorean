@@ -80,6 +80,13 @@ test("prices from the parse alone when the recount answers off its schema", asyn
   await expect(result(page)).toContainText(amount("15,00 €"));
 });
 
+test("does not price several copies nobody could count, and says to retry", async ({ page }) => {
+  await price(page, "2 x Back to the Future 1\n#fake:recount_offschema");
+
+  await expect(refusal(page)).toContainText("Nous n'avons pas pu vérifier les quantités à cet instant");
+  await expect(result(page)).toHaveCount(0);
+});
+
 test("picks a quoter by its name in the URL", async ({ page }) => {
   await page.goto("/?quoter=python");
   await price(page, "Back to the Future 1");

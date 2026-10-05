@@ -77,18 +77,20 @@ benches. Each case has a `note` that says which mistake it guards against.
 
 | Folder | Subject | Cases |
 |---|---|---|
-| `quote/` | the API end to end: a total, the quantities per film, or a refusal code | 80 |
+| `quote/` | the API end to end: a total, the quantities per film, or a refusal code | 81 |
 | `guard/` | valid, injection or invalid | 113 |
 | `identify/` | one title → `bttf_1`, `bttf_2`, `bttf_3` or `other` | 61 |
 | `reading/` | parse and identify together: quantities per film | 46 |
 | `judge/` | is a given reading faithful to the text, and which check says it is not (`asked`, `identity`, `missing`, `count`)? | 42 |
 
-The `fake` tag marks the 34 quote cases the fake engines must pass; CI plays
-them. The others are played against the real models only. Four of them use
+The `fake` tag marks the 35 quote cases the fake engines must pass; CI plays
+them. The others are played against the real models only. Five of them use
 a fault line: `recomptage-en-desaccord` (`#fake:miscount`) proves that a
 recount in disagreement refuses the cart, `recomptage-hors-schema`
 (`#fake:recount_offschema`) that a recount answering off its schema is left
-out instead of failing the quote, `relecture-film-oublie`
+out instead of failing the quote, `recomptage-hors-schema-quantites` that a
+quote left without a recount does not price a line of several copies
+(`503 quantity_unverified`), `relecture-film-oublie`
 (`#fake:reread`) that a reading the judge refuses is read again and priced,
 `relecture-toujours-infidele` (`#fake:unfaithful`) that it is refused after
 the last reading.
@@ -125,7 +127,7 @@ RUN_LIVE=1 BASE_URL=http://localhost:24791 npm run e2e   # against live engines 
 ```
 
 The suite reads `GET /healthz` first. On fake engines it runs the contract
-suites and every `fake` case: 72 tests today, passed by each of the three
+suites and every `fake` case: 74 tests today, passed by each of the three
 quoters (`task e2e:all`). On live engines it refuses to
 start without `RUN_LIVE=1`, then plays every quote case. It checks:
 

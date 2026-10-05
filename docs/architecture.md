@@ -105,7 +105,7 @@ after the total crossed the limit. Details: [`web/README.md`](../web/README.md#d
 | 3 | `parse` | LLM, structured output | `422 no_film` (no film to buy), `422 quantity_too_large` (more than 1000 copies of one film) |
 | 3′ | `recount` | a second reader, same instruction and schema, beside `parse` | — (one that fails is left out: degraded) |
 | 4 | `identify` | Jev, one `choice` request per distinct title of both readings, in parallel | — |
-| 5 | `judge` | Jev, one `noul` question per observable fact, in parallel; code compares the two readings; a refused reading is read again, up to 3 readings | `422 unfaithful_reading` |
+| 5 | `judge` | Jev, one `noul` question per observable fact, in parallel; code compares the two readings; a refused reading is read again, up to 3 readings | `422 unfaithful_reading`; `503 quantity_unverified` (no recount to count against, a line of several copies) |
 | 6 | `price` | code | — |
 
 An engine that is unreachable or answers outside its contract gives
@@ -263,6 +263,14 @@ second opinion, not a dependency:
   (6 s) on every model call; the settings must be ordered `MODEL_TIMEOUT` ≤
   `RECOUNT_TIMEOUT` ≤ `REQUEST_TIMEOUT`, and the service refuses to start
   otherwise;
+- with no recount to count against, the quantities are the parse's alone, and
+  nothing checks them: so when the judge accepts a reading and no recount
+  succeeded in the request, a cart whose lines all ask for one copy is priced
+  (a `degraded` quote), and one with a line of several copies (titles merged
+  first) is not: `503 quantity_unverified`, usage included (the price stage
+  did not run), final for the request and worth retrying. A judge refusal
+  still comes first, and a recount that succeeded at any reading lifts the
+  rule;
 - the first recount that succeeds is kept for the whole request (its input
   never changes: it reads blind): later readings are compared with it, and
   ask nothing more; a recount left out at a reading is asked again at the

@@ -49,6 +49,8 @@ export function explainProblem(problem: Problem): Rejection {
       );
     case "malformed_request":
       return ours("La demande n'a pas pu être lue : rechargez la page, puis réessayez.");
+    case "quantity_unverified":
+      return refusal("Nous n'avons pas pu vérifier les quantités à cet instant : réessayez dans un instant.");
     case "quote_in_progress":
       return refusal("Un devis est déjà en cours pour vous : patientez un instant, puis réessayez.");
     case "daily_budget_exhausted":
