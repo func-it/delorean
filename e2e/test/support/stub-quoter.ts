@@ -179,11 +179,14 @@ export async function startStubQuoter(options: StubOptions = {}): Promise<Stub> 
       // #fake:reread: a first reading leaves out the last mention.
       const parsed = merge(attempt === 1 && lines.includes('#fake:reread') ? all.slice(0, -1) : all);
       ran('parse');
-      ran('recount');
+      // The first recount that succeeds is kept for the request; one left out is asked again at the next reading.
       if (offSchema) {
+        ran('recount');
         ran('recount');
         const recount = stages.find((s) => s.stage === 'recount');
         if (recount) recount.degraded = true;
+      } else if (attempt === 1) {
+        ran('recount');
       }
       const tooMany = parsed.find((m) => m.quantity > maxCopies);
       if (tooMany) {

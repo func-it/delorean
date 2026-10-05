@@ -47,7 +47,7 @@ describe.runIf(health.engines === 'fake')('fake engines', () => {
     expect(quote.judge.attempts).toBe(2);
     expect(quote.total_cents).toBe(2700);
     const calls = Object.fromEntries(quote.usage.stages.map((s) => [s.stage, s.calls]));
-    expect(calls).toMatchObject({ guard: 1, parse: 2, recount: 2 });
+    expect(calls).toMatchObject({ guard: 1, parse: 2, recount: 1 });
   });
 
   it('refuses a reading the judge refuses at every attempt, after the last', async () => {

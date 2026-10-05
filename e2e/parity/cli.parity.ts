@@ -118,6 +118,8 @@ describe('the same configuration errors', () => {
     ['a negative threshold', { ...FAKE, JUDGE_THRESHOLD: '-1' }],
     ['no body', { ...FAKE, MAX_BODY_BYTES: '0' }],
     ['a timeout without its unit', { ...FAKE, REQUEST_TIMEOUT: '30' }],
+    ['a model timeout over the recount timeout', { ...FAKE, MODEL_TIMEOUT: '10s' }],
+    ['a recount timeout over the request timeout', { ...FAKE, RECOUNT_TIMEOUT: '20s' }],
     ['an unknown fake latency', { ...FAKE, FAKE_LATENCY: 'slow' }],
     ['a fake CPU time not a number', { ...FAKE, FAKE_CPU_MS: 'x' }],
     ['a negative fake CPU time', { ...FAKE, FAKE_CPU_MS: '-1' }],

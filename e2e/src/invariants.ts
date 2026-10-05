@@ -6,7 +6,8 @@ const COST_TOLERANCE_USD = 1e-6;
 /** The fewest and most calls of a fake model stage over `attempts` readings; the guard runs once. */
 const FAKE_CALLS: Partial<Record<Stage, (attempts: number) => [number, number]>> = {
   parse: (n) => [n, n],
-  recount: (n) => [n, n],
+  // the first recount that succeeds is kept for the request: one call, whatever the readings
+  recount: () => [1, 1],
   identify: (n) => [1, n],
   judge: (n) => [1, n],
 };
@@ -125,8 +126,9 @@ export function usageViolations(usage: Usage, health: Health, last: Stage, attem
     }
     if (isModel && health.engines === 'fake') {
       const [fewest, usual] = FAKE_CALLS[stage.stage]?.(attempts) ?? [1, 1];
-      // a degraded recount was asked once more on each reading, its failure being fast
-      const [least, most] = stage.degraded ? [fewest, 2 * usual] : [fewest, usual];
+      // a recount left out was asked twice on each reading (its failure being fast), the reading it
+      // is left out of asking again
+      const [least, most] = stage.degraded && stage.stage === 'recount' ? [2, 2 * attempts] : [fewest, usual];
       if (stage.engine !== 'fake' || stage.calls < least || stage.calls > most || stage.cost_usd !== 0) {
         const calls =
           least !== most ? `${least} to ${most} free calls` : least === 1 ? 'one free call' : `${least} free calls`;

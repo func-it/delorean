@@ -93,8 +93,12 @@ describe('usageViolations', () => {
     expect(usageViolations(degraded, FAKE_HEALTH, 'price')).toEqual([]);
     recount.calls = 3;
     expect(usageViolations(degraded, FAKE_HEALTH, 'price')).toEqual([
-      expect.stringMatching(/^usage.stages recount: fake engines make 1 to 2 free calls/),
+      expect.stringMatching(/^usage.stages recount: fake engines make 2 free calls/),
     ]);
+    // read again, a recount left out is asked again at each reading
+    recount.calls = 4;
+    degraded.stages.find((s) => s.stage === 'parse')!.calls = 2;
+    expect(usageViolations(degraded, FAKE_HEALTH, 'price', 2)).toEqual([]);
     const judge = usage();
     judge.stages.find((s) => s.stage === 'judge')!.degraded = true;
     expect(usageViolations(judge, FAKE_HEALTH, 'price')).toEqual([
@@ -104,11 +108,11 @@ describe('usageViolations', () => {
 
   it('adds up the calls of a cart read again, on fake engines', () => {
     const again = usage();
-    for (const stage of again.stages) if (stage.stage === 'parse' || stage.stage === 'recount') stage.calls = 2;
+    for (const stage of again.stages) if (stage.stage === 'parse') stage.calls = 2;
+    // the first recount that succeeds is kept: one call, however many readings
     expect(usageViolations(again, FAKE_HEALTH, 'price', 2)).toEqual([]);
     expect(usageViolations(again, FAKE_HEALTH, 'price')).toEqual([
       expect.stringMatching(/^usage.stages parse: fake engines make one free call .* in one reading/),
-      expect.stringMatching(/^usage.stages recount: fake engines make one free call .* in one reading/),
     ]);
     const guardTwice = usage();
     guardTwice.stages[1]!.calls = 2;
