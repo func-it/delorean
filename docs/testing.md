@@ -140,7 +140,8 @@ start without `RUN_LIVE=1`, then plays every quote case. It checks:
   subtotal − discount, judge score ≥ threshold;
 - on fake engines, the guard's two answers (`questions: {order, steer}`),
   the judge's `count` checks, passed and failed, and a recount off its schema
-  left out: priced, `degraded`, two calls, no `count` check; `degraded` on no
+  left out: priced, `degraded`, two calls per reading, no `count` check; a
+  recount that succeeded is asked once, whatever the readings; `degraded` on no
   other stage.
 
 ### Web app in a browser (Playwright)

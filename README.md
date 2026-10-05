@@ -135,15 +135,18 @@ implementations: they are compared on their code, not on their prompts.
 - **Two readings, compared in code.** Jev cannot count, so the cart is read a
   second time; the code compares both readings film by film, and any
   disagreement refuses the cart. The recount never sets the price. It is
-  GPT-6 Luna again, without reasoning, for its speed: DeepSeek V4.1 Flash, of
-  another family, read as well but set a quote's p90 at 11 s. The price of the
-  choice: one model makes the same slip twice, and two readings that agree on
-  it prove less than two families would.
+  GPT-6 Luna again, without reasoning, chosen for its speed: it is the same
+  model as the parse, so its readings are correlated. It catches a model
+  that reads the same cart differently from one call to the next, not one
+  that misreads it the same way twice. A second family (DeepSeek V4.1 Flash)
+  was the more independent reader, but set a quote's p90 at 11 s.
 - **The recount is a second opinion, not a dependency.** One that fails,
   answers off its schema or takes over `RECOUNT_TIMEOUT` (6 s) is asked once
-  more if it failed fast, then left out: the quote goes on with the parse alone
-  and the judge, and its usage says `degraded`. Every model call is bounded by
-  `MODEL_TIMEOUT` (6 s), a request by `REQUEST_TIMEOUT` (15 s).
+  more if it failed fast, then left out: the quote goes on with the parse
+  alone, held to the text by the judge, with no count check, and its usage
+  says `degraded`. The first recount that succeeds is kept for the whole
+  request. Every model call is bounded by `MODEL_TIMEOUT` (6 s), a request by
+  `REQUEST_TIMEOUT` (15 s); the three must be ordered so.
 - **A refused reading is read again, never re-judged as is.** A reading the
   judge refuses goes back to the model with what failed, up to three
   readings: a slip of the model should not cost the customer a refusal. Only

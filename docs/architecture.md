@@ -249,16 +249,24 @@ finds two.
 
 The recount was DeepSeek V4.1 Flash, of another family than the parser: the
 most accurate reader on the bench, but 11 s at p90, and it ran beside the parse,
-so it set a quote's latency. A customer waited 23 s for its answer off schema,
-then a `502`. It is now GPT-6 Luna without reasoning (137 / 138 on the
-`reading` bench, 3.2 s at p90). The price: one model can make the same slip
-in both readings, which then agree; two families would less often.
+so it set a quote's latency; a customer waited 23 s for an answer off its
+schema, then a `502`. It is now GPT-6 Luna without reasoning (137 / 138 on the
+`reading` bench, 3.2 s at p90). It is the parser's own model, so the two
+readings are correlated: the comparison catches a model that reads the same
+cart differently from one call to the next, not one that misreads it the same
+way twice, which two families would catch more often.
 
 The recount never sets the price: the parser's reading does. And it is a
 second opinion, not a dependency:
 
 - it has `RECOUNT_TIMEOUT` (6 s), a retry included, besides `MODEL_TIMEOUT`
-  (6 s) on every model call;
+  (6 s) on every model call; the settings must be ordered `MODEL_TIMEOUT` ≤
+  `RECOUNT_TIMEOUT` ≤ `REQUEST_TIMEOUT`, and the service refuses to start
+  otherwise;
+- the first recount that succeeds is kept for the whole request (its input
+  never changes: it reads blind): later readings are compared with it, and
+  ask nothing more; a recount left out at a reading is asked again at the
+  next, none having succeeded yet;
 - one that fails (an engine down, an answer off its schema, too slow) is
   asked once more when its failure came in under half of `RECOUNT_TIMEOUT`
   (an answer off schema comes fast; a slow model does not get faster), with
@@ -266,8 +274,11 @@ second opinion, not a dependency:
 - one that fails still does not fail the quote: the reading goes on with the
   parse alone, its titles alone identified, no `count` check, and the judge
   holds it to the text as always. The stage's usage says `"degraded": true`
-  (its calls, both tries, added up), its span is a `WARNING`, and the trace's
-  metadata `degraded: recount`;
+  (its calls, both tries, added up; true once the recount was left out at
+  any reading), its span is a `WARNING` at that reading only, the trace's
+  metadata `degraded: recount`, and the request's log line says
+  `degraded=recount`. Only an engine failure degrades; a bug is not
+  swallowed;
 - only a request that is over (`REQUEST_TIMEOUT`, or the client gone) fails
   on the recount, as on any stage.
 
@@ -364,19 +375,20 @@ Each new attempt:
    decoded before any merge, in compact JSON as `JSON.stringify` writes it.
    The third attempt does not see the first: a longer conversation would
    cost more and say less;
-2. **recount again, blind**: a fresh independent reading, never told what
-   failed, so it stays a second opinion;
+2. **the recount is not asked again** once one succeeded: it reads blind, so
+   its answer is the same question's and is kept for the request (a recount
+   left out is asked again);
 3. **identify only titles not seen yet** in this request: an identification
    is never asked twice;
 4. **judge**: a reading already judged (the same lines: title, quantity and
    film, in any order) is **not put to Jev again**: its `asked`, `identity`
    and `missing` findings are reused, put in the new reading's line order,
-   and only `count` is computed anew against the new recount.
+   and `count` is computed anew against the kept recount.
 
 The last rule is what keeps the judge a safety net. Jev is probabilistic: a
 wrong reading it refuses two times in three would pass 70 % of the time
 (1 − (2/3)³) if it were judged three times. A new attempt can win only with a
-**different** reading, or a recount that now agrees.
+**different** reading.
 
 - The first reading that passes is priced. After the last attempt the cart
   is refused, `422 unfaithful_reading`, with the last judgement;
@@ -396,9 +408,11 @@ wrong reading it refuses two times in three would pass 70 % of the time
 - Usage adds up over the attempts, stage by stage, real calls only: `parse`
   with 3 calls is a cart read three times; `identify` and `judge` count only
   the calls they made (none for titles already identified or a reading
-  already judged). The fake engines count the same way. A trace has one span
-  per stage per attempt for `parse`, `recount`, `identify` and `judge`, with
-  `attempt` (1, 2, 3) in its metadata.
+  already judged), and the `recount` those of the readings that asked it (the
+  first one that succeeded is kept: one call, whatever the readings). The
+  fake engines count the same way. A trace has one span per stage per
+  attempt for `parse`, `recount` (only when asked), `identify` and `judge`,
+  with `attempt` (1, 2, 3) in its metadata.
 - An engine failure on any attempt is a `502`, as on the first.
 - A `422`'s usage lists every stage that ran, a failed one included (its
   calls, duration and the cost billed so far): a refusal beside a recount
@@ -748,7 +762,8 @@ tasks: `setup`, `generate`, `lint`, `format`, `test`, `run`, `run:fake`,
 - A chat generation that answers off its schema is `ERROR`; usage and cost
   come only from a response that reports them; `model.parameters` is
   `{"reasoning_effort": <effort>}`. No call is retried by its client:
-  reading again is the only retry, and it shows.
+  reading again, and the one more try of a recount that failed fast, are the
+  only retries, and they show.
 - A Jev generation's input is compact JSON with sorted keys, its output the
   answer as decoded.
 - A failed span is level `ERROR`, with its status message and an
