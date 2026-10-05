@@ -1,6 +1,7 @@
 /**
- * Titles compared by the blanks of Unicode's White_Space (the set of Go's
- * unicode.IsSpace) and a simple, context-free lower-casing, which is not quite
+ * Titles compared by the blanks of Unicode's White_Space (tab to carriage
+ * return, space, U+0085, U+00A0, U+1680, U+2000–U+200A, U+2028, U+2029, U+202F,
+ * U+205F, U+3000) and a simple, context-free lower-casing, which is not quite
  * what JavaScript's trim, \s and toLowerCase do (U+0085 is a space here,
  * U+FEFF is not; Σ lowers to σ wherever it stands, and İ to i).
  */

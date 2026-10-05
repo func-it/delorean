@@ -130,6 +130,7 @@ services:
       - ./README.md:/usr/share/nginx/content/README.md:ro
       - ./docs/architecture.md:/usr/share/nginx/content/architecture.md:ro
       - ./docs/testing.md:/usr/share/nginx/content/testing.md:ro
+      - ./docs/adr/0001-lire-le-panier-avec-des-modeles.md:/usr/share/nginx/content/adr-0001.md:ro
       - ./api/openapi.yaml:/usr/share/nginx/content/openapi.yaml:ro
     ports:
       - "127.0.0.1:${DOCS_PORT:-24795}:80"

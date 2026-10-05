@@ -35,12 +35,12 @@ const request = (): Uint8Array => {
     ...bytes(9, kv('score', double(4, 0.5))),
     ...bytes(
       9,
-      kv('langfuse.trace.tags', bytes(5, [...bytes(1, str(1, 'quoter:go')), ...bytes(1, str(1, 'engines:fake'))])),
+      kv('langfuse.trace.tags', bytes(5, [...bytes(1, str(1, 'quoter:typescript')), ...bytes(1, str(1, 'engines:fake'))])),
     ),
     ...bytes(11, [...str(2, 'exception'), ...bytes(3, kv('exception.message', str(1, 'down')))]),
     ...bytes(15, [...str(2, 'down'), ...int(3, 2n)]),
   ];
-  const scopeSpans = [...bytes(1, str(1, 'trpc.agent.go')), ...bytes(2, span)];
+  const scopeSpans = [...bytes(1, str(1, 'delorean.quoter')), ...bytes(2, span)];
   const resource = bytes(1, kv('service.name', str(1, 'delorean')));
   return Uint8Array.from(bytes(1, [...bytes(1, resource), ...bytes(2, scopeSpans)]));
 };
@@ -55,12 +55,12 @@ const guard: Span = {
     'langfuse.observation.type': { string: 'guardrail' },
     'langfuse.observation.metadata.attempt': { int: '2' },
     score: { double: 0.5 },
-    'langfuse.trace.tags': { array: [{ string: 'quoter:go' }, { string: 'engines:fake' }] },
+    'langfuse.trace.tags': { array: [{ string: 'quoter:typescript' }, { string: 'engines:fake' }] },
   },
   events: [{ name: 'exception', attributes: { 'exception.message': { string: 'down' } } }],
   status: { code: 2, message: 'down' },
   resource: { 'service.name': { string: 'delorean' } },
-  scope: 'trpc.agent.go',
+  scope: 'delorean.quoter',
 };
 
 describe('OTLP', () => {
@@ -75,7 +75,7 @@ describe('OTLP', () => {
           resource: { attributes: [{ key: 'service.name', value: { stringValue: 'delorean' } }] },
           scopeSpans: [
             {
-              scope: { name: 'trpc.agent.go' },
+              scope: { name: 'delorean.quoter' },
               spans: [
                 {
                   traceId: guard.traceId,
@@ -89,7 +89,7 @@ describe('OTLP', () => {
                     {
                       key: 'langfuse.trace.tags',
                       value: {
-                        arrayValue: { values: [{ stringValue: 'quoter:go' }, { stringValue: 'engines:fake' }] },
+                        arrayValue: { values: [{ stringValue: 'quoter:typescript' }, { stringValue: 'engines:fake' }] },
                       },
                     },
                   ],
