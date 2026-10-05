@@ -66,6 +66,16 @@ export interface JevOptions {
   retryWaitMs?: number;
 }
 
+/**
+ * What a set of requests spent so far: the requests that went out, answered
+ * or not, and the cost of the answers that came in time. Kept by the caller,
+ * so that a set that fails still says what it spent.
+ */
+export interface Tally {
+  sent: number;
+  costUsd: number;
+}
+
 /** How many requests decideAll keeps open at once: a long cart is hundreds of questions, and OpenRouter caps Jev's rate. */
 const IN_FLIGHT = 16;
 
@@ -129,8 +139,14 @@ export class Jev {
    * Sends the requests side by side, at most IN_FLIGHT at once, and returns
    * their decisions in the order of the requests. The first failure stops
    * the rest: one missing answer fails the whole set.
+   *
+   * `tally`, when given, counts a request as it leaves, not as its answer
+   * comes (answered, failed or cancelled, it was sent: a request not sent
+   * because the set was already stopped is not counted), and adds the cost of
+   * each answer that comes; after a failure the decisions are lost, what the
+   * set spent is not.
    */
-  async decideAll(requests: readonly Request[], signal: AbortSignal): Promise<Decision[]> {
+  async decideAll(requests: readonly Request[], signal: AbortSignal, tally?: Tally): Promise<Decision[]> {
     const stop = new AbortController();
     const each = AbortSignal.any([signal, stop.signal]);
     const decisions = new Array<Decision>(requests.length);
@@ -138,7 +154,10 @@ export class Jev {
     const worker = async () => {
       for (const [i, request] of queue) {
         if (each.aborted) return;
-        decisions[i] = await this.decide(request, each);
+        if (tally) tally.sent += 1;
+        const decision = await this.decide(request, each);
+        decisions[i] = decision;
+        if (tally) tally.costUsd += decision.costUsd;
       }
     };
     const workers = Array.from({ length: Math.min(IN_FLIGHT, requests.length) }, () =>

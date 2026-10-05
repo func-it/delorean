@@ -284,7 +284,9 @@ describe('POST /v1/quotes', () => {
       'engine_unavailable',
     );
     expect(problem.detail).not.toContain('fake');
-    expect(problem).not.toHaveProperty('usage');
+    // a failure costs what it cost: the stages that ran, the one that failed included
+    expect(problem.usage?.stages.map((s) => s.stage)).toEqual(['prepare', 'guard', 'parse', 'recount']);
+    expect(Object.keys(problem)).toEqual(['type', 'title', 'status', 'code', 'detail', 'request_id', 'usage']);
     expect(logged[0]).toMatchObject({
       status: 502,
       code: 'engine_unavailable',
@@ -311,6 +313,8 @@ describe('POST /v1/quotes', () => {
     const guard: Guard = { check: () => Promise.reject(new Error('a bug, not an engine')) };
     const problem = await problemOf(await postCart(newApp({ guard }, { log }), 'Heat'), 500, 'internal');
     expect(problem.detail).not.toContain('bug');
+    // what ran before the bug is spent all the same
+    expect(problem.usage?.stages.map((s) => s.stage)).toEqual(['prepare', 'guard']);
     expect(lines).toEqual([
       { level: 'ERROR', attributes: expect.objectContaining({ err: 'a bug, not an engine' }) as unknown },
     ]);

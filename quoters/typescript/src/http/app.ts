@@ -193,15 +193,17 @@ export function createApp(config: AppConfig): Hono<Env> {
       }
       if (error instanceof EngineError) {
         const detail = 'A model engine could not be reached, or answered out of contract.';
+        const report = error.report;
         return refused(
           c,
-          contract.problem(502, 'engine_unavailable', detail),
+          contract.withUsage(contract.problem(502, 'engine_unavailable', detail), report, context),
           'engine_unavailable',
-          error.report,
+          report,
           error,
         );
       }
-      return refused(c, internalProblem(), 'internal', reportOf(error), error);
+      const report = reportOf(error);
+      return refused(c, contract.withUsage(internalProblem(), report, context), 'internal', report, error);
     }
   }
 

@@ -10,7 +10,7 @@ import {
   type Judge,
 } from '../../pipeline/ports.ts';
 import type { Prompts, Question } from '../../prompts.ts';
-import type { Decision, Jev, Request } from './jev.ts';
+import type { Decision, Jev, Request, Tally } from './jev.ts';
 
 /**
  * The stages Jev answers — the guard, the identification, the judge — as
@@ -139,12 +139,13 @@ export function judgeProbes(text: string, lines: readonly Line[], prompts: Promp
   ];
 }
 
-/** Jev's decisions; a failure says what the stage took until then: no call that counts. */
+/** Jev's decisions; a failure says what the stage took until then: the requests sent, and the answers that came. */
 async function decideAll(jev: Jev, requests: Request[], signal: AbortSignal, started: number): Promise<Decision[]> {
+  const tally: Tally = { sent: 0, costUsd: 0 };
   try {
-    return await jev.decideAll(requests, signal);
+    return await jev.decideAll(requests, signal, tally);
   } catch (error) {
-    throw engineFailure(error, usage(jev, started));
+    throw engineFailure(error, usageOf(jev, started, tally));
   }
 }
 
@@ -156,6 +157,17 @@ function answer(decision: Decision | undefined, question: Question) {
 
 function noul(decision: Decision | undefined, question: Question): number {
   return answer(decision, question).noul;
+}
+
+/** What a set of requests took, since `started`, by its tally: the requests sent, whatever became of them. */
+function usageOf(jev: Jev, started: number, tally: Tally): EngineUsage {
+  return {
+    engine: jev.engine,
+    model: jev.model,
+    calls: tally.sent,
+    ms: Math.round(performance.now() - started),
+    costUsd: tally.costUsd,
+  };
 }
 
 /** What a set of decisions took, since `started`. */

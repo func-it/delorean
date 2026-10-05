@@ -197,6 +197,35 @@ describe('Jev.decideAll', () => {
     expect(sent.length).toBeLessThan(40);
   });
 
+  it('counts a request as it leaves, and the cost of the answers that came, whether the set fails or not', async () => {
+    const ok = stub([200, answer('other')]);
+    const tally = { sent: 0, costUsd: 0 };
+    const requests = Array.from({ length: 5 }, (): Request => ({ state: {}, questions: [film] }));
+    await new Jev({ key: 'k', fetch: ok.fetch }).decideAll(requests, never, tally);
+    expect(tally.sent).toBe(5);
+    expect(tally.costUsd).toBeCloseTo(0.005);
+
+    // one answer, then failures: every request that went out counts, the one answer's cost too
+    const failing = stub([200, answer('other')], [402, '{"error":{"message":"insufficient credits"}}']);
+    const spent = { sent: 0, costUsd: 0 };
+    const many = Array.from({ length: 40 }, (): Request => ({ state: {}, questions: [film] }));
+    await expect(new Jev({ key: 'k', fetch: failing.fetch }).decideAll(many, never, spent)).rejects.toThrow('402');
+    expect(spent.sent).toBe(failing.sent.length);
+    expect(spent.sent).toBeGreaterThan(1);
+    expect(spent.sent).toBeLessThan(40);
+    expect(spent.costUsd).toBeCloseTo(0.001);
+  });
+
+  it('does not count a request the set was too stopped to send', async () => {
+    const { sent, fetch } = stub([200, answer('other')]);
+    const stopped = AbortSignal.abort();
+    const tally = { sent: 0, costUsd: 0 };
+    const requests = Array.from({ length: 5 }, (): Request => ({ state: {}, questions: [film] }));
+    await new Jev({ key: 'k', fetch }).decideAll(requests, stopped, tally);
+    expect(sent).toHaveLength(0);
+    expect(tally).toEqual({ sent: 0, costUsd: 0 });
+  });
+
   it('asks nothing of no request', async () => {
     const { sent, fetch } = stub();
     await expect(new Jev({ key: 'k', fetch }).decideAll([], never)).resolves.toEqual([]);

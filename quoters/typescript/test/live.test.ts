@@ -45,6 +45,32 @@ function jev(answer: (state: Record<string, string>, key: string) => Record<stri
   });
 }
 
+/** Jev failing on the question `failing`, answering the others. */
+function jevFailingOn(failing: string, answer: (key: string) => Record<string, unknown>) {
+  return openRouter(({ body }) => {
+    const { questions } = body as Decisions;
+    const keys = Object.keys(questions);
+    if (keys.includes(failing)) return [402, { error: { message: 'insufficient credits' } }];
+    return [200, { id: 'd', answers: Object.fromEntries(keys.map((k) => [k, answer(k)])), usage: { cost: 0.0001 } }];
+  });
+}
+
+describe('live engines that fail', () => {
+  it('say what a failing set of requests sent: the guard counts both its requests', async () => {
+    const { engines } = jevFailingOn('steer', () => ({ noul: 0.5 }));
+    const error = await engines.guard.check('Heat', call).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(EngineError);
+    expect((error as EngineError).usage).toMatchObject({ engine: 'jev-1.13', model: 'typesafe/jev-1.13', calls: 2 });
+    expect((error as EngineError).usage?.costUsd).toBeLessThanOrEqual(0.0001);
+  });
+
+  it('say what a failing identification sent: one request per title, all of them out', async () => {
+    const { engines } = jevFailingOn('film', () => ({ choice: 'other', confidence: 1 }));
+    const error = await engines.identifier.identify(['a', 'b', 'c'], call).catch((e: unknown) => e);
+    expect((error as EngineError).usage).toMatchObject({ engine: 'jev-1.13', calls: 3 });
+  });
+});
+
 describe('live guard', () => {
   it('puts order and steer, each in a request of its own, about the customer message', async () => {
     const { sent, engines } = jev((_, key) => ({ noul: key === 'order' ? 0.9 : 0.05 }));
@@ -125,11 +151,15 @@ describe('live judge', () => {
     expect(usage).toMatchObject({ calls: 5, costUsd: expect.closeTo(0.0005) as number });
   });
 
-  it('fails as an engine when Jev does, saying it made no call that counts', async () => {
-    const { engines } = openRouter(() => [402, { error: { message: 'insufficient credits' } }]);
+  it('fails as an engine when Jev does, saying the requests that went out, none of them billed', async () => {
+    const { sent, engines } = openRouter(() => [402, { error: { message: 'insufficient credits' } }]);
     const error = await engines.judge.judge('the text', lines, call).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(EngineError);
-    expect((error as EngineError).usage).toMatchObject({ engine: 'jev-1.13', calls: 0, costUsd: 0 });
+    const { usage } = error as EngineError;
+    expect(usage).toMatchObject({ engine: 'jev-1.13', costUsd: 0 });
+    // a request counts as it leaves, answered or not
+    expect(usage?.calls).toBe(sent.length);
+    expect(usage?.calls).toBeGreaterThan(0);
   });
 });
 

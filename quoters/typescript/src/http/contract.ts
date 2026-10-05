@@ -45,6 +45,14 @@ export function problem(status: number, code: ProblemCode, detail: string): Prob
   return { type: `/problems/${code}`, title: TITLES[code], status, code, detail };
 }
 
+/**
+ * `p` with what the stages that ran took, when any ran: a failure costs what
+ * it cost, and whoever keeps a budget needs to know.
+ */
+export function withUsage(p: Problem, report: Report | undefined, context: Context): Problem {
+  return report && report.stages.length > 0 ? { ...p, usage: usage(report, context) } : p;
+}
+
 /** The problem of a cart a stage refused, with the facts that decided and what the reading cost. */
 export function rejected(rejection: Rejection, context: Context): Problem {
   const { tokens, guard, copies, judgement } = rejection.facts;
