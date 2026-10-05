@@ -291,6 +291,50 @@ func TestCreateQuoteRecountDegraded(t *testing.T) {
 	}
 }
 
+// With the recount left out, a line of several copies is not priced: 503, a
+// problem like the others, usage included, to retry.
+func TestCreateQuoteQuantityUnverified(t *testing.T) {
+	h := newServer(t, nil)
+	rec := postCart(t, h, "2 x Back to the Future 1\n"+fake.RecountOffSchema)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/problem+json" {
+		t.Errorf("Content-Type = %q", ct)
+	}
+	if rec.Header().Get("X-Request-Id") == "" {
+		t.Error("no X-Request-Id")
+	}
+	body := rec.Body.String()
+	want := `{"type":"/problems/quantity_unverified","title":"Quantities not verified","status":503,"code":"quantity_unverified",` +
+		`"detail":"The quantities could not be cross-checked and a line asks for more than one copy: try again.","request_id":`
+	if !strings.HasPrefix(body, want) {
+		t.Errorf("body %s\nwant it to start %s", body, want)
+	}
+	var p Problem
+	if err := json.Unmarshal(rec.Body.Bytes(), &p); err != nil || p.Usage == nil {
+		t.Fatalf("problem %+v, err %v, want usage", p, err)
+	}
+	var stages []string
+	for _, s := range p.Usage.Stages {
+		stages = append(stages, string(s.Stage))
+		if degraded := s.Degraded != nil && *s.Degraded; degraded != (s.Stage == StageUsageStageRecount) {
+			t.Errorf("stage %s degraded = %v", s.Stage, s.Degraded)
+		}
+	}
+	if strings.Join(stages, " ") != "prepare guard parse recount identify judge" {
+		t.Errorf("stages %v: the price stage did not run", stages)
+	}
+	if p.Guard != nil || p.Judge != nil || p.Tokens != nil {
+		t.Errorf("problem %+v carries facts of other refusals", p)
+	}
+
+	// single copies are priced all the same
+	if rec := postCart(t, h, "Back to the Future 1\n"+fake.RecountOffSchema); rec.Code != http.StatusOK {
+		t.Errorf("single copy: status %d: %s", rec.Code, rec.Body)
+	}
+}
+
 func TestCreateQuoteMalformed(t *testing.T) {
 	tests := []struct {
 		name   string

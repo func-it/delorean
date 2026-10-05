@@ -1141,12 +1141,12 @@ func TestQuoteDegrades(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			q, err := newPipeline(t, func(p *pipeline.Pipeline) { p.Engines.Recounter = tt.recounter }).
-				Quote(t.Context(), pipeline.Request{Cart: "2 x Heat\n" + fake.RecountOffSchema})
+				Quote(t.Context(), pipeline.Request{Cart: "Heat\nRonin\n" + fake.RecountOffSchema})
 			if err != nil {
 				t.Fatalf("err = %v, want a quote", err)
 			}
 			if q.Price.TotalCents != 4000 {
-				t.Errorf("total = %d, want 4000, priced on the parse", q.Price.TotalCents)
+				t.Errorf("total = %d, want 4000, priced on the parse: single copies", q.Price.TotalCents)
 			}
 			for _, f := range q.Judgement.Findings {
 				if f.Check == pipeline.CheckCount {
@@ -1210,7 +1210,7 @@ func TestQuoteRetriesTheRecountOnce(t *testing.T) {
 			return nil, pipeline.Usage{Engine: "down", Calls: 1}, errDown
 		})
 		p.RecountTimeout = time.Minute
-	}).Quote(t.Context(), pipeline.Request{Cart: "2 x Heat"})
+	}).Quote(t.Context(), pipeline.Request{Cart: "Heat"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1466,4 +1466,106 @@ func TestQuoteDegradedDoesNotStickToTheNextReading(t *testing.T) {
 	if !reflect.DeepEqual(levels, map[int64]string{1: "WARNING", 2: ""}) {
 		t.Errorf("recount span levels by reading %v, want a warning on the first only", levels)
 	}
+}
+
+// With no recount to count against, a line that asks for more than one copy is
+// not priced: a refusal that does not blame the cart, to retry. A cart of
+// single copies is priced all the same.
+func TestQuoteQuantityUnverified(t *testing.T) {
+	down := func(p *pipeline.Pipeline) { p.Engines.Recounter = parserFails(errDown) }
+	const detail = "The quantities could not be cross-checked and a line asks for more than one copy: try again."
+
+	for name, cartText := range map[string]string{
+		"a line of two copies":              "2 x Heat",
+		"a title written twice, merged":     "Heat\nheat",
+		"one line of two among single ones": "Back to the Future 1\nHeat x 2",
+	} {
+		t.Run(name, func(t *testing.T) {
+			spans := recordSpans(t)
+			var measured []pipeline.Measures
+			_, err := newPipeline(t, func(p *pipeline.Pipeline) {
+				down(p)
+				p.Measured = func(m pipeline.Measures) { measured = append(measured, m) }
+			}).Quote(t.Context(), pipeline.Request{Cart: cartText})
+			rej := rejection(t, err)
+			if rej.Code != pipeline.CodeQuantityUnverified || rej.Detail != detail {
+				t.Fatalf("rejection %s: %s, want quantity_unverified", rej.Code, rej.Detail)
+			}
+			var ran []pipeline.Stage
+			for _, s := range rej.Report.Stages {
+				ran = append(ran, s.Stage)
+				if s.Degraded != (s.Stage == pipeline.StageRecount) {
+					t.Errorf("stage %s degraded = %v", s.Stage, s.Degraded)
+				}
+			}
+			if want := []pipeline.Stage{"prepare", "guard", "parse", "recount", "identify", "judge"}; !slices.Equal(ran, want) {
+				t.Errorf("stages %v, want %v: the price stage did not run", ran, want)
+			}
+			for _, s := range spans.Ended() {
+				attrs := map[string]string{}
+				for _, kv := range s.Attributes() {
+					attrs[string(kv.Key)] = kv.Value.String()
+				}
+				switch s.Name() {
+				case "price":
+					t.Error("a price span: the stage did not run")
+				case "quote":
+					if attrs["langfuse.trace.metadata.outcome"] != "quantity_unverified" || attrs["langfuse.trace.metadata.degraded"] != "recount" {
+						t.Errorf("quote span attributes %v, want outcome quantity_unverified, degraded recount", attrs)
+					}
+					if !strings.Contains(attrs["langfuse.trace.output"], "quantity_unverified") {
+						t.Errorf("trace output %q, want the refusal", attrs["langfuse.trace.output"])
+					}
+				}
+			}
+			if len(measured) != 1 || measured[0].Outcome != "quantity_unverified" || !measured[0].Degraded {
+				t.Errorf("measured %+v, want outcome quantity_unverified, degraded", measured)
+			}
+		})
+	}
+
+	t.Run("single copies are priced", func(t *testing.T) {
+		q, err := newPipeline(t, down).Quote(t.Context(), pipeline.Request{Cart: "Back to the Future 1\nHeat\nRonin"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if q.Price.TotalCents != 5500 || !q.Report.Stages[3].Degraded {
+			t.Errorf("total %d, recount %+v, want 5500 and a degraded recount", q.Price.TotalCents, q.Report.Stages[3])
+		}
+	})
+
+	t.Run("a recount that succeeded is kept: no such refusal", func(t *testing.T) {
+		q, err := newPipeline(t, nil).Quote(t.Context(), pipeline.Request{Cart: "2 x Heat"})
+		if err != nil || q.Price.TotalCents != 4000 {
+			t.Fatalf("quote %+v, err %v, want 4000", q.Price, err)
+		}
+	})
+
+	t.Run("a recount that fails at the first reading and succeeds at the second counts then", func(t *testing.T) {
+		var calls atomic.Int32
+		recounter := parserFunc(func(ctx context.Context, text string, again *pipeline.Retry) ([]cart.Mention, pipeline.Usage, error) {
+			if calls.Add(1) == 1 {
+				return nil, pipeline.Usage{Engine: "flaky", Calls: 1}, errDown
+			}
+			return fake.New().Recounter.Parse(ctx, text, again)
+		})
+		q, err := newPipeline(t, func(p *pipeline.Pipeline) { p.Engines.Recounter = recounter }).
+			Quote(t.Context(), pipeline.Request{Cart: "Back to the Future 1\n2 x Heat\n" + fake.Reread})
+		if err != nil {
+			t.Fatalf("err = %v, want a quote: the second reading was counted", err)
+		}
+		if q.Price.TotalCents != 5500 || q.Judgement.Attempts != 2 {
+			t.Errorf("total %d after %d readings, want 5500 after 2", q.Price.TotalCents, q.Judgement.Attempts)
+		}
+		if !slices.ContainsFunc(q.Judgement.Findings, func(f pipeline.Finding) bool { return f.Check == pipeline.CheckCount }) {
+			t.Errorf("findings %+v, want count checks at the second reading", q.Judgement.Findings)
+		}
+	})
+
+	t.Run("the judge's refusal wins", func(t *testing.T) {
+		_, err := newPipeline(t, down).Quote(t.Context(), pipeline.Request{Cart: "2 x Heat\n" + fake.Unfaithful})
+		if rej := rejection(t, err); rej.Code != pipeline.CodeUnfaithfulReading || rej.Judgement.Attempts != 3 {
+			t.Errorf("rejection %s, want unfaithful_reading after the readings", rej.Code)
+		}
+	})
 }
