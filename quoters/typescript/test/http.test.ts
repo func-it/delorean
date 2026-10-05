@@ -411,7 +411,7 @@ describe('the log', () => {
       msg: 'request',
       attributes: { method: 'POST', path: '/v1/quotes', status: 422, bytes: body.byteLength, code: 'injection' },
     });
-    // the fields in the order every quoter writes them
+    // the fields, in their order
     expect(Object.keys(lines[0]?.attributes ?? {})).toEqual([
       'request_id',
       'method',

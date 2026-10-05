@@ -7,7 +7,7 @@ import type { Logger } from '../src/log.ts';
 import { startTracing } from '../src/telemetry/langfuse.ts';
 
 // The scores go as one ingestion batch per quote; what fails is said by our
-// logger, in the words every quoter uses. No test reaches a Langfuse.
+// logger. No test reaches a Langfuse.
 
 const langfuse = { publicKey: 'pk', secretKey: 'sk', baseUrl: 'http://langfuse.test' };
 

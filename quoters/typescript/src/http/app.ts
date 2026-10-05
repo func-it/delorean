@@ -328,7 +328,7 @@ function timesGiven(c: HonoContext<Env>, name: string): number {
   return raw.filter((h, i) => i % 2 === 0 && h.toLowerCase() === lower).length;
 }
 
-/** 26 base32 characters ([A-Z2-7]) of 128 random bits, as every quoter makes a request id. */
+/** 26 base32 characters ([A-Z2-7]) of 128 random bits: a request id. */
 function newRequestId(): string {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
   let bits = 0n;

@@ -15,8 +15,7 @@ import { titleKey, trimSpace } from '../text.ts';
 /**
  * The engines of ENGINES=fake: deterministic stand-ins for Jev and the LLMs,
  * for end-to-end tests without OpenRouter, never in production. Their rules
- * are part of the test contract and the same in every implementation
- * (docs/architecture.md, "Fake engines").
+ * are part of the test contract (docs/architecture.md, "Fake engines").
  */
 export function fakeEngines(): Engines {
   return { name: 'fake', guard, parser, recounter, identifier, judge };

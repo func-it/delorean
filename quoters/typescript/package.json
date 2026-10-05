@@ -1,7 +1,7 @@
 {
   "name": "@delorean/quoter-typescript",
   "private": true,
-  "description": "The TypeScript implementation of the delorean API (api/openapi.yaml), on Node.",
+  "description": "The delorean quoter: the API of api/openapi.yaml, on Node.",
   "type": "module",
   "engines": {
     "node": ">=26"

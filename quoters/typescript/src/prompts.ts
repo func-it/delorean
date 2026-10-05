@@ -109,8 +109,8 @@ export function promptVersions(prompts: Prompts): Record<'guard' | 'parse' | 'id
 
 /**
  * A stage's version: the first 8 hex digits of the SHA-256 of its file's
- * bytes. A bench run names the versions it tested; two implementations on
- * the same versions ask the same questions.
+ * bytes. A bench run names the versions it tested: the same versions ask the
+ * same questions.
  */
 export function promptVersion(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex').slice(0, 8);

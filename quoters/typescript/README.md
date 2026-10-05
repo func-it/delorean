@@ -5,7 +5,7 @@ pipeline, the prompts (read from [`prompts/`](../../prompts)) and the fake
 engines. The end-to-end suite ([`e2e/`](../../e2e)) holds it to the contract,
 and the system bench measures it on accuracy, latency and cost.
 [`docs/architecture.md`](../../docs/architecture.md) is the specification;
-this file says how this implementation runs and why it is built the way it is.
+this file says how the quoter runs and why it is built the way it is.
 
 ## Run
 
@@ -79,9 +79,7 @@ startup; every wrong one is reported at once, and the service does not start.
 | `READ_ATTEMPTS` | `3` | most readings of one cart, told what failed, before `unfaithful_reading` |
 | `MODEL_TIMEOUT` | `6s` | most one model call may take, Jev's and the LLMs' (502 past it, or the recount degraded); whole milliseconds, and `MODEL_TIMEOUT` ≤ `RECOUNT_TIMEOUT` ≤ `REQUEST_TIMEOUT`, or the service does not start |
 | `RECOUNT_TIMEOUT` | `6s` | the recount's time, a retry included, before the quote goes on without it |
-| `REQUEST_TIMEOUT` | `15s` | budget of one request, model calls included; Go's duration syntax (`1m30s`, `500ms`) |
-| `FAKE_LATENCY` | `off` | `real`: each fake call waits its stage's time, as docs/architecture.md computes it (a model's time, for load tests) |
-| `FAKE_CPU_MS` | `0` | milliseconds of busy CPU at the start of each fake call |
+| `REQUEST_TIMEOUT` | `15s` | budget of one request, model calls included; durations are a number and a unit (`1m30s`, `500ms`) |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` (or `LANGFUSE_HOST`, a URL) | — | traces and scores, when all are set; a half setting is a configuration error |
 | `LANGFUSE_TRACING_ENVIRONMENT`, `LANGFUSE_RELEASE` | — | the traces' environment and release |
 | `PROMPTS_DIR` | the repository's `prompts/` | where the shared prompts are read, at startup; their versions are in `/healthz`; `/app/prompts` in the image |
@@ -104,7 +102,6 @@ src/
     rejection.ts          Rejection: a refusal, its code, its facts, its report
   engines/
     fake.ts               ENGINES=fake, the rules of docs/architecture.md
-    pace.ts               FAKE_LATENCY and FAKE_CPU_MS: the fakes given a model's time
     live/                 Jev (jev.ts, questions.ts) and the LLM readers (reader.ts), on OpenRouter
   http/                   Hono app: routes, problems, the body read strictly (body.ts, json.ts), contract mapping
   telemetry/              Langfuse export (langfuse.ts) and spans (trace.ts)
@@ -173,19 +170,19 @@ scripts/e2e-fake.sh       the end-to-end suite against this quoter on fake engin
   64 KB word under the body limit would hold Node's single thread for
   minutes. The heap merges the same pairs in the same order in milliseconds.
 - **Langfuse, as docs/architecture.md says it** ("Usage, cost and traces",
-  "Identical quoters"): the spans through its OpenTelemetry SDK
+  "Conventions of the answers"): the spans through its OpenTelemetry SDK
   (`@langfuse/tracing`, `@langfuse/otel`, the resource naming the service
   `delorean`), opened by the HTTP layer once the body decodes, the trace's
   attributes propagated to every observation; the scores as one ingestion
   batch per quote, posted with `fetch`, at most 256 on their way. The SDK's
   logger is silenced: what fails is said by ours. Without `LANGFUSE_*`
   nothing is registered and every span is a no-op.
-- **The body is read in the order every quoter checks it** (`http/body.ts`,
+- **The body is read in a fixed order of checks** (`http/body.ts`,
   `http/json.ts`): a small scan of the first JSON value tells a truncated
   body from an invalid one and from data after it, in words no parser's
   wording leaks into; `JSON.parse` then reads the value.
-- **Logs are JSON lines on stdout** (`log.ts`), in the fields and order the
-  quoters share; no logger dependency for that.
+- **Logs are JSON lines on stdout** (`log.ts`), in the fields and order
+  docs/architecture.md gives; no logger dependency for that.
 - **Dependencies are few**: hono, @hono/node-server, undici, openai, ajv,
   js-tiktoken, @langfuse/core, @langfuse/tracing, @langfuse/otel and
   @opentelemetry's api, resources and sdk-trace-node; pinned by

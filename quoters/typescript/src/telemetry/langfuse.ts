@@ -45,7 +45,7 @@ export function langfuseFromEnv(env: Env, problem: (line: string) => void): Lang
     return undefined;
   }
   if (!URL.canParse(baseUrl) || !['http:', 'https:'].includes(new URL(baseUrl).protocol)) {
-    // named LANGFUSE_BASE_URL whichever variable gave it, as every quoter names it
+    // named LANGFUSE_BASE_URL whichever variable gave it
     problem(`LANGFUSE_BASE_URL is ${JSON.stringify(baseUrl)}, not an http(s) URL`);
     return undefined;
   }

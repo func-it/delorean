@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# The TypeScript implementation of the API: Node runs the sources as they are
+# The quoter, the API of api/openapi.yaml: Node runs the sources as they are
 # (type stripping, no build step), on the production dependencies only, as a
 # numeric non-root user. Built from the repository's root, for the shared prompts:
 #   docker build -f quoters/typescript/Dockerfile -t delorean-typescript .

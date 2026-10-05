@@ -270,8 +270,7 @@ interface Wire {
  * outside the question's options, a probability outside [0, 1] is an engine
  * that drifts — an error, not a verdict. So is a noul question answered
  * without its `noul` probability: an answer that does not say is no answer,
- * and `noul: 0` is one. (The other keys left out read as 0 or empty, as in
- * the other implementations.)
+ * and `noul: 0` is one. (The other keys left out read as 0 or empty.)
  */
 function answersOf(wire: Wire['answers'], request: Request, engine: string): Record<string, Answer> {
   const answers: Record<string, Answer> = {};

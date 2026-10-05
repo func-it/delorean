@@ -14,8 +14,8 @@ import { EngineError, type Engines, type Guard, type Reader } from '../src/pipel
 import type { Score } from '../src/telemetry/langfuse.ts';
 import { newPipeline } from './support.ts';
 
-// The trace shape of docs/architecture.md, "Usage, cost and traces", the
-// same in every quoter: the agent `quote`, a typed span per stage, a
+// The trace shape of docs/architecture.md, "Usage, cost and traces": the
+// agent `quote`, a typed span per stage, a
 // generation per model call, the quote's measures as scores.
 
 // Langfuse's own processor, which writes the propagated attributes on every

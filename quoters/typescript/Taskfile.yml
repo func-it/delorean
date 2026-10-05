@@ -1,4 +1,4 @@
-# delorean — the quoter: the TypeScript implementation of api/openapi.yaml, on Node.
+# delorean — the quoter: the API of api/openapi.yaml, on Node.
 # Included by the root Taskfile as ts: task ts:test, task ts:run:fake…
 version: "3"
 

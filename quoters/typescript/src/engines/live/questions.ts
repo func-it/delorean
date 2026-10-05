@@ -107,7 +107,7 @@ export function jevJudge(jev: Jev, prompts: Prompts['judge']): Judge {
 }
 
 /**
- * What Jev reads, so that every implementation asks the same thing: a title
+ * What Jev reads: a title
  * in double quotes, JSON-escaped; for identity, the film it was identified
  * as, in the judge's words; for missing, one line per reading line,
  * `- N × "title"`.
