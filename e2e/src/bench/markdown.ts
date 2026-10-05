@@ -1,4 +1,4 @@
-import type { Rate, Report, Spread, StageSummary } from './report.ts';
+import type { Rate, Report, Spread } from './report.ts';
 
 export function renderReport(report: Report): string {
   const { summary } = report;
@@ -61,10 +61,6 @@ function label(report: Report): string {
 
 function plan(report: Report): string {
   return `${report.requests} requests (${report.cases.length} cases × ${report.runs} runs)`;
-}
-
-function stageCell(stage: StageSummary | undefined): string {
-  return stage ? `${ms(stage.duration_ms.p50)} · ${usd(stage.cost_usd.mean)}` : '—';
 }
 
 function percent({ hits, total, rate }: Rate): string {

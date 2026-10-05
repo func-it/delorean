@@ -139,5 +139,4 @@ describe('reports', () => {
     expect(markdown).toContain('| Price accuracy | 0.0 % (0/1) |');
     expect(markdown).toContain('| enonce-1 | 0/1 | total_cents: expected 3600, got 4500 |');
   });
-
 });

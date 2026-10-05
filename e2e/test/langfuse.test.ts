@@ -128,7 +128,7 @@ describe('pushToLangfuse', () => {
     expect(result).toEqual({
       dataset: 'quote',
       items: 2,
-      experiments: ['go-fake-20261002T132501Z-pass-1', 'go-fake-20261002T132501Z-pass-2'],
+      experiments: ['typescript-fake-20261002T132501Z-pass-1', 'typescript-fake-20261002T132501Z-pass-2'],
     });
     expect(new Set(received.map((r) => r.authorization))).toEqual(new Set([`Basic ${btoa('pk-lf-test:sk-lf-test')}`]));
     expect(received.slice(0, 2).map((r) => `${r.method} ${r.path}`)).toEqual([
@@ -157,7 +157,7 @@ describe('pushToLangfuse', () => {
       expect(attribute(span, 'langfuse.experiment.item.root_observation_id')).toBe(span.spanId);
       expect(attribute(span, 'langfuse.experiment.dataset.id')).toBe('ds_new');
     }
-    expect(attribute(spans[0] as OtlpSpan, 'langfuse.experiment.name')).toBe('go-fake-20261002T132501Z-pass-1');
+    expect(attribute(spans[0] as OtlpSpan, 'langfuse.experiment.name')).toBe('typescript-fake-20261002T132501Z-pass-1');
     expect(attribute(spans[1] as OtlpSpan, 'langfuse.experiment.item.id')).toBe('quote:enonce-2');
 
     const scores = received
