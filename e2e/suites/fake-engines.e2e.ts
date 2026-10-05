@@ -3,7 +3,7 @@ import { postQuote } from '../src/api.ts';
 import { catalog, client, expectProblem, expectQuote, health } from './support.ts';
 
 // The fake engines are part of the test contract (docs/architecture.md):
-// these carts trigger each refusal deterministically, in every implementation.
+// these carts trigger each refusal deterministically.
 describe.runIf(health.engines === 'fake')('fake engines', () => {
   it('answers 502 engine_unavailable when an engine fails', async () => {
     const cart = 'Back to the Future 1\n#fake:engine_down';

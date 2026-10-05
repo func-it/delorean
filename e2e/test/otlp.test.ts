@@ -35,7 +35,10 @@ const request = (): Uint8Array => {
     ...bytes(9, kv('score', double(4, 0.5))),
     ...bytes(
       9,
-      kv('langfuse.trace.tags', bytes(5, [...bytes(1, str(1, 'quoter:typescript')), ...bytes(1, str(1, 'engines:fake'))])),
+      kv(
+        'langfuse.trace.tags',
+        bytes(5, [...bytes(1, str(1, 'quoter:typescript')), ...bytes(1, str(1, 'engines:fake'))]),
+      ),
     ),
     ...bytes(11, [...str(2, 'exception'), ...bytes(3, kv('exception.message', str(1, 'down')))]),
     ...bytes(15, [...str(2, 'down'), ...int(3, 2n)]),

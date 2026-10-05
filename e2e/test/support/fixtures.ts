@@ -3,7 +3,6 @@ import { promptVersions } from '../../src/prompts.ts';
 
 export const FAKE_HEALTH: Health = {
   status: 'ok',
-  implementation: 'typescript',
   version: '1.0.0',
   engines: 'fake',
   tracing: false,
@@ -39,7 +38,6 @@ export function quoteOfExample5(): Quote {
       attempts: 1,
     },
     usage: {
-      implementation: 'typescript',
       engines: 'fake',
       duration_ms: 3,
       cost_usd: 0,

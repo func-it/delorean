@@ -64,13 +64,10 @@ describe('npm run bench', () => {
 
     expect(code).toBe(0);
     expect(lines[0]).toBe(
-      `About to send 10 requests (5 cases × 2 runs) to typescript stub, fake engines, at ${stub.url}.`,
+      `About to send 10 requests (5 cases × 2 runs) to the quoter stub, fake engines, at ${stub.url}.`,
     );
     const files = readdirSync(out).sort();
-    expect(files).toEqual([
-      expect.stringMatching(/^typescript-fake-\d{8}T\d{6}Z\.json$/),
-      expect.stringMatching(/\.md$/),
-    ]);
+    expect(files).toEqual([expect.stringMatching(/^fake-\d{8}T\d{6}Z\.json$/), expect.stringMatching(/\.md$/)]);
     const report = JSON.parse(readFileSync(join(out, files[0] ?? ''), 'utf8')) as Report;
     expect(report).toMatchObject({ tag: 'enonce', runs: 2, requests: 10, summary: { accuracy: { rate: 1 } } });
   });

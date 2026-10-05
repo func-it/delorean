@@ -42,7 +42,6 @@ export async function runBench(options: BenchOptions): Promise<Report> {
   const startedAt = new Date();
   const attempts = await mapConcurrent(jobs, concurrency, ({ c, pass }) => attempt(client, c, pass));
   return {
-    implementation: health.implementation,
     engines: health.engines,
     version: health.version,
     base_url: baseUrl,

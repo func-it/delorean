@@ -54,7 +54,6 @@ const VOLUMES: Record<string, Film> = {
 export async function startStubQuoter(options: StubOptions = {}): Promise<Stub> {
   const health: Health = {
     status: 'ok',
-    implementation: 'typescript',
     version: 'stub',
     engines: 'fake',
     tracing: false,
@@ -127,7 +126,6 @@ export async function startStubQuoter(options: StubOptions = {}): Promise<Stub> 
       });
     };
     const usage = (): Quote['usage'] => ({
-      implementation: health.implementation,
       engines: health.engines,
       duration_ms: 0,
       cost_usd: 0,

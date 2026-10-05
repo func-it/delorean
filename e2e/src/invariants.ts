@@ -94,18 +94,13 @@ export function quoteViolations(quote: Quote, catalog: Catalog): string[] {
 /**
  * What the usage of an answer must satisfy: the stages that ran, in pipeline
  * order up to `last` (through recount, when parse is last), on the
- * implementation and engines /healthz reports. A cart read `attempts` times
+ * engines /healthz reports. A cart read `attempts` times
  * adds up each stage's usage: on fake engines, the guard makes one call, the
  * parse and the recount one per reading, identify and the judge one to one
  * per reading (a title is identified once, a reading judged once).
  */
 export function usageViolations(usage: Usage, health: Health, last: Stage, attempts = 1): string[] {
   const found: string[] = [];
-  // the contract names one implementation: read as strings, an answer that says otherwise is still caught
-  const [reported, identity]: string[] = [usage.implementation, health.implementation];
-  if (reported !== identity) {
-    found.push(`usage.implementation ${reported}, /healthz says ${identity}`);
-  }
   if (usage.engines !== health.engines) {
     found.push(`usage.engines ${usage.engines}, /healthz says ${health.engines}`);
   }

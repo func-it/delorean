@@ -16,7 +16,7 @@ single line specific to the TypeScript quoter that runs here.
   exact limit passes), empty or too long cart (422).
 - **Correlation and usage**: `X-Request-Id` generated or echoed back,
   rejections included; `usage` on every 200 and 422, stages in pipeline order
-  up to the one that rejects, implementation and engines matching `/healthz`.
+  up to the one that rejects, engines matching `/healthz`.
 - **The invariants of every quote**: subtotal = Σ lines, line = unit price ×
   quantity, distinct volumes and discount tier, base = Σ saga lines,
   total = subtotal − discount, judge score ≥ threshold, no line above
@@ -54,7 +54,7 @@ The bench announces the number of requests, then runs each case N times (in
 `live` mode, only with `RUN_LIVE=1`). It measures the accuracy of prices,
 rejections and per-film quantities, the error rate (no response, 5xx, response
 outside the contract), p50 / p90 / max latency, and cost per cart and per
-stage. It writes `reports/<implementation>-<engines>-<timestamp>.json` and
+stage. It writes `reports/<engines>-<timestamp>.json` and
 `.md`.
 
 With `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL`, the

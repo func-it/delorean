@@ -129,13 +129,6 @@ describe('usageViolations', () => {
     );
   });
 
-  it('flags a usage that contradicts /healthz', () => {
-    // the contract names one implementation: a /healthz that says another is out of contract, and flagged
-    expect(usageViolations(usage(), { ...FAKE_HEALTH, implementation: 'other' as 'typescript' }, 'price')).toEqual([
-      'usage.implementation typescript, /healthz says other',
-    ]);
-  });
-
   it('flags a fake engine that costs, and a total that is not the sum of the stages', () => {
     const costly = usage();
     costly.stages[1]!.cost_usd = 0.01;

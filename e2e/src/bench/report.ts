@@ -49,7 +49,6 @@ export interface CaseSummary {
 }
 
 export interface Report {
-  implementation: Health['implementation'];
   engines: Health['engines'];
   version: string;
   base_url: string;
@@ -120,10 +119,10 @@ export function percentile(values: number[], p: number): number | null {
   return sorted[Math.max(0, Math.ceil((p / 100) * sorted.length) - 1)] ?? null;
 }
 
-/** `typescript-fake-20261002T132501Z`: the implementation, its engines, and when the bench started. */
-export function reportName(report: Pick<Report, 'implementation' | 'engines' | 'started_at'>): string {
+/** `fake-20261002T132501Z`: the engines, and when the bench started. */
+export function reportName(report: Pick<Report, 'engines' | 'started_at'>): string {
   const stamp = report.started_at.replace(/[-:]/g, '').replace(/\.\d+/, '');
-  return `${report.implementation}-${report.engines}-${stamp}`;
+  return `${report.engines}-${stamp}`;
 }
 
 function sum(values: number[]): number {

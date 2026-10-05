@@ -6,7 +6,7 @@ export function renderReport(report: Report): string {
   return [
     `# System bench: ${label(report)}`,
     '',
-    `${report.implementation} ${report.version} at ${report.base_url}, ${report.engines} engines, ` +
+    `The quoter ${report.version} at ${report.base_url}, ${report.engines} engines, ` +
       `concurrency ${report.concurrency}` +
       (report.tag ? `, cases tagged \`${report.tag}\`.` : '.'),
     '',
@@ -56,7 +56,7 @@ function headlineRows(reports: Report[]): string[][] {
 }
 
 function label(report: Report): string {
-  return `${report.implementation} · ${report.engines}`;
+  return report.engines;
 }
 
 function plan(report: Report): string {

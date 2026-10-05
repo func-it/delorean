@@ -14,7 +14,7 @@ const REPORTS_DIR = fileURLToPath(new URL('../../../reports', import.meta.url));
 
 const USAGE = `Usage: npm run bench -- [--base-url URL] [--runs N] [--tag TAG] [--concurrency N] [--out DIR]
 
-Plays cases/quote against a quoter, N times, and writes reports/<implementation>-<engines>-<timestamp>.{json,md}.
+Plays cases/quote against a quoter, N times, and writes reports/<engines>-<timestamp>.{json,md}.
 Fake engines play the cases tagged "fake"; live engines play them all, and only with RUN_LIVE=1.`;
 
 export interface Io {
@@ -41,7 +41,7 @@ export async function bench(argv: string[], env: NodeJS.ProcessEnv, io: Io = con
   }
   io.log(
     `About to send ${cases.length * runs} requests (${cases.length} cases × ${runs} runs) ` +
-      `to ${health.implementation} ${health.version}, ${health.engines} engines, at ${baseUrl}.`,
+      `to the quoter ${health.version}, ${health.engines} engines, at ${baseUrl}.`,
   );
   const refusal = liveRefusal(health, env);
   if (refusal) {

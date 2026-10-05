@@ -21,7 +21,7 @@ export default async function setup(project: TestProject): Promise<void> {
   const { data: catalog } = await api(baseUrl).GET('/v1/catalog');
   if (!catalog) throw new Error(`GET ${baseUrl}/v1/catalog answered no catalog`);
 
-  console.info(`e2e: ${health.implementation} ${health.version}, ${health.engines} engines, at ${baseUrl}`);
+  console.info(`e2e: quoter ${health.version}, ${health.engines} engines, at ${baseUrl}`);
   project.provide('baseUrl', baseUrl);
   project.provide('health', health);
   project.provide('catalog', catalog);

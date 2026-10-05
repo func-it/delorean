@@ -10,7 +10,6 @@ function attempt(fields: Partial<Attempt> & Pick<Attempt, 'grade'>): Attempt {
 
 function usage(cost: number, guardMs: number): Usage {
   return {
-    implementation: 'typescript',
     engines: 'live',
     duration_ms: guardMs,
     cost_usd: cost,
@@ -93,7 +92,7 @@ describe('summarize', () => {
 });
 
 describe('reports', () => {
-  const report = (implementation: Report['implementation'], accuracy: boolean): Report => {
+  const report = (accuracy: boolean): Report => {
     const attempts = [
       attempt({
         case_id: 'enonce-1',
@@ -105,7 +104,6 @@ describe('reports', () => {
       }),
     ];
     return {
-      implementation,
       engines: 'fake',
       version: '1.0.0',
       base_url: 'http://localhost:24793',
@@ -129,13 +127,13 @@ describe('reports', () => {
     };
   };
 
-  it('names a report after its implementation, engines and start', () => {
-    expect(reportName(report('typescript', true))).toBe('typescript-fake-20261002T132501Z');
+  it('names a report after its engines and start', () => {
+    expect(reportName(report(true))).toBe('fake-20261002T132501Z');
   });
 
   it('renders a report with its failing cases', () => {
-    const markdown = renderReport(report('typescript', false));
-    expect(markdown).toContain('# System bench: typescript · fake');
+    const markdown = renderReport(report(false));
+    expect(markdown).toContain('# System bench: fake');
     expect(markdown).toContain('| Price accuracy | 0.0 % (0/1) |');
     expect(markdown).toContain('| enonce-1 | 0/1 | total_cents: expected 3600, got 4500 |');
   });

@@ -13,7 +13,6 @@ export function baseUrlFrom(env: NodeJS.ProcessEnv): string {
 export function liveRefusal(health: Health, env: NodeJS.ProcessEnv): string | undefined {
   if (health.engines !== 'live' || env.RUN_LIVE === '1') return undefined;
   return (
-    `The ${health.implementation} quoter runs live engines: every request costs OpenRouter credit. ` +
-    'Set RUN_LIVE=1 to run against it anyway.'
+    `The quoter runs live engines: every request costs OpenRouter credit. ` + 'Set RUN_LIVE=1 to run against it anyway.'
   );
 }
