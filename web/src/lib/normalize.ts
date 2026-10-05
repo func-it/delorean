@@ -1,6 +1,6 @@
 /**
- * A cart's text in the one form the quoter reads it in: the same as
- * `prepare.Normalize` of the Go quoter (and of the other two), so that two
+ * A cart's text in the one form the quoter reads it in: the same as its
+ * prepare step (quoter/src/prepare/normalize.ts), so that two
  * texts the quoter reads alike are the same text here: LF line ends, nothing
  * invisible but `\n`, `\t` and the joiners, Unicode NFC, no blanks at either
  * end.
