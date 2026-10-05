@@ -130,11 +130,13 @@ scripts/e2e-fake.sh    the end-to-end suite against this quoter on fake engines
   TaskGroup, bounded to 16 in flight, and nothing outlives a request. The
   parse and the recount run side by side, and the parse decides first. The
   recount is a second opinion: within `RECOUNT_TIMEOUT` (6 s), asked once
-  more when it failed in under half of it, and when it still fails the quote
-  goes on with the parse alone, its stage `degraded` (a warning in the
-  trace, not an error). Read
-  again, a request keeps what it learnt (`_Memory`): a title is identified
-  once, and a reading already judged is not put to Jev again.
+  more when it failed in under half of it, and when it still fails as an
+  engine does the quote goes on with the parse alone, its stage `degraded` (a
+  warning in the trace, not an error; `degraded=recount` in the request's log
+  line). A bug in it is not swallowed. Read again, a request keeps what it
+  learnt (`_Memory`): a title is identified once, a reading already judged is
+  not put to Jev again, and the first recount that succeeded is kept for
+  every reading.
 - **One client per engine, for the whole process.** Jev, the parse and the
   recount each have their own client and connection pool, kept alive from one
   quote to the next.
@@ -143,8 +145,11 @@ scripts/e2e-fake.sh    the end-to-end suite against this quoter on fake engines
   parsed by a strict model and held to the questions asked. The parse and the
   recount use the official `openai` SDK with a strict `json_schema` response
   format and no client retries; their answers are validated again on return.
-  Every model call, Jev's and the readers', is bounded by `MODEL_TIMEOUT`
-  (6 s), and a request by `REQUEST_TIMEOUT` (15 s).
+  Every model call, Jev's and the readers', is bounded as a whole by
+  `asyncio.timeout(MODEL_TIMEOUT)` (6 s), not only by the clients' timeouts
+  of each phase, and a request by `REQUEST_TIMEOUT` (15 s); the three are
+  checked at startup to be ordered `MODEL_TIMEOUT` ≤ `RECOUNT_TIMEOUT` ≤
+  `REQUEST_TIMEOUT`.
 - **Traces.** The Langfuse SDK (v4, OpenTelemetry) runs on a `TracerProvider`
   of its own (`service.name=delorean`), so the global OpenTelemetry state is
   untouched.
