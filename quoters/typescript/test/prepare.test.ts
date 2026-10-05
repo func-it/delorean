@@ -29,7 +29,33 @@ describe('normalize', () => {
     ['a soft hyphen dropped', 'Back to the Fu­ture 2', 'Back to the Future 2'],
     ['a format character between a letter and its accent', 'che​̀vre', 'chèvre'],
     ['Persian keeps its non-joiner', 'آینده‌ها', 'آینده‌ها'],
-    ['variation selectors are not format characters', '❤️ Back to the Future', '❤️ Back to the Future'],
+    ['variation selectors are dropped, the heart stays', '❤️ Back to the Future', '❤ Back to the Future'],
+    ['a grapheme joiner between letters', 'Back to the Fu\u034fture 2', 'Back to the Future 2'],
+    ['Hangul fillers between letters', 'Ba\u115fck to\u1160 the Fu\u3164ture\uffa0 2', 'Back to the Future 2'],
+    ['Khmer inherent vowels between letters', 'Back\u17b4 to the\u17b5 Future 1', 'Back to the Future 1'],
+    [
+      'Mongolian selectors and the vowel separator',
+      'Ba\u180bc\u180ck\u180d to\u180e the\u180f Future 1',
+      'Back to the Future 1',
+    ],
+    ['the blank braille pattern between letters', 'Back to the Fu\u2800ture 3', 'Back to the Future 3'],
+    [
+      'variation selectors between letters',
+      'Back\ufe00 to\ufe0f the Future\u{E0100} 1\u{E01EF}',
+      'Back to the Future 1',
+    ],
+    [
+      'a character just outside each span stays',
+      '\u034e\u034f\u0350 \u115e\u1161 \u17b3\u17b6 \u180a\u1810 \u27ff\u2801 \u3163\u3165 \ufe10 \uff9f\uffa1 \u{E00FF}\u{E01F0}',
+      '\u034e\u0350 \u115e\u1161 \u17b3\u17b6 \u180a\u1810 \u27ff\u2801 \u3163\u3165 \ufe10 \uff9f\uffa1 \u{E00FF}\u{E01F0}',
+    ],
+    ['both joiners stay, the others in the same string go', 'a\u200cb\u200dc\u200bd\u2060e\ufeff', 'a\u200cb\u200dcde'],
+    [
+      'accented letters and NFD after the removal',
+      'che\u034f\u0300vre\ufe0f e\u0301te\u2800\u0301',
+      'ch\u00e8vre \u00e9t\u00e9',
+    ],
+    ['an emoji base keeps its form, its selector goes', '\u{1F3AC}\ufe0f\u2764\ufe0f', '\u{1F3AC}\u2764'],
     ['a lone surrogate reads as U+FFFD', 'Heat \ud800', 'Heat �'],
   ])('%s', (_, text, want) => {
     expect(normalize(text)).toBe(want);
