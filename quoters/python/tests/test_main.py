@@ -82,11 +82,14 @@ def test_serve() -> None:
     )
     try:
         with httpx.Client(base_url=f"http://127.0.0.1:{port}") as client:
-            for _ in range(200):
+            health = None
+            deadline = time.monotonic() + 30  # a loaded machine may take a while to start the service
+            while health is None:
+                assert process.poll() is None, "the service stopped at startup"
+                assert time.monotonic() < deadline, "the service did not answer in 30 s"
                 try:
                     health = client.get("/healthz")
-                    break
-                except httpx.ConnectError:
+                except httpx.TransportError:  # not listening yet, or not answering yet: whatever the transport says
                     time.sleep(0.05)
             assert health.json()["engines"] == "fake"
             quote = client.post("/v1/quotes", json={"cart": "Back to the Future 1\nBack to the Future 3"})
