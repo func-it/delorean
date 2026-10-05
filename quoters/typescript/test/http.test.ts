@@ -119,7 +119,7 @@ describe('POST /v1/quotes', () => {
   });
 
   it('prices a cart without its recount, and says the recount degraded, last in its stage', async () => {
-    const response = await postCart(newApp(), `2 x Heat\n${DIRECTIVE.recountOffSchema}`);
+    const response = await postCart(newApp(), `Heat\nRonin\n${DIRECTIVE.recountOffSchema}`);
     expect(response.status).toBe(200);
     const quote = (await response.json()) as Quote;
     expect(quote.total_cents).toBe(4000);
@@ -128,6 +128,31 @@ describe('POST /v1/quotes', () => {
     expect(Object.keys(recount ?? {})).toEqual(['stage', 'engine', 'calls', 'duration_ms', 'cost_usd', 'degraded']);
     expect(recount).toMatchObject({ engine: 'fake', degraded: true });
     expect(quote.usage.stages.filter((s) => s.degraded === true).map((s) => s.stage)).toEqual(['recount']);
+  });
+
+  it("refuses a line of several copies nobody could count: 503, the contract's problem, usage without a price", async () => {
+    const response = await postCart(newApp(), `2 x Heat\n${DIRECTIVE.recountOffSchema}`);
+    expect(response.status).toBe(503);
+    expect(response.headers.get('content-type')).toBe('application/problem+json');
+    expect(response.headers.get('x-request-id')).toMatch(/^[A-Z2-7]{26}$/);
+    const body = (await response.json()) as Problem;
+    expect(Object.keys(body)).toEqual(['type', 'title', 'status', 'code', 'detail', 'request_id', 'usage']);
+    expect(body).toMatchObject({
+      type: '/problems/quantity_unverified',
+      title: 'Quantities not verified',
+      status: 503,
+      code: 'quantity_unverified',
+      detail: 'The quantities could not be cross-checked and a line asks for more than one copy: try again.',
+    });
+    expect(body.usage?.stages.map((s) => s.stage)).toEqual([
+      'prepare',
+      'guard',
+      'parse',
+      'recount',
+      'identify',
+      'judge',
+    ]);
+    expect(body.usage?.stages.find((s) => s.stage === 'recount')).toMatchObject({ degraded: true });
   });
 
   it.each([

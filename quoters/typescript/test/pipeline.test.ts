@@ -806,7 +806,7 @@ describe('Pipeline.quote, a recount that fails', () => {
     ['a recount quantity of 0', reads({ title: 'Heat', quantity: 0 })],
     ['a recount without title', reads({ title: ' ', quantity: 1 })],
   ])('%s: priced on the parse, no count check, the recount degraded', async (_, recounter) => {
-    const q = await quote(newPipeline({ recounter }), '2 x Heat');
+    const q = await quote(newPipeline({ recounter }), 'Heat\nRonin');
     expect(q.price.totalCents).toBe(4000);
     expect(q.judgement.findings.filter((f) => f.check === 'count')).toEqual([]);
     expect(q.report.stages.map((s) => [s.stage, s.degraded === true])).toEqual([
@@ -852,7 +852,7 @@ describe('Pipeline.quote, a recount that fails', () => {
         return Promise.reject(offSchema());
       },
     };
-    const q = await quote(newPipeline({ recounter: broken }, { recountTimeoutMs: 60_000 }), '2 x Heat');
+    const q = await quote(newPipeline({ recounter: broken }, { recountTimeoutMs: 60_000 }), 'Heat');
     expect(calls).toBe(2);
     expect(recountOf(q)).toMatchObject({ calls: 2, costUsd: 1, degraded: true });
   });
@@ -901,7 +901,7 @@ describe('Pipeline.quote, a recount that fails', () => {
   });
 
   it(`degrades on ${DIRECTIVE.recountOffSchema}: two fake calls, then the parse alone`, async () => {
-    const q = await quote(newPipeline({}, { recountTimeoutMs: 6_000 }), `2 x Heat\n${DIRECTIVE.recountOffSchema}`);
+    const q = await quote(newPipeline({}, { recountTimeoutMs: 6_000 }), `Heat\nRonin\n${DIRECTIVE.recountOffSchema}`);
     expect(q.price.totalCents).toBe(4000);
     expect(recountOf(q)).toMatchObject({ engine: 'fake', calls: 2, costUsd: 0, degraded: true });
     expect(q.judgement.findings.filter((f) => f.check === 'count')).toEqual([]);
@@ -999,5 +999,65 @@ describe('Pipeline.quote, the recount: what degrades it, and what a kept one doe
     ]);
     // left out once, over the readings: the usage says so; the calls of both are added up
     expect(stage(q, 'recount')).toMatchObject({ calls: 2, degraded: true });
+  });
+});
+
+describe('Pipeline.quote, quantity_unverified: nothing counted the quantities', () => {
+  const down: Reader = { read: () => Promise.reject(new EngineError('recount: down', { usage: free })) };
+  const detail = 'The quantities could not be cross-checked and a line asks for more than one copy: try again.';
+
+  it.each([
+    ['a line of two copies', '2 x Heat'],
+    ['a title written twice, merged', 'Heat\nheat'],
+    ['one line of two among single ones', 'Back to the Future 1\nHeat x 2'],
+  ])('refuses %s, with the usage of what ran and no price', async (_, cart) => {
+    const rej = await rejection(quote(newPipeline({ recounter: down }), cart));
+    expect(rej.code).toBe('quantity_unverified');
+    expect(rej.detail).toBe(detail);
+    expect(rej.report.stages.map((s) => [s.stage, s.degraded === true])).toEqual([
+      ['prepare', false],
+      ['guard', false],
+      ['parse', false],
+      ['recount', true],
+      ['identify', false],
+      ['judge', false],
+    ]);
+  });
+
+  it('prices single copies all the same', async () => {
+    const q = await quote(newPipeline({ recounter: down }), 'Back to the Future 1\nHeat\nRonin');
+    expect(q.price.totalCents).toBe(5500);
+    expect(q.report.stages.find((s) => s.stage === 'recount')).toMatchObject({ degraded: true });
+  });
+
+  it('never refuses once a recount succeeded: it is kept', async () => {
+    const q = await quote(newPipeline(), '2 x Heat');
+    expect(q.price.totalCents).toBe(4000);
+  });
+
+  it('counts at a reading whose recount succeeded, though the first reading had none', async () => {
+    let asked = 0;
+    const recounter: Reader = {
+      read: () =>
+        ++asked === 1
+          ? Promise.reject(new EngineError('recount: down', { usage: free }))
+          : Promise.resolve({
+              mentions: [
+                { title: 'Back to the Future 1', quantity: 1 },
+                { title: 'Heat', quantity: 2 },
+              ],
+              usage: free,
+            }),
+    };
+    const q = await quote(newPipeline({ recounter }), `Back to the Future 1\n2 x Heat\n${DIRECTIVE.reread}`);
+    expect(q.price.totalCents).toBe(5500);
+    expect(q.judgement.attempts).toBe(2);
+    expect(q.judgement.findings.some((f) => f.check === 'count')).toBe(true);
+  });
+
+  it("lets the judge's refusal come first", async () => {
+    const rej = await rejection(quote(newPipeline({ recounter: down }), `2 x Heat\n${DIRECTIVE.unfaithful}`));
+    expect(rej.code).toBe('unfaithful_reading');
+    expect(rej.facts.judgement?.attempts).toBe(3);
   });
 });

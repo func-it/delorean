@@ -262,6 +262,22 @@ describe('the trace of a quote', () => {
     expect(attribute(named('quote'), 'langfuse.trace.metadata.outcome')).toBe('priced');
   });
 
+  it('traces a refusal for quantities nobody counted: outcome and degraded on the root, no price span', async () => {
+    const recounter = {
+      read: () =>
+        Promise.reject(new EngineError('answer off schema', { usage: { engine: 'r', calls: 1, costUsd: 0 } })),
+    };
+    const { response } = await post('2 x Heat', { recounter });
+    expect(response.status).toBe(503);
+    expect(named('price')).toBeUndefined();
+    const root = named('quote');
+    expect(attribute(root, 'langfuse.trace.metadata.outcome')).toBe('quantity_unverified');
+    expect(attribute(root, 'langfuse.trace.metadata.degraded')).toBe('recount');
+    expect(attribute(root, 'langfuse.observation.level')).toBeUndefined();
+    expect(String(attribute(root, 'langfuse.trace.output'))).toContain('quantity_unverified');
+    expect(scores()).toMatchObject({ outcome: 'quantity_unverified' });
+  });
+
   it('marks a warning only the reading whose recount was left out, not the one whose recount succeeded', async () => {
     let asked = 0;
     const free = { engine: 'r', calls: 1, costUsd: 0 };
