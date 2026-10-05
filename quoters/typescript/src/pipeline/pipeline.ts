@@ -180,10 +180,14 @@ export class Pipeline {
     const judged = new Map<string, Finding[]>();
     let retry: Retry | undefined;
     let judgement: Judgement | undefined;
+    // The first recount that succeeded. It reads blind, its input never changes between readings:
+    // later readings are counted against it and do not ask it again. One that failed is asked anew.
+    let kept: Mention[] | undefined;
 
     for (let attempt = 1; attempt <= readAttempts; attempt++) {
       const at = run.at(attempt);
-      const { decoded, read, recounted } = await this.#readTwice(at, text, retry, attempt === 1);
+      const { decoded, read, recounted } = await this.#readTwice(at, text, retry, attempt === 1, kept);
+      kept ??= recounted;
       if (read.length === 0) {
         // a later reading without film: the text has not changed since the
         // first reading, the model has; a failed attempt, not put to Jev
@@ -260,13 +264,22 @@ export class Pipeline {
    * stops the recount, whose reading no longer matters; one that refuses
    * waits for it, and the refusal reports what both took.
    *
+   * Once a recount succeeded (`kept`) it is not asked again: only the parse
+   * runs, and the kept recount comes back for this reading too.
+   *
    * The recount is a second opinion: one that fails, answers off its schema or
    * is too slow (#recount) does not fail the quote. The reading goes on
    * without it — no recount, no count check, the stage's usage degraded — and
    * the judge stays the guard. Only a request that is over fails on the
    * recount.
    */
-  async #readTwice(run: Run, text: string, retry: Retry | undefined, first: boolean): Promise<Reading> {
+  async #readTwice(
+    run: Run,
+    text: string,
+    retry: Retry | undefined,
+    first: boolean,
+    kept: Mention[] | undefined,
+  ): Promise<Reading> {
     const { parser } = this.config.engines;
     const stopRecount = new AbortController();
     const parse = run
@@ -282,16 +295,19 @@ export class Pipeline {
       });
     const [parsed, recount] = await Promise.allSettled([
       parse,
-      run.stage<Answered<{ mentions: Mention[] }>, Mention[] | undefined>(
-        'recount',
-        (call) => this.#recount(text, call),
-        ({ mentions }) => mentions,
-        {
-          signal: AbortSignal.any([run.signal, stopRecount.signal]),
-          // a recount that fails beside a parse that fails is cancelled, not degraded: the parse decides first
-          degrade: { value: () => undefined, after: parse },
-        },
-      ),
+      // a recount that succeeded stands for this reading too: no call, span or usage
+      kept !== undefined
+        ? Promise.resolve(kept)
+        : run.stage<Answered<{ mentions: Mention[] }>, Mention[] | undefined>(
+            'recount',
+            (call) => this.#recount(text, call),
+            ({ mentions }) => mentions,
+            {
+              signal: AbortSignal.any([run.signal, stopRecount.signal]),
+              // a recount that fails beside a parse that fails is cancelled, not degraded: the parse decides first
+              degrade: { value: () => undefined, after: parse },
+            },
+          ),
     ]);
     if (parsed.status === 'rejected') throw parsed.reason;
     const { decoded, read } = parsed.value;

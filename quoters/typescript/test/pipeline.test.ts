@@ -533,8 +533,8 @@ describe('Pipeline.quote, reading again', () => {
     expect(q.judgement.attempts).toBe(2);
     expect(q.price.lines.map((l) => l.film)).toEqual(['bttf_1', 'bttf_2']);
     expect(q.price.totalCents).toBe(2700);
-    // the recount read both titles on the first attempt: nothing new to identify on the second
-    expect(calls(q)).toEqual({ prepare: 0, guard: 1, parse: 2, recount: 2, identify: 1, judge: 2, price: 0 });
+    // the recount read both titles on the first attempt, and is kept: nothing new to ask or identify on the second
+    expect(calls(q)).toEqual({ prepare: 0, guard: 1, parse: 2, recount: 1, identify: 1, judge: 2, price: 0 });
     expect(q.report.stages.map((s) => s.stage)).toEqual([
       'prepare',
       'guard',
@@ -554,7 +554,7 @@ describe('Pipeline.quote, reading again', () => {
       prepare: 0,
       guard: 1,
       parse: 3,
-      recount: 3,
+      recount: 1,
       identify: 1,
       judge: 1,
     });
@@ -604,7 +604,8 @@ describe('Pipeline.quote, reading again', () => {
         failed: [{ check: 'count', label: 'other: 4 read, 3 recounted', score: 0 }],
       },
     ]);
-    expect(recountTold).toEqual([undefined, undefined, undefined]);
+    // asked once, blind: the first recount that succeeded is kept for the readings after it
+    expect(recountTold).toEqual([undefined]);
   });
 
   it('holds a later reading without film a failed attempt: not put to Jev, a missing finding at 0', async () => {
@@ -658,7 +659,7 @@ describe('Pipeline.quote, reading again', () => {
     expect(rej.facts.copies).toEqual({ title: 'Heat', count: 5000, max: 1000 });
   });
 
-  it('goes on when the recount fails on a later attempt, even beside a reading without film', async () => {
+  it('counts later readings against the recount that succeeded, which is not asked again', async () => {
     let attempt = 0;
     const parser: Reader = {
       read: () => Promise.resolve({ mentions: attempt === 0 ? [{ title: 'Heat', quantity: 1 }] : [], usage: free }),
@@ -672,7 +673,8 @@ describe('Pipeline.quote, reading again', () => {
     const rej = await rejection(quote(newPipeline({ parser, recounter }), '2 x Heat'));
     expect(rej.code).toBe('unfaithful_reading');
     expect(rej.facts.judgement?.attempts).toBe(3);
-    expect(rej.report.stages.find((s) => s.stage === 'recount')).toMatchObject({ degraded: true });
+    expect(rej.report.stages.find((s) => s.stage === 'recount')).toMatchObject({ calls: 1 });
+    expect(rej.report.stages.find((s) => s.stage === 'recount')?.degraded).toBeUndefined();
   });
 
   it("reuses a judged reading's findings in the new reading's line order", async () => {
@@ -733,7 +735,7 @@ describe('Pipeline.quote, reading again', () => {
     expect(rej.facts.judgement?.attempts).toBe(3);
     expect(Object.fromEntries(rej.report.stages.map((s) => [s.stage, s.calls]))).toMatchObject({
       parse: 3,
-      recount: 3,
+      recount: 1,
       identify: 1,
       judge: 1,
     });

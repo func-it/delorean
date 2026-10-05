@@ -268,7 +268,7 @@ describe('the trace of a quote', () => {
     expect(attribute(named('recount'), 'langfuse.observation.level')).toBeUndefined();
   });
 
-  it('has a parse, recount, identify and judge span per attempt, the attempt in their metadata', async () => {
+  it('has a parse, identify and judge span per attempt, and a recount span for the first only, the attempt in their metadata', async () => {
     await post(`Heat\nRonin\n${DIRECTIVE.reread}`);
     const attempts = (name: string) =>
       spans
@@ -276,7 +276,8 @@ describe('the trace of a quote', () => {
         .filter((s) => s.name === name)
         .map((s) => s.attributes['langfuse.observation.metadata.attempt']);
     expect(attempts('parse')).toEqual([1, 2]);
-    expect(attempts('recount')).toEqual([1, 2]);
+    // the first recount that succeeded is kept: not asked, so not traced, at the next reading
+    expect(attempts('recount')).toEqual([1]);
     expect(attempts('judge')).toEqual([1, 2]);
     expect(attempts('identify')).toEqual([1, 2]);
     expect(attempts('price')).toEqual([undefined]);
