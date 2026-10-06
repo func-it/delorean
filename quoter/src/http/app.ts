@@ -5,11 +5,13 @@ import { MAX_QUANTITY, volumeOf } from '../cart.ts';
 import type { Logger } from '../log.ts';
 import { reportOf, type Pipeline, type QuoteRequest } from '../pipeline/pipeline.ts';
 import { EngineError } from '../pipeline/ports.ts';
+import { normalize } from '../prepare/normalize.ts';
 import { Rejection, type Report } from '../pipeline/rejection.ts';
 import type { Tracing } from '../telemetry/langfuse.ts';
 import { observe, withTraceAttributes } from '../telemetry/trace.ts';
 import { Malformed, TooLarge, decodeQuoteRequest, readBody } from './body.ts';
 import * as contract from './contract.ts';
+import { quoteFields } from './quote-log.ts';
 
 /**
  * The HTTP surface of api/openapi.yaml: the health, the catalog and the
@@ -29,6 +31,11 @@ export interface AppConfig {
   /** The budget of a quote, model calls included. */
   requestTimeoutMs: number;
   log: Logger;
+  /**
+   * Whether the quote's log line carries the cart's text (LOG_CARTS). The text is
+   * the customer's: off unless asked.
+   */
+  logCarts?: boolean;
 }
 
 /** What the middleware and the handlers share about one request: its id, and how it ended, for the log line. */
@@ -40,6 +47,8 @@ interface Exchange {
   cause?: unknown;
   /** A stage failed and the quote went on without it, or was refused without it (the recount). */
   degraded?: boolean;
+  /** What a quote played and took (quote-log.ts), logged on the request's line. */
+  quote?: Record<string, unknown>;
 }
 
 /** The node server's bindings, absent when the app is called in-process (tests). */
@@ -89,7 +98,7 @@ export function createApp(config: AppConfig): Hono<Env> {
   app.use(async (c, next) => {
     const started = performance.now();
     await next();
-    const { id, code, cause, degraded } = c.var.exchange;
+    const { id, code, cause, degraded, quote } = c.var.exchange;
     const status = c.res.status;
     // the body's length, read off a copy: the answer itself goes out untouched; a HEAD says the length its GET has
     const bytes = (await c.res.clone().arrayBuffer()).byteLength;
@@ -104,6 +113,7 @@ export function createApp(config: AppConfig): Hono<Env> {
       ...(code && { code }),
       ...(cause !== undefined && { err: describe(cause) }),
       ...(degraded && { degraded: 'recount' }),
+      ...quote,
     });
   });
 
@@ -231,6 +241,8 @@ export function createApp(config: AppConfig): Hono<Env> {
         // a client that went away cancelled its quote: no failure of ours
         if (cause !== undefined && !c.req.raw.signal.aborted) trace.fail(cause);
         trace.traceIO({ output: body });
+        // what was played and how it ended, for the request's log line
+        c.var.exchange.quote = quoteFields(answered, config.logCarts ? normalize(request.cart) : undefined);
         const attempts = report?.attempts;
         const degraded = wasDegraded(report);
         trace.traceAttributes({

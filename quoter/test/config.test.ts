@@ -6,6 +6,22 @@ import { loadConfig, parseDuration } from '../src/config.ts';
 import { DEFAULT_PROMPTS_DIR, loadPrompts, promptVersion, promptVersions } from '../src/prompts.ts';
 
 describe('loadConfig', () => {
+  it.each([
+    ['true', true],
+    ['1', true],
+    ['false', false],
+    ['0', false],
+    ['', false],
+  ])('reads LOG_CARTS=%j as %s', (raw, expected) => {
+    expect(loadConfig({ ENGINES: 'fake', LOG_CARTS: raw }).logCarts).toBe(expected);
+  });
+
+  it('refuses a LOG_CARTS that is not true, false, 1 or 0', () => {
+    expect(() => loadConfig({ ENGINES: 'fake', LOG_CARTS: 'yes' })).toThrow(
+      'LOG_CARTS="yes" is not true, false, 1 or 0',
+    );
+  });
+
   it('takes the defaults of docs/architecture.md, PORT 24793', () => {
     expect(loadConfig({ OPENROUTER_API_KEY: 'k' })).toEqual({
       port: 24793,
@@ -30,6 +46,7 @@ describe('loadConfig', () => {
       readAttempts: 3,
       requestTimeoutMs: 25_000,
       recountTimeoutMs: 10_000,
+      logCarts: false,
       promptsDir: DEFAULT_PROMPTS_DIR,
     });
   });

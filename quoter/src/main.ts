@@ -73,6 +73,7 @@ async function run(config: Config, log: Logger): Promise<void> {
     maxBodyBytes: config.maxBodyBytes,
     requestTimeoutMs: config.requestTimeoutMs,
     log,
+    logCarts: config.logCarts,
   });
 
   const server = await listen(app.fetch, config.port);

@@ -31,6 +31,8 @@ export interface Config {
   requestTimeoutMs: number;
   /** The time the recount has, a retry included, before the quote goes on without it. */
   recountTimeoutMs: number;
+  /** Whether the quote's log line carries the cart's text: customer data, off by default. */
+  logCarts: boolean;
   /** Where the shared prompts are read from: the repository's prompts/. */
   promptsDir: string;
   /** The Langfuse project traces and scores go to; undefined, no tracing. */
@@ -74,6 +76,8 @@ export function loadConfig(env: Env): Config {
   const integer = (name: string, fallback: number) => read(name, fallback, parseInteger, 'an integer');
   const number = (name: string, fallback: number) => read(name, fallback, parseNumber, 'a number');
   const duration = (name: string, fallback: number) => read(name, fallback, parseDuration, 'a duration such as "30s"');
+  const boolean = (name: string, fallback: boolean) =>
+    read(name, fallback, (raw) => ({ true: true, '1': true, false: false, '0': false })[raw], 'true, false, 1 or 0');
   const check = (ok: boolean, name: string, problem: string) => {
     if (!ok) say(name, `${name} ${problem}`);
   };
@@ -102,6 +106,7 @@ export function loadConfig(env: Env): Config {
     readAttempts: integer('READ_ATTEMPTS', 3),
     requestTimeoutMs: duration('REQUEST_TIMEOUT', 25_000),
     recountTimeoutMs: duration('RECOUNT_TIMEOUT', 10_000),
+    logCarts: boolean('LOG_CARTS', false),
     promptsDir: string('PROMPTS_DIR', DEFAULT_PROMPTS_DIR),
   };
 
@@ -184,6 +189,7 @@ const ORDER = [
   'MODEL_TIMEOUT',
   'RECOUNT_TIMEOUT',
   'REQUEST_TIMEOUT',
+  'LOG_CARTS',
 ];
 
 /** The reasoning efforts a reader may be asked; none sends no reasoning field. */
