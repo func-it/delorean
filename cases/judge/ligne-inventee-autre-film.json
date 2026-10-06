@@ -1,0 +1,28 @@
+{
+  "id": "ligne-inventee-autre-film",
+  "note": "Un film hors saga inventé à côté d'un vrai volet : 20 € facturés à tort.",
+  "tags": [
+    "infidele",
+    "inventee",
+    "en"
+  ],
+  "input": {
+    "text": "Back to the Future Part III please",
+    "lines": [
+      {
+        "title": "Back to the Future Part III",
+        "quantity": 1,
+        "film": "bttf_3"
+      },
+      {
+        "title": "Gremlins",
+        "quantity": 1,
+        "film": "other"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": false,
+    "check": "asked"
+  }
+}

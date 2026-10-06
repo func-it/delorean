@@ -1,0 +1,15 @@
+{
+  "id": "leurre-meme-realisateur",
+  "note": "Un film de Robert Zemeckis, même réalisateur que la saga : autre.",
+  "tags": [
+    "leurre",
+    "meme-equipe",
+    "fr"
+  ],
+  "input": {
+    "title": "Qui veut la peau de Roger Rabbit"
+  },
+  "expect": {
+    "film": "other"
+  }
+}

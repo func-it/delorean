@@ -1,0 +1,17 @@
+{
+  "id": "le-1-et-le-3-allemand",
+  "note": "« Teil 1 und Teil 3 » après le titre allemand : deux volets à écrire en entier. Garde contre un seul titre lu, ou des numéros nus non rattachés au titre.",
+  "tags": [
+    "liste",
+    "de"
+  ],
+  "input": {
+    "text": "Zurück in die Zukunft, Teil 1 und Teil 3, bitte."
+  },
+  "expect": {
+    "films": {
+      "bttf_1": 1,
+      "bttf_3": 1
+    }
+  }
+}

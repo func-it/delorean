@@ -1,0 +1,15 @@
+{
+  "id": "valide-trilogie",
+  "note": "Un coffret, « la trilogie », est une commande : il vaut les trois volets. Garde contre un refus parce qu'aucun film n'est nommé seul.",
+  "tags": [
+    "valide",
+    "trilogie",
+    "fr"
+  ],
+  "input": {
+    "text": "Bonjour, je voudrais la trilogie Retour vers le futur en DVD, merci."
+  },
+  "expect": {
+    "verdict": "valid"
+  }
+}

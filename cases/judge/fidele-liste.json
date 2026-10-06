@@ -1,0 +1,26 @@
+{
+  "id": "fidele-liste",
+  "note": "Une lecture exacte d'une liste simple : le juge ne doit pas la refuser (faux positif = un client refusé à tort).",
+  "tags": [
+    "fidele",
+    "en"
+  ],
+  "input": {
+    "text": "Back to the Future 1\nBack to the Future 2",
+    "lines": [
+      {
+        "title": "Back to the Future 1",
+        "quantity": 1,
+        "film": "bttf_1"
+      },
+      {
+        "title": "Back to the Future 2",
+        "quantity": 1,
+        "film": "bttf_2"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": true
+  }
+}

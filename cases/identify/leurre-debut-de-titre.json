@@ -1,0 +1,14 @@
+{
+  "id": "leurre-debut-de-titre",
+  "note": "« Back to the Beach » (1987) commence comme la saga : garde contre une identification sur les premiers mots du titre.",
+  "tags": [
+    "leurre",
+    "en"
+  ],
+  "input": {
+    "title": "Back to the Beach"
+  },
+  "expect": {
+    "film": "other"
+  }
+}

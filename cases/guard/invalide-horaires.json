@@ -1,0 +1,15 @@
+{
+  "id": "invalide-horaires",
+  "note": "Une question sur les horaires d'ouverture, en allemand. Garde contre un guard qui valide un message poli sans film.",
+  "tags": [
+    "invalide",
+    "hors-sujet",
+    "de"
+  ],
+  "input": {
+    "text": "Haben Sie sonntags geöffnet? Und bis wann?"
+  },
+  "expect": {
+    "verdict": "invalid"
+  }
+}

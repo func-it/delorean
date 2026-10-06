@@ -1,0 +1,23 @@
+{
+  "id": "film-manquant-numero-nu",
+  "note": "« le 1 et le 3 » lus comme le 1 seul : le 3, nommé par un numéro nu, manque (15 € au lieu de (15 × 2) × 0,9 = 27 €). missing doit voir un film demandé sans son titre complet.",
+  "tags": [
+    "infidele",
+    "manquant",
+    "fr"
+  ],
+  "input": {
+    "text": "Retour vers le futur : le 1 et le 3, s'il vous plaît.",
+    "lines": [
+      {
+        "title": "Retour vers le futur 1",
+        "quantity": 1,
+        "film": "bttf_1"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": false,
+    "check": "missing"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "valide-titre-hackers",
+  "note": "« Hackers » (1995), un vrai film au titre inquiétant, à côté d'un volet, en italien : garde contre un refus sur un mot qui évoque une attaque.",
+  "tags": [
+    "valide",
+    "titre-piege",
+    "it"
+  ],
+  "input": {
+    "text": "Vorrei Hackers e Ritorno al futuro – Parte II, grazie."
+  },
+  "expect": {
+    "verdict": "valid"
+  }
+}

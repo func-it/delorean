@@ -1,0 +1,15 @@
+{
+  "id": "invalide-liste-acteurs",
+  "note": "Une liste des acteurs de la saga, sans aucun titre : des noms ne sont pas des films. Garde contre un guard qui valide une liste parce qu'elle ressemble à un panier.",
+  "tags": [
+    "invalide",
+    "sans-achat",
+    "liste"
+  ],
+  "input": {
+    "text": "Michael J. Fox, Christopher Lloyd, Lea Thompson, Crispin Glover, Thomas F. Wilson"
+  },
+  "expect": {
+    "verdict": "invalid"
+  }
+}

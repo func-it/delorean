@@ -1,0 +1,23 @@
+{
+  "id": "quantite-sous-lue",
+  "note": "« trois exemplaires » lus comme un (15 € au lieu de 45 €) : le recomptage doit en lire trois, et count voir l'écart. Jev ne compte pas : ce cas mesure le second lecteur.",
+  "tags": [
+    "infidele",
+    "quantite",
+    "fr"
+  ],
+  "input": {
+    "text": "Je voudrais trois exemplaires de Retour vers le futur 2.",
+    "lines": [
+      {
+        "title": "Retour vers le futur 2",
+        "quantity": 1,
+        "film": "bttf_2"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": false,
+    "check": "count"
+  }
+}

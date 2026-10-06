@@ -1,0 +1,14 @@
+{
+  "id": "volet-1-portugais",
+  "note": "Titre brésilien du premier volet.",
+  "tags": [
+    "volet-1",
+    "pt"
+  ],
+  "input": {
+    "title": "De Volta para o Futuro"
+  },
+  "expect": {
+    "film": "bttf_1"
+  }
+}

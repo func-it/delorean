@@ -1,0 +1,17 @@
+{
+  "id": "quantite-2x-et-signe-fois",
+  "note": "« 2x » collé devant le titre et « ×2 » (signe fois) après : deux formes de quantité. Garde contre un « 2x » pris dans le titre ou un « ×2 » ignoré.",
+  "tags": [
+    "quantite",
+    "fr"
+  ],
+  "input": {
+    "text": "2x Retour vers le futur 1\nRetour vers le futur 3 ×2"
+  },
+  "expect": {
+    "films": {
+      "bttf_1": 2,
+      "bttf_3": 2
+    }
+  }
+}

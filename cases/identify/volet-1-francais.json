@@ -1,0 +1,14 @@
+{
+  "id": "volet-1-francais",
+  "note": "Le titre français du premier volet.",
+  "tags": [
+    "volet-1",
+    "fr"
+  ],
+  "input": {
+    "title": "Retour vers le futur"
+  },
+  "expect": {
+    "film": "bttf_1"
+  }
+}

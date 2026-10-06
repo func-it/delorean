@@ -1,0 +1,32 @@
+{
+  "id": "fidele-liste-autre-film",
+  "note": "Deux écritures du volet 2 et un film hors saga, une ligne chacun, 1 exemplaire : la lecture exacte. Garde contre une fausse alerte de count, qui doit compter les deux titres du volet 2 ensemble dans les deux lectures, ou d'asked sur La chèvre.",
+  "tags": [
+    "fidele",
+    "doublon",
+    "abreviation"
+  ],
+  "input": {
+    "text": "Retour vers le futur 2\nBTTF 2\nLa chèvre",
+    "lines": [
+      {
+        "title": "Retour vers le futur 2",
+        "quantity": 1,
+        "film": "bttf_2"
+      },
+      {
+        "title": "BTTF 2",
+        "quantity": 1,
+        "film": "bttf_2"
+      },
+      {
+        "title": "La chèvre",
+        "quantity": 1,
+        "film": "other"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": true
+  }
+}

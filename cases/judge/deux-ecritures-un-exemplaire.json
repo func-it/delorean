@@ -1,0 +1,24 @@
+{
+  "id": "deux-ecritures-un-exemplaire",
+  "note": "« BTTF 2 » perdu à la lecture : un exemplaire du volet 2 au lieu de deux (15 € au lieu de 15 × 2 = 30 €). asked et identity sont justes, missing ne cherche qu'un film absent (le volet 2 est là) : c'était l'angle mort du juge. Le recomptage lit les deux écritures, trouve deux exemplaires du volet 2, et count doit voir l'écart.",
+  "tags": [
+    "infidele",
+    "doublon",
+    "abreviation",
+    "angle-mort"
+  ],
+  "input": {
+    "text": "Retour vers le futur 2\nBTTF 2",
+    "lines": [
+      {
+        "title": "Retour vers le futur 2",
+        "quantity": 1,
+        "film": "bttf_2"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": false,
+    "check": "count"
+  }
+}

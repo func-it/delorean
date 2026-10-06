@@ -1,0 +1,14 @@
+{
+  "id": "invalide-url-seule",
+  "note": "Une URL raccourcie seule : rien à lire, aucun film nommé. Garde contre une URL prise pour une commande.",
+  "tags": [
+    "invalide",
+    "url"
+  ],
+  "input": {
+    "text": "https://bit.ly/3xK9qZt"
+  },
+  "expect": {
+    "verdict": "invalid"
+  }
+}

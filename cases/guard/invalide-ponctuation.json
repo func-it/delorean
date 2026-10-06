@@ -1,0 +1,14 @@
+{
+  "id": "invalide-ponctuation",
+  "note": "De la ponctuation seule. Garde contre un guard qui répond autre chose qu'« invalid » quand il n'y a rien à lire.",
+  "tags": [
+    "invalide",
+    "charabia"
+  ],
+  "input": {
+    "text": "?!?! ... ;;; --- !!!"
+  },
+  "expect": {
+    "verdict": "invalid"
+  }
+}

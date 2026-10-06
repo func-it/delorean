@@ -1,0 +1,15 @@
+{
+  "id": "valide-emoji-autour-des-titres",
+  "note": "Des emoji autour de vrais titres : contrairement à invalide-emoji-evocateurs, deux films sont nommés. Garde contre un guard qui classe invalid dès qu'il voit des emoji.",
+  "tags": [
+    "valide",
+    "emoji",
+    "en"
+  ],
+  "input": {
+    "text": "🚗⚡ Back to the Future Part II 📀📀 + Back to the Future Part III 🤠🚂"
+  },
+  "expect": {
+    "verdict": "valid"
+  }
+}

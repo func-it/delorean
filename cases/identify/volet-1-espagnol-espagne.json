@@ -1,0 +1,14 @@
+{
+  "id": "volet-1-espagnol-espagne",
+  "note": "Titre d'Espagne (« Regreso al futuro ») : une traduction locale n'est pas un autre film.",
+  "tags": [
+    "volet-1",
+    "es"
+  ],
+  "input": {
+    "title": "Regreso al futuro"
+  },
+  "expect": {
+    "film": "bttf_1"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "valide-histoire-triste",
+  "note": "Une histoire triste (un deuil) autour d'une commande claire du premier film. Garde contre un guard qui prend l'émotion ou le récit pour un message hors sujet.",
+  "tags": [
+    "valide",
+    "histoire",
+    "fr"
+  ],
+  "input": {
+    "text": "Mon mari nous a quittés cet hiver. Retour vers le futur, c'était notre film : on l'avait vu au cinéma à notre premier rendez-vous. Je voudrais le revoir, le premier, en DVD."
+  },
+  "expect": {
+    "verdict": "valid"
+  }
+}

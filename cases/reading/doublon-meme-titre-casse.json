@@ -1,0 +1,16 @@
+{
+  "id": "doublon-meme-titre-casse",
+  "note": "Le même titre, à la casse près : le pipeline les fusionne en une ligne de deux exemplaires.",
+  "tags": [
+    "doublon",
+    "en"
+  ],
+  "input": {
+    "text": "back to the future 3\nBack To The Future 3"
+  },
+  "expect": {
+    "films": {
+      "bttf_3": 2
+    }
+  }
+}

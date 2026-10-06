@@ -1,0 +1,15 @@
+{
+  "id": "leurre-bande-originale",
+  "note": "La bande originale du premier film : un CD, pas le film. Garde contre une identification au volet 1 sur le titre en tête.",
+  "tags": [
+    "leurre",
+    "produit-derive",
+    "en"
+  ],
+  "input": {
+    "title": "Back to the Future: Original Motion Picture Soundtrack"
+  },
+  "expect": {
+    "film": "other"
+  }
+}

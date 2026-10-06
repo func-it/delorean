@@ -1,0 +1,14 @@
+{
+  "id": "rien-a-acheter",
+  "note": "Un avis sur le film, sans achat : la lecture est vide (le pipeline répond no_film). Garde contre un film cité lu comme commandé.",
+  "tags": [
+    "sans-achat",
+    "fr"
+  ],
+  "input": {
+    "text": "J'adore Retour vers le futur, je l'ai vu dix fois ! Vous avez une belle boutique."
+  },
+  "expect": {
+    "films": {}
+  }
+}

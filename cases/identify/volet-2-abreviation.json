@@ -1,0 +1,14 @@
+{
+  "id": "volet-2-abreviation",
+  "note": "« BTTF 2 » : l'abréviation que l'énoncé cite, à reconnaître sans le titre complet.",
+  "tags": [
+    "volet-2",
+    "abreviation"
+  ],
+  "input": {
+    "title": "BTTF 2"
+  },
+  "expect": {
+    "film": "bttf_2"
+  }
+}

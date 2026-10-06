@@ -1,0 +1,16 @@
+{
+  "id": "invalide-prix-d-un-titre",
+  "note": "Une question sur le prix d'un volet, sans commande. Décision produit : invalid, car une question sur les prix n'achète rien (le client qui veut un devis commande le film) ; seule une question posée à côté d'une commande la laisse valide. Garde contre un guard qui prend une question de prix pour une commande.",
+  "tags": [
+    "invalide",
+    "limite",
+    "prix",
+    "fr"
+  ],
+  "input": {
+    "text": "Combien coûte Retour vers le futur 2 ?"
+  },
+  "expect": {
+    "verdict": "invalid"
+  }
+}

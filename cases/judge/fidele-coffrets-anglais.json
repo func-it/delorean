@@ -1,0 +1,33 @@
+{
+  "id": "fidele-coffrets-anglais",
+  "note": "Deux coffrets de la trilogie développés en trois lignes de 2 : la règle du coffret. Garde contre une fausse alerte de count (« two » porte sur les coffrets, donc sur chaque volet, dans les deux lectures).",
+  "tags": [
+    "fidele",
+    "trilogie",
+    "quantite",
+    "en"
+  ],
+  "input": {
+    "text": "Two Back to the Future trilogy box sets, please.",
+    "lines": [
+      {
+        "title": "Back to the Future 1",
+        "quantity": 2,
+        "film": "bttf_1"
+      },
+      {
+        "title": "Back to the Future 2",
+        "quantity": 2,
+        "film": "bttf_2"
+      },
+      {
+        "title": "Back to the Future 3",
+        "quantity": 2,
+        "film": "bttf_3"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": true
+  }
+}

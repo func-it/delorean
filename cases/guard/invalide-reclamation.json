@@ -1,0 +1,16 @@
+{
+  "id": "invalide-reclamation",
+  "note": "Une réclamation sur une commande passée qui cite le volet 3 : rien de nouveau à acheter. Garde contre un guard qui prend une commande citée pour une commande passée maintenant.",
+  "tags": [
+    "invalide",
+    "sans-achat",
+    "reclamation",
+    "en"
+  ],
+  "input": {
+    "text": "My order from last week (Back to the Future Part III) still hasn't arrived. This is unacceptable."
+  },
+  "expect": {
+    "verdict": "invalid"
+  }
+}

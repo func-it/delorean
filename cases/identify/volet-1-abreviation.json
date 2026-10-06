@@ -1,0 +1,14 @@
+{
+  "id": "volet-1-abreviation",
+  "note": "Abréviation des fans, en minuscules, avec un numéro : « bttf 1 ».",
+  "tags": [
+    "volet-1",
+    "abreviation"
+  ],
+  "input": {
+    "title": "bttf 1"
+  },
+  "expect": {
+    "film": "bttf_1"
+  }
+}

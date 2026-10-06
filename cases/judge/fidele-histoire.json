@@ -1,0 +1,27 @@
+{
+  "id": "fidele-histoire",
+  "note": "Le 2 est cité mais pas acheté, et absent de la lecture à raison ; « le 1 » et « le 3 » sont écrits en entier par le parse. Fidèle.",
+  "tags": [
+    "fidele",
+    "histoire",
+    "fr"
+  ],
+  "input": {
+    "text": "Hier on a regardé Retour vers le futur 2. Du coup je voudrais le 1 et le 3 pour mon fils.",
+    "lines": [
+      {
+        "title": "Retour vers le futur 1",
+        "quantity": 1,
+        "film": "bttf_1"
+      },
+      {
+        "title": "Retour vers le futur 3",
+        "quantity": 1,
+        "film": "bttf_3"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": true
+  }
+}

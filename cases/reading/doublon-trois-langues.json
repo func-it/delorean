@@ -1,0 +1,16 @@
+{
+  "id": "doublon-trois-langues",
+  "note": "Le volet 3 sous trois titres, en trois langues, chacun pour un destinataire : trois exemplaires. Garde contre des traductions fusionnées en un seul exemplaire.",
+  "tags": [
+    "doublon",
+    "melange"
+  ],
+  "input": {
+    "text": "Back to the Future Part III for me, Zurück in die Zukunft III for my German cousin and Regreso al futuro III for my neighbour in Madrid."
+  },
+  "expect": {
+    "films": {
+      "bttf_3": 3
+    }
+  }
+}

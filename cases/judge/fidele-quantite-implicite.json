@@ -1,0 +1,22 @@
+{
+  "id": "fidele-quantite-implicite",
+  "note": "« un pour moi et un pour mon frère » lu comme 2 exemplaires : lecture exacte. Garde contre une fausse alerte de count quand le nombre n'est écrit nulle part.",
+  "tags": [
+    "fidele",
+    "quantite",
+    "fr"
+  ],
+  "input": {
+    "text": "Retour vers le futur 3, un pour moi et un pour mon frère.",
+    "lines": [
+      {
+        "title": "Retour vers le futur 3",
+        "quantity": 2,
+        "film": "bttf_3"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": true
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "film-manquant",
+  "note": "Un film hors saga demandé est absent de la lecture : missing doit le voir (sinon le devis est trop bas).",
+  "tags": [
+    "infidele",
+    "manquant",
+    "fr"
+  ],
+  "input": {
+    "text": "Retour vers le futur 1, Retour vers le futur 3 et Les Visiteurs.",
+    "lines": [
+      {
+        "title": "Retour vers le futur 1",
+        "quantity": 1,
+        "film": "bttf_1"
+      },
+      {
+        "title": "Retour vers le futur 3",
+        "quantity": 1,
+        "film": "bttf_3"
+      }
+    ]
+  },
+  "expect": {
+    "faithful": false,
+    "check": "missing"
+  }
+}

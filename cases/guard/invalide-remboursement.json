@@ -1,0 +1,16 @@
+{
+  "id": "invalide-remboursement",
+  "note": "Une demande de remboursement qui nomme un film de la saga, et refuse explicitement un nouvel exemplaire : rien à acheter. Garde contre un guard qui valide dès qu'un titre apparaît.",
+  "tags": [
+    "invalide",
+    "sans-achat",
+    "remboursement",
+    "fr"
+  ],
+  "input": {
+    "text": "Bonjour, le DVD de Retour vers le futur 2 que j'ai reçu est rayé. Je voudrais être remboursé, pas un nouvel exemplaire."
+  },
+  "expect": {
+    "verdict": "invalid"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "valide-histoire",
+  "note": "Une histoire autour de la commande (un grand-père, Noël) : le récit n'est ni hors sujet ni une manipulation.",
+  "tags": [
+    "valide",
+    "histoire",
+    "fr"
+  ],
+  "input": {
+    "text": "Mon grand-père m'a raconté qu'il avait vu le premier au cinéma en 1985, le jour de ses vingt ans. Pour Noël, je lui offre Retour vers le futur, et pour moi le 3."
+  },
+  "expect": {
+    "verdict": "valid"
+  }
+}

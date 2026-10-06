@@ -1,0 +1,14 @@
+{
+  "id": "volet-2-chinois",
+  "note": "Le titre chinois, le 2 collé sans espace : garde contre une identification qui reconnaît le titre de base et oublie le chiffre (volet 1).",
+  "tags": [
+    "volet-2",
+    "zh"
+  ],
+  "input": {
+    "title": "回到未来2"
+  },
+  "expect": {
+    "film": "bttf_2"
+  }
+}

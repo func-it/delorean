@@ -1,0 +1,20 @@
+{
+  "id": "trilogie-deux-coffrets",
+  "note": "Deux coffrets de la trilogie, en franglais, plus un film hors saga : deux exemplaires de chaque volet. Garde contre la quantité des coffrets perdue (un exemplaire par volet) ou portée sur un seul volet.",
+  "tags": [
+    "trilogie",
+    "quantite",
+    "melange"
+  ],
+  "input": {
+    "text": "2 coffrets Back to the Future trilogy and one copy of Jaws"
+  },
+  "expect": {
+    "films": {
+      "bttf_1": 2,
+      "bttf_2": 2,
+      "bttf_3": 2,
+      "other": 1
+    }
+  }
+}

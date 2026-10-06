@@ -1,0 +1,15 @@
+{
+  "id": "invalide-hors-sujet",
+  "note": "Une question de culture générale : hors sujet, sans film ni manipulation.",
+  "tags": [
+    "invalide",
+    "hors-sujet",
+    "fr"
+  ],
+  "input": {
+    "text": "Quelle est la capitale de l'Australie ?"
+  },
+  "expect": {
+    "verdict": "invalid"
+  }
+}

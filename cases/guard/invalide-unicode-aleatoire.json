@@ -1,0 +1,15 @@
+{
+  "id": "invalide-unicode-aleatoire",
+  "note": "Des symboles Unicode rares, sans aucun mot : garde contre un guard qui verrait une langue dans n'importe quel alphabet.",
+  "tags": [
+    "invalide",
+    "charabia",
+    "unicode"
+  ],
+  "input": {
+    "text": "⟁⟟⟒ ⧫⧩⧨ ꙮꙮ ⸻ ∰∯∮"
+  },
+  "expect": {
+    "verdict": "invalid"
+  }
+}

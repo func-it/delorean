@@ -1,0 +1,14 @@
+{
+  "id": "volet-1-tcheque",
+  "note": "Le titre tchèque seul, sans numéro : c'est le premier film. Garde contre un « other » sur une langue peu courante.",
+  "tags": [
+    "volet-1",
+    "cs"
+  ],
+  "input": {
+    "title": "Návrat do budoucnosti"
+  },
+  "expect": {
+    "film": "bttf_1"
+  }
+}
