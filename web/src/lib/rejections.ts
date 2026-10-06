@@ -51,6 +51,10 @@ export function explainProblem(problem: Problem): Rejection {
       return ours("La demande n'a pas pu être lue : rechargez la page, puis réessayez.");
     case "quantity_unverified":
       return refusal("Nous n'avons pas pu vérifier les quantités à cet instant : réessayez dans un instant.");
+    case "repeated_titles":
+      return refusal(
+        "Ce panier répète le même titre sur beaucoup de lignes : regroupez les quantités, par exemple «\u00a045 x Back to the Future\u00a0».",
+      );
     case "quote_in_progress":
       return refusal("Un devis est déjà en cours pour vous : patientez un instant, puis réessayez.");
     case "daily_budget_exhausted":

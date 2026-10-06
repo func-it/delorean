@@ -34,6 +34,7 @@ const MESSAGES: Record<ProblemCode, [number, string]> = {
   internal: [500, OUR_SIDE],
   too_many_refusals: [429, "Trop de paniers refusés comme des ordres au système : vos demandes sont suspendues. Réessayez plus tard."],
   quantity_unverified: [503, "Nous n'avons pas pu vérifier les quantités à cet instant : réessayez dans un instant."],
+  repeated_titles: [422, "Ce panier répète le même titre sur beaucoup de lignes : regroupez les quantités, par exemple « 45 x Back to the Future »."],
   rate_limited: [429, "Trop de demandes en peu de temps : réessayez dans un instant."],
   ip_budget_exhausted: [429, "Vous avez utilisé votre part du budget du jour, revenez demain."],
   quote_in_progress: [429, "Un devis est déjà en cours pour vous : patientez un instant, puis réessayez."],

@@ -197,7 +197,7 @@ been taken again.
 | System bench of the quoter (accuracy, latency, cost) | `task bench -- --base-url http://localhost:24793 --runs 3` | OpenRouter if live |
 | Everything that needs no model: lint, types, unit tests, the end-to-end suite | `task check` | none |
 
-No test calls a model. Of the 85 shared cases, `task test` plays the 38 tagged
+No test calls a model. Of the 87 shared cases, `task test` plays the 40 tagged
 `fake` on the fake engines; the other 47 (free text, other languages, stories)
 run only at the bench, against the real models. The details, and the results of the
 benches that chose the models, are in [`docs/testing.md`](docs/testing.md).
@@ -220,10 +220,12 @@ benches that chose the models, are in [`docs/testing.md`](docs/testing.md).
   too slow is asked once more if it failed fast, then left out: the quote goes
   on with the parse alone and the judge, its usage says `degraded`, and with
   nothing to count against a line of several copies is refused to retry
-  (`503 quantity_unverified`), single copies are priced.
+  (`503 quantity_unverified`; `422 repeated_titles` when a title is written on five
+  lines or more: group them), single copies are priced.
 - **A refused reading is read again, never re-judged as is.** It goes back to
   the model with what failed, up to three readings; only a different reading
-  goes back to Jev.
+  goes back to Jev. A re-reading that fails (a model too
+  slow) is still the cart's refusal (`422 unfaithful_reading`), not an outage.
 - **An injection cannot set a price.** The guard rejects it; the BFF blocks a
   visitor after three refusals, bounds the rate and the spending per address,
   and caps the day's budget.

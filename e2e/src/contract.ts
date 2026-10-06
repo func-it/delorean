@@ -29,6 +29,8 @@ export const REJECTED_BY: Partial<Record<ProblemCode, Stage>> = {
   quantity_too_large: 'parse',
   demo_unreadable: 'parse',
   unfaithful_reading: 'judge',
+  // refused once the judge held the reading, before the price
+  repeated_titles: 'judge',
 };
 
 // ajv-formats ships CommonJS whose default export TypeScript sees under `.default`.

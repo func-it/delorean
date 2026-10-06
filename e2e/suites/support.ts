@@ -73,9 +73,9 @@ function expectConformingProblem({ response, body }: Exchange, { router = false 
     }
   }
   if (problem.code === 'unfaithful_reading') {
-    expect(problem.judge?.attempts, 'a reading is refused after the last attempt').toBe(
-      catalog.limits.max_reading_attempts,
-    );
+    // after the last attempt, or earlier when a reading that followed an unfaithful one failed (a model too slow)
+    expect(problem.judge?.attempts, 'the refusal says how many readings were judged').toBeGreaterThanOrEqual(1);
+    expect(problem.judge?.attempts).toBeLessThanOrEqual(catalog.limits.max_reading_attempts);
   }
   return problem;
 }

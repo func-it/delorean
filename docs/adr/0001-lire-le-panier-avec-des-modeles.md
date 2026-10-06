@@ -75,7 +75,8 @@ Risks that remain, and their mitigations:
   a model reading the same cart differently from one call to the next, not one
   that misreads it the same way twice. Mitigation: the judge holds each line to
   the text, and a quote left without a recount does not price a line of several
-  copies (`503 quantity_unverified`).
+  copies (`503 quantity_unverified`, or `422 repeated_titles` when a title is
+  repeated on five lines or more).
 - *A provider outage or slowness*: every model call is bounded (10 s), a request
   too (25 s); a recount that fails is left out rather than failing the quote.
 - *An instruction hidden in a cart*: the guard, the fence around the text, and

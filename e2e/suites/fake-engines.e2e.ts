@@ -54,6 +54,13 @@ describe.runIf(health.engines === 'fake')('fake engines', () => {
     expect(problem.usage?.stages.map((s) => s.stage)).not.toContain('price');
   });
 
+  it('asks to group a title written on many lines nobody could count: 422 repeated_titles, no retry', async () => {
+    const cart = `${Array.from({ length: 6 }, () => 'Back to the Future 1').join('\n')}\n#fake:recount_offschema`;
+    const problem = expectProblem(await postQuote(client, cart), 422, 'repeated_titles');
+    expect(problem.detail).toContain('"6 x Back to the Future 1"');
+    expect(problem.usage?.stages.map((s) => s.stage)).not.toContain('price');
+  });
+
   it('reads a first reading with no film once more before refusing it as no_film', async () => {
     const problem = expectProblem(await postQuote(client, '#fake:reread'), 422, 'no_film');
     expect(problem.usage?.stages.find((s) => s.stage === 'parse')?.calls).toBe(2);

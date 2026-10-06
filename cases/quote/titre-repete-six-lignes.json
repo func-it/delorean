@@ -1,0 +1,18 @@
+{
+  "id": "titre-repete-six-lignes",
+  "note": "Le même titre sur six lignes, sans panne : un seul volet, six exemplaires à 15 € (6 × 15 = 90 €), pas de remise avec un seul volet. Le recomptage lit la même chose, le devis est chiffré.",
+  "tags": [
+    "quantite",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 1\nBack to the Future 1\nBack to the Future 1\nBack to the Future 1\nBack to the Future 1\nBack to the Future 1"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 9000,
+    "films": {
+      "bttf_1": 6
+    }
+  }
+}

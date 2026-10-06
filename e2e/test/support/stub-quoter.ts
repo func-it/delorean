@@ -261,6 +261,16 @@ export async function startStubQuoter(options: StubOptions = {}): Promise<Stub> 
 
     // No recount succeeded and a line asks for several copies: nothing counted them (quantity_unverified).
     if (offSchema && reading.some((l) => l.quantity > 1)) {
+      // a title written on five lines or more is a cart to group, not to retry (repeated_titles)
+      const repeated = reading.find(
+        (l) => all.filter((m) => normalizeTitle(m.title) === normalizeTitle(l.title)).length >= 5,
+      );
+      if (repeated) {
+        return problem(422, 'repeated_titles', {
+          detail: `The cart repeats a title on many lines and its quantities could not be cross-checked in time: group them, for example ${JSON.stringify(`${repeated.quantity} x ${repeated.title}`)}.`,
+          usage: usage(),
+        });
+      }
       return problem(503, 'quantity_unverified', {
         detail: 'The quantities could not be cross-checked and a line asks for more than one copy: try again.',
         usage: usage(),

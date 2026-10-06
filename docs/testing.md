@@ -76,16 +76,18 @@ system bench. Each case has a `note` that says which mistake it guards against;
 `input` is the cart, `expect` a total and the films read, or a status and a
 refusal code.
 
-`task test` plays on the fake engines the 38 cases tagged `fake`, out of 85,
+`task test` plays on the fake engines the 40 cases tagged `fake`, out of 87,
 through the end-to-end suite (`task e2e`): they are the cases a deterministic
 reader passes. The other 47 run only at the bench (`task bench`), against the
-real models, at a cost, and only when you ask. Five
-of the 38 use a fault line: `recomptage-en-desaccord` (`#fake:miscount`) proves that a
+real models, at a cost, and only when you ask. Six
+of the 40 use a fault line: `recomptage-en-desaccord` (`#fake:miscount`) proves that a
 recount in disagreement refuses the cart, `recomptage-hors-schema`
 (`#fake:recount_offschema`) that a recount answering off its schema is left
 out instead of failing the quote, `recomptage-hors-schema-quantites` that a
 quote left without a recount does not price a line of several copies
-(`503 quantity_unverified`), `relecture-film-oublie`
+(`503 quantity_unverified`), `titre-repete-sans-recomptage` that the same
+title on six lines is asked to be grouped, not retried (`422 repeated_titles`),
+`relecture-film-oublie`
 (`#fake:reread`) that a reading the judge refuses is read again and priced,
 `relecture-toujours-infidele` (`#fake:unfaithful`) that it is refused after
 the last reading. The tag `limite` marks a borderline call made on purpose,

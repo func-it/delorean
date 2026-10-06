@@ -1,0 +1,16 @@
+{
+  "id": "titre-repete-sans-recomptage",
+  "note": "Le même titre sur six lignes et un second lecteur hors schéma (#fake:recount_offschema) : rien ne compte les quantités et un nouvel essai échouerait de même ; le refus dit de regrouper (422 repeated_titles), pas de réessayer (503). Garde contre un conseil « réessayez » qui coûte à chaque essai.",
+  "tags": [
+    "recomptage",
+    "quantite",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 1\nBack to the Future 1\nBack to the Future 1\nBack to the Future 1\nBack to the Future 1\nBack to the Future 1\n#fake:recount_offschema"
+  },
+  "expect": {
+    "status": 422,
+    "code": "repeated_titles"
+  }
+}
