@@ -74,7 +74,7 @@ export class Stats {
     let line =
       `${ms.length} plays · median ${p50} ms · p90 ${p90} ms · max ${ms.at(-1)} ms · ${this.#calls} model calls · ` +
       `${this.#cost.toFixed(5)} USD`;
-    for (const stage of ['parse', 'identify'] as const) {
+    for (const stage of ['guard', 'parse', 'recount', 'identify', 'judge'] as const) {
       const s = this.#stages.get(stage);
       if (!s) continue;
       const [stageP50, stageP90] = percentiles(s.ms);

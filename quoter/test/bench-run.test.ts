@@ -120,6 +120,19 @@ describe('run', () => {
     expect(report.cost).toBe(15);
   });
 
+  it('says in one line what the plays took, stage by stage', async () => {
+    const subject = newSubject('reading', setup());
+    await run(
+      subject,
+      [{ id: 'a', note: 'n', input: { text: 'Back to the Future 1' }, expect: { films: { bttf_1: 1 } } }],
+      { runs: 1 },
+    );
+    expect(String(subject.stats)).toMatch(
+      /^1 plays · median \d+ ms · p90 \d+ ms · max \d+ ms · 4 model calls · 0\.00000 USD · parse median \d+ ms, p90 \d+ ms, 0\.00000 USD · recount median .* · identify median .* · judge median .* · 0 failed$/,
+    );
+    expect(String(newSubject('guard', setup()).stats)).toBe('no play answered (0 failed)');
+  });
+
   it('reads the lowest confidence the engine gave a case across the runs', async () => {
     let order = 0.9;
     const guard: Engines['guard'] = { check: () => Promise.resolve({ order: (order -= 0.2), steer: 0, usage: free }) };
