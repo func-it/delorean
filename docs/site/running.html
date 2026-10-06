@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Delorean docs · Testing</title>
-  <meta name="description" content="How Delorean is tested: unit tests, the contract, the end-to-end suite, the benches and their cost.">
+  <title>Delorean docs · Running</title>
+  <meta name="description" content="How to run Delorean: with Docker, without a key, with the real models, the ports, the quoter alone, without Docker.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 13V22M12 13 4 4M12 13l8-9' fill='none' stroke='%23f2a516' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,20 +21,20 @@
       <ul class="nav">
         <li><a href="index.html">Overview</a></li>
         <li><a href="architecture.html">Architecture</a></li>
-        <li><a href="running.html">Running</a></li>
+        <li><a href="running.html" aria-current="page">Running</a></li>
         <li><a href="api.html">API</a></li>
-        <li><a href="testing.html" aria-current="page">Testing</a></li>
+        <li><a href="testing.html">Testing</a></li>
         <li><a href="adr.html">Decisions</a></li>
       </ul>
     </div>
   </header>
 
   <div class="layout">
-    <article class="doc" id="doc" aria-live="polite"><p class="notice">Loading docs/testing.md…</p></article>
+    <article class="doc" id="doc" aria-live="polite"><p class="notice">Loading docs/running.md…</p></article>
     <aside class="rail" id="rail" aria-label="Services, links and outline"></aside>
   </div>
 
-  <footer class="footer">Rendered from the repository's <code>docs/testing.md</code>.</footer>
+  <footer class="footer">Rendered from the repository's <code>docs/running.md</code>.</footer>
 
   <script type="module">
     import { renderRail, renderMarkdown, renderToc, scrollToHash } from "./assets/site.js";
@@ -42,7 +42,7 @@
     const rail = document.getElementById("rail");
     const doc = document.getElementById("doc");
     renderRail(rail);
-    await renderMarkdown("content/testing.md", doc);
+    await renderMarkdown("content/running.md", doc);
     renderToc(doc, rail);
     scrollToHash();
   </script>

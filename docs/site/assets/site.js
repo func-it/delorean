@@ -22,6 +22,8 @@ const PAGES = {
   "README.md": "index.html",
   "docs/architecture.md": "architecture.html",
   "architecture.md": "architecture.html",
+  "docs/running.md": "running.html",
+  "running.md": "running.html",
   "docs/testing.md": "testing.html",
   "testing.md": "testing.html",
   "api/openapi.yaml": "api.html",

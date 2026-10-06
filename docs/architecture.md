@@ -853,3 +853,43 @@ TypeScript, because the web app and the quoter then share a language, and
 Node is what the brief names. The Go and Python quoters, the parity suite, the
 Go component benches and the load bench of the three images were removed from
 the tree; `git log --diff-filter=D -- quoters/go quoters/python` finds them.
+
+## Design decisions
+
+The short list is in the [README](../README.md#design-choices); this is the
+whole of it, with the reasons.
+
+- **Jev decides, the LLM extracts, the code counts.** A model never computes a
+  price; at worst a title is misread, never an amount invented.
+- **A judge before every price.** The reading is held against the text by
+  short questions, one per observable fact (is this film asked for? is the
+  title the film it was identified as? is a film missing?), asked separately;
+  the worst score decides.
+- **Two readings, compared in code.** Jev cannot count, so the cart is read a
+  second time and the code compares both readings film by film; a
+  disagreement refuses the cart. The recount is the parser's own model without
+  reasoning, chosen for its speed, so its readings are correlated: it catches
+  a model that reads the same cart differently from one call to the next, not
+  one that misreads it the same way twice.
+- **The recount is a second opinion, not a dependency.** One that fails or is
+  too slow is asked once more if it failed fast, then left out: the quote goes
+  on with the parse alone and the judge, its usage says `degraded`, and with
+  nothing to count against a line of several copies is refused to retry
+  (`503 quantity_unverified`), single copies are priced.
+- **A refused reading is read again, never re-judged as is.** It goes back to
+  the model with what failed, up to three readings; only a different reading
+  goes back to Jev.
+- **An injection cannot set a price.** The guard rejects it; the BFF blocks a
+  visitor after three refusals, bounds the rate and the spending per address,
+  and caps the day's budget.
+- **Every model call and request is bounded in time and size:** 256 tokens and
+  8 KB a cart, and the time limits of the [configuration](#configuration)
+  (`MODEL_TIMEOUT` a call, `REQUEST_TIMEOUT` a request).
+- **Contract first, fake engines to test without paying.** One `openapi.yaml`,
+  shared cases, an end-to-end suite that any implementation of the contract
+  can run against.
+- **A box set is its films.** "The trilogy" counts as the three volumes.
+
+Why a text is read with models and not with a parser, and when a parser would
+do, is in
+[the decision record](adr/0001-lire-le-panier-avec-des-modeles.md).

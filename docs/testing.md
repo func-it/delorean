@@ -374,3 +374,27 @@ times: `parse` and `recount` side by side, a stage read again repeated.
 | Guard bench, 113 cases, one pass | 226 Jev | not measured yet; about $0.004 with the former single request |
 | The four component benches (earlier tree), 3 runs per case | about 2,700 Jev, 400 LLM (dry run) | not measured yet; about $0.09 before the recount |
 | Everything `task check` runs | none | $0 |
+
+## What live mode costs, and what it guarantees
+
+These figures come from the benches kept above; the ones marked *earlier* were
+measured before the recount existed and have not been taken again.
+
+- **Latency.** The parse took 1.2 s at the median and 2.5 s at p90 (parser
+  matrix, 2026-10-03). Whole quotes of the brief's fifth example took 3.3 to
+  5.9 s in earlier live checks. Every model call is cut at `MODEL_TIMEOUT` and
+  a request at `REQUEST_TIMEOUT` (10 s and 25 s by default).
+- **Cost.** A four-film cart makes about 17 model calls (15 Jev, 2 LLM);
+  about $0.0006 a quote *earlier*; $0.17 per 1,000 carts for the parse and the
+  identification (matrix). The daily budget caps the day's spending.
+- **Errors.** In the live benches no run priced a cart wrong: every wrong
+  reading was refused by the judge. The price is refusals of carts that were
+  fine (two real films whose titles read like orders were refused); the
+  parser read the films right 135 times in 138 on the reading cases.
+- **What is guaranteed, and where.** The five examples (36, 27, 15, 48, 56 €)
+  are guaranteed by tests **only on the fake engines** (`brief.test.ts` and the
+  `enonce` cases the end-to-end suite plays, both run by `task test`). With
+  the real models they were checked by hand and by the benches, not by a test
+  you can run offline: a model can read a cart differently on two calls, which
+  is why the code compares two readings and refuses what it cannot read
+  faithfully.

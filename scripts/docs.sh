@@ -24,6 +24,7 @@ mkdir "$site/content"
 ln -s "$root/README.md" "$site/content/README.md"
 ln -s "$root/docs/architecture.md" "$site/content/architecture.md"
 ln -s "$root/docs/testing.md" "$site/content/testing.md"
+ln -s "$root/docs/running.md" "$site/content/running.md"
 ln -s "$root/docs/adr/0001-lire-le-panier-avec-des-modeles.md" "$site/content/adr-0001.md"
 ln -s "$root/api/openapi.yaml" "$site/content/openapi.yaml"
 
