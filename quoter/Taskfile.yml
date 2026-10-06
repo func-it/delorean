@@ -41,6 +41,11 @@ tasks:
     env: { ENGINES: fake, DELOREAN_VERSION: "{{.VERSION}}" }
     cmds: [node src/main.ts]
 
+  bench:stage:
+    desc: "Each stage played alone, on the quoter's own engines: task quoter:bench:stage -- list | check | run guard --dry-run | matrix --dry-run"
+    dotenv: [../.env]
+    cmds: ['npm run --silent bench:stage -- {{.CLI_ARGS}}']
+
   docker:
     desc: "The image {{.IMAGE}}:<version>, built from the repository's root"
     dir: ../..

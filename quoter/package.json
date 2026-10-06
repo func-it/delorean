@@ -9,6 +9,7 @@
   "scripts": {
     "start": "node src/main.ts",
     "dev": "node --watch src/main.ts",
+    "bench:stage": "node bench/main.ts",
     "generate": "openapi-typescript ../api/openapi.yaml -o src/generated/openapi.ts",
     "test": "vitest run",
     "typecheck": "tsc",

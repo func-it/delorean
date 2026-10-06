@@ -1,0 +1,33 @@
+# Parser variants, benched side by side:
+#   npm run bench:stage -- matrix --subject parse --runs 3 [--dry-run]
+# Each one is environment overrides on top of the service's configuration: the
+# same code, configured. Every model here supports structured outputs on
+# OpenRouter (supported_parameters of https://openrouter.ai/api/v1/models);
+# qwen/qwen3.7-flash does not, and is left out. A local model answers through
+# Ollama's OpenAI-compatible API, which holds the answer to the JSON schema;
+# it has no reasoning, so its effort is none (no reasoning field at all).
+variants:
+  - name: luna-low
+    env: { PARSE_MODEL: openai/gpt-6-luna, PARSE_EFFORT: low }
+  - name: luna-minimal
+    note: the default since the bench (135/138, as low, p50 1.17 s against 1.21 s)
+    env: { PARSE_MODEL: openai/gpt-6-luna, PARSE_EFFORT: minimal }
+  - name: luna-none
+    env: { PARSE_MODEL: openai/gpt-6-luna, PARSE_EFFORT: none }
+  - name: luna-pro-low
+    env: { PARSE_MODEL: openai/gpt-6-luna-pro, PARSE_EFFORT: low }
+  - name: gemini-3.1-flash-lite
+    env: { PARSE_MODEL: google/gemini-3.1-flash-lite, PARSE_EFFORT: low }
+  - name: deepseek-v4.1-flash
+    env: { PARSE_MODEL: deepseek/deepseek-v4.1-flash, PARSE_EFFORT: low }
+  - name: schematron-v2-small
+    note: no reasoning on OpenRouter
+    env: { PARSE_MODEL: inference-net/schematron-v2-small, PARSE_EFFORT: none }
+  - name: nex-n2.5-mini
+    env: { PARSE_MODEL: nex-agi/nex-n2.5-mini, PARSE_EFFORT: low }
+  - name: local-llama3.2-3b
+    note: Ollama on this machine; Jev's identify still goes to OpenRouter
+    env: { PARSE_MODEL: 'llama3.2:3b', PARSE_EFFORT: none, PARSE_BASE_URL: 'http://localhost:11434/v1' }
+  - name: local-qwen2.5-14b
+    note: Ollama on this machine; Jev's identify still goes to OpenRouter
+    env: { PARSE_MODEL: 'qwen2.5:14b-instruct-q4_K_M', PARSE_EFFORT: none, PARSE_BASE_URL: 'http://localhost:11434/v1' }

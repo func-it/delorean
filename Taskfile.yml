@@ -88,6 +88,11 @@ tasks:
     dotenv: [../.env]
     cmds: ['npm run --silent langfuse:dashboard -- {{.CLI_ARGS}}']
 
+  bench:stage:
+    desc: "Each stage played alone (guard, identify, parse, reading, judge): task bench:stage -- list | check | run guard --dry-run | matrix --dry-run; live runs need RUN_LIVE=1"
+    cmds:
+      - task: quoter:bench:stage
+
   bench:
     desc: "System bench of the quoter: task bench -- --base-url http://localhost:24793 --runs 3"
     dir: e2e
