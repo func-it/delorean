@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Line } from '../src/cart.ts';
 import { loadConfig } from '../src/config.ts';
 import { liveEngines } from '../src/engines/live/index.ts';
@@ -22,7 +22,7 @@ interface Sent {
 }
 
 /** A fetch whose answer `answer` makes of what it was sent, and that keeps it. */
-function openRouter(answer: (sent: Sent) => [number, unknown], live = config) {
+function openRouter(answer: (sent: Sent) => [number, unknown], live = config, tuning?: { attempts?: number }) {
   const sent: Sent[] = [];
   const fetch = (url: string | URL, init?: RequestInit) => {
     const request = { url: String(url), body: JSON.parse(init?.body as string) as Record<string, unknown> };
@@ -32,7 +32,7 @@ function openRouter(answer: (sent: Sent) => [number, unknown], live = config) {
       new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }),
     );
   };
-  return { sent, engines: liveEngines(live, prompts, fetch as typeof globalThis.fetch) };
+  return { sent, engines: liveEngines(live, prompts, fetch as typeof globalThis.fetch, undefined, tuning) };
 }
 
 type Decisions = { state: Record<string, string>; questions: Record<string, { type: string; instructions: string }> };
@@ -349,6 +349,47 @@ describe('live readers', () => {
     const error = await engines.parser.read('Heat', call).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(EngineError);
     expect((error as EngineError).usage).toMatchObject({ calls: 1, costUsd: 0 });
+    expect(sent).toHaveLength(1);
+  });
+});
+
+describe('waiting a rate limit out (what a bench asks for)', () => {
+  const rateLimited = [429, { error: { message: 'rate limited', code: 429 } }] as const;
+
+  it('tries a reader again when told to: a rate limit, then an answer', async () => {
+    let calls = 0;
+    const ok = {
+      id: 'c1',
+      object: 'chat.completion',
+      created: 0,
+      model: 'm',
+      choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content: '{"films":[]}' } }],
+    };
+    const { sent, engines } = openRouter(() => (++calls === 1 ? [...rateLimited] : [200, ok]), config, { attempts: 2 });
+    await expect(engines.parser.read('Heat', call)).resolves.toMatchObject({ mentions: [] });
+    expect(sent).toHaveLength(2);
+  });
+
+  it('waits out a transient failure of Jev, as many calls as it is told', async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      const answer = { id: 'd', answers: { film: { choice: 'other', confidence: 1 } }, usage: { cost: 0.0001 } };
+      const { sent, engines } = openRouter(() => (++calls === 1 ? [...rateLimited] : [200, answer]), config, {
+        attempts: 2,
+      });
+      const pending = engines.identifier.identify(['Heat'], call);
+      await vi.advanceTimersByTimeAsync(5000);
+      await expect(pending).resolves.toMatchObject({ identifications: [{ film: 'other', confidence: 1 }] });
+      expect(sent).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('retries nothing by default: the service answers a failure at once', async () => {
+    const { sent, engines } = openRouter(() => [...rateLimited]);
+    await expect(engines.identifier.identify(['Heat'], call)).rejects.toBeInstanceOf(EngineError);
     expect(sent).toHaveLength(1);
   });
 });

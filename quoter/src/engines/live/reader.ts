@@ -34,6 +34,11 @@ export interface ReaderOptions {
   /** The most one call may take, whatever the request's own budget; none when undefined. */
   timeoutMs?: number;
   /**
+   * How many times a failed call is tried again (a rate limit, a server error): 0, the default, in the request
+   * path, where a customer waits; a bench waits a rate limit out.
+   */
+  maxRetries?: number;
+  /**
    * What a call that ends without the cost OpenRouter bills (cut by its time, aborted, failed after it was
    * sent) is counted for: the tokens of what it sent, at `usdPerMTok` per million. An estimate, so that the
    * daily budget does not take such calls for free; none (cost 0) when undefined or `usdPerMTok` is 0.
@@ -51,7 +56,7 @@ export function llmReader(prompts: ReadingPrompt, options: ReaderOptions): Reade
     baseURL: options.baseURL ?? OPENROUTER_URL,
     defaultHeaders: { 'HTTP-Referer': 'https://github.com/func-it/delorean', 'X-Title': 'delorean' },
     // no retry in the request path, where a customer waits: a failure is a 502 at once
-    maxRetries: 0,
+    maxRetries: options.maxRetries ?? 0,
     ...(options.fetch && { fetch: options.fetch }),
   });
   const valid = new Ajv({ strict: true, allErrors: true }).compile(prompts.schema);

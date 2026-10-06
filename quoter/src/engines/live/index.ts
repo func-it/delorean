@@ -26,6 +26,8 @@ export function liveEngines(
   prompts: Prompts,
   fetch?: typeof globalThis.fetch,
   counter?: TokenCounter,
+  /** `attempts`: how many calls a request may take when its failure is transient; 1, the service's, retries nothing. */
+  { attempts = 1 }: { attempts?: number } = {},
 ): Engines {
   const key = config.openRouterKey;
   if (key === '') throw new Error('live engines: OPENROUTER_API_KEY is required');
@@ -37,6 +39,7 @@ export function liveEngines(
     model: config.jevModel,
     fetch: fetch ?? pooled(jevAgent),
     timeoutMs: config.modelTimeoutMs,
+    attempts,
   } satisfies JevOptions);
   // a reading cut before OpenRouter bills it is counted for its input (INPUT_USD_PER_MTOK), when there is a counter
   const estimate = counter && { estimate: { counter, usdPerMTok: config.inputUsdPerMTok } };
@@ -47,6 +50,7 @@ export function liveEngines(
     baseURL: config.parseBaseUrl,
     fetch: fetch ?? pooled(parseAgent),
     timeoutMs: config.modelTimeoutMs,
+    maxRetries: attempts - 1,
     ...estimate,
   });
   const recounter = llmReader(prompts.parse, {
@@ -56,6 +60,7 @@ export function liveEngines(
     baseURL: config.recountBaseUrl,
     fetch: fetch ?? pooled(recountAgent),
     timeoutMs: config.modelTimeoutMs,
+    maxRetries: attempts - 1,
     ...estimate,
   });
   const identifier = cachedIdentifier(
