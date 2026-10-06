@@ -20,15 +20,15 @@ describe('loadConfig', () => {
         recountBaseUrl: 'https://openrouter.ai/api/v1',
         jevModel: 'typesafe/jev-1.13',
         identifyCacheSize: 10_000,
-        modelTimeoutMs: 6_000,
+        modelTimeoutMs: 10_000,
       },
       maxBodyBytes: 8192,
       maxInputTokens: 256,
       guardMinConfidence: 0.5,
       judgeThreshold: 0.5,
       readAttempts: 3,
-      requestTimeoutMs: 15_000,
-      recountTimeoutMs: 6_000,
+      requestTimeoutMs: 25_000,
+      recountTimeoutMs: 10_000,
       promptsDir: DEFAULT_PROMPTS_DIR,
     });
   });
@@ -214,15 +214,23 @@ describe('the three timeouts', () => {
       recountTimeoutMs: 2000,
       requestTimeoutMs: 9000,
     });
-    expect(() => loadConfig({ ...fake, MODEL_TIMEOUT: '7s' })).toThrow(
+    expect(() => loadConfig({ ...fake, MODEL_TIMEOUT: '11s' })).toThrow(
       'RECOUNT_TIMEOUT must be at least MODEL_TIMEOUT',
     );
-    expect(() => loadConfig({ ...fake, RECOUNT_TIMEOUT: '20s' })).toThrow(
+    expect(() => loadConfig({ ...fake, RECOUNT_TIMEOUT: '30s' })).toThrow(
       'REQUEST_TIMEOUT must be at least RECOUNT_TIMEOUT',
     );
     expect(() => loadConfig({ ...fake, MODEL_TIMEOUT: '20s', RECOUNT_TIMEOUT: '20s', REQUEST_TIMEOUT: '10s' })).toThrow(
       'REQUEST_TIMEOUT must be at least RECOUNT_TIMEOUT',
     );
+  });
+
+  it('default to 10 s a call, 10 s for the recount and 25 s a request, in the order the service requires', () => {
+    expect(loadConfig(fake)).toMatchObject({
+      live: { modelTimeoutMs: 10_000 },
+      recountTimeoutMs: 10_000,
+      requestTimeoutMs: 25_000,
+    });
   });
 
   it('are not compared when one failed its own check', () => {

@@ -76,8 +76,8 @@ Risks that remain, and their mitigations:
   that misreads it the same way twice. Mitigation: the judge holds each line to
   the text, and a quote left without a recount does not price a line of several
   copies (`503 quantity_unverified`).
-- *A provider outage or slowness*: every model call is bounded (6 s), a request
-  too (15 s); a recount that fails is left out rather than failing the quote.
+- *A provider outage or slowness*: every model call is bounded (10 s), a request
+  too (25 s); a recount that fails is left out rather than failing the quote.
 - *An instruction hidden in a cart*: the guard, the fence around the text, and
   above all the fact that models answer among bounded options and never an amount.
 - *Cost drift*: a daily budget and a share per address in the web app; the

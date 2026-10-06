@@ -169,8 +169,9 @@ been taken again.
 
 - **Latency.** The parse took 1.2 s at the median and 2.5 s at p90 (parser
   matrix, 2026-10-03). Whole quotes of the brief's fifth example took 3.3 to
-  5.9 s in earlier live checks. Every model call is cut at 6 s and a request
-  at 15 s.
+  5.9 s in earlier live checks. Every model call is cut at 10 s and a request
+  at 25 s (a reading that follows a refused one also carries the list of
+  what failed, and takes longer).
 - **Cost.** A four-film cart makes about 17 model calls (15 Jev, 2 LLM);
   about $0.0006 a quote *earlier*; $0.17 per 1,000 carts for the parse and the
   identification (matrix). The daily budget caps the day's spending.
@@ -227,7 +228,7 @@ benches that chose the models, are in [`docs/testing.md`](docs/testing.md).
   visitor after three refusals, bounds the rate and the spending per address,
   and caps the day's budget.
 - **Every model call and request is bounded in time and size:** 256 tokens and
-  8 KB a cart, `MODEL_TIMEOUT` 6 s a call, 15 s a request.
+  8 KB a cart, `MODEL_TIMEOUT` 10 s a call, 25 s a request.
 - **Contract first, fake engines to test without paying.** One `openapi.yaml`,
   shared cases, an end-to-end suite that any implementation of the contract
   can run against.

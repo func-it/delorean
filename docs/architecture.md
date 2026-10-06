@@ -279,8 +279,8 @@ way twice, which two families would catch more often.
 The recount never sets the price: the parser's reading does. And it is a
 second opinion, not a dependency:
 
-- it has `RECOUNT_TIMEOUT` (6 s), a retry included, besides `MODEL_TIMEOUT`
-  (6 s) on every model call; the settings must be ordered `MODEL_TIMEOUT` ≤
+- it has `RECOUNT_TIMEOUT` (10 s), a retry included, besides `MODEL_TIMEOUT`
+  (10 s) on every model call; the settings must be ordered `MODEL_TIMEOUT` ≤
   `RECOUNT_TIMEOUT` ≤ `REQUEST_TIMEOUT`, and the service refuses to start
   otherwise;
 - with no recount to count against, the quantities are the parse's alone, and
@@ -667,9 +667,9 @@ Langfuse 24794, documentation 24795, and the end-to-end run on fake engines
 | `JUDGE_THRESHOLD` | `0.5` | lowest judge score accepted |
 | `READ_ATTEMPTS` | `3` | most readings of one cart before `unfaithful_reading` |
 | `IDENTIFY_CACHE_SIZE` | `10000` | titles whose film is kept in memory; 0 turns the cache off |
-| `MODEL_TIMEOUT` | `6s` | longest one model call may take, Jev's and the LLMs'; past it the call fails as an engine does |
-| `RECOUNT_TIMEOUT` | `6s` | time the recount has, its retry included, before the quote goes on without it |
-| `REQUEST_TIMEOUT` | `15s` | time budget for one request, calls included |
+| `MODEL_TIMEOUT` | `10s` | longest one model call may take, Jev's and the LLMs'; past it the call fails as an engine does |
+| `RECOUNT_TIMEOUT` | `10s` | time the recount has, its retry included, before the quote goes on without it |
+| `REQUEST_TIMEOUT` | `25s` | time budget for one request, calls included; the web app waits this plus 5 s (`QUOTER_TIMEOUT_MS`, 30 s), and compose gives the container 35 s to stop (`stop_grace_period`) |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` | — | traces, when set (local Langfuse: `task langfuse:up`, http://localhost:24794) |
 
 ## Conventions of the answers

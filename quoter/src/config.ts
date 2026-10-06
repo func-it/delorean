@@ -90,15 +90,15 @@ export function loadConfig(env: Env): Config {
       recountBaseUrl: string('RECOUNT_BASE_URL', OPENROUTER_URL),
       jevModel: string('JEV_MODEL', 'typesafe/jev-1.13'),
       identifyCacheSize: integer('IDENTIFY_CACHE_SIZE', 10_000),
-      modelTimeoutMs: duration('MODEL_TIMEOUT', 6_000),
+      modelTimeoutMs: duration('MODEL_TIMEOUT', 10_000),
     },
     maxBodyBytes: integer('MAX_BODY_BYTES', 8192),
     maxInputTokens: integer('MAX_INPUT_TOKENS', 256),
     guardMinConfidence: number('GUARD_MIN_CONFIDENCE', 0.5),
     judgeThreshold: number('JUDGE_THRESHOLD', 0.5),
     readAttempts: integer('READ_ATTEMPTS', 3),
-    requestTimeoutMs: duration('REQUEST_TIMEOUT', 15_000),
-    recountTimeoutMs: duration('RECOUNT_TIMEOUT', 6_000),
+    requestTimeoutMs: duration('REQUEST_TIMEOUT', 25_000),
+    recountTimeoutMs: duration('RECOUNT_TIMEOUT', 10_000),
     promptsDir: string('PROMPTS_DIR', DEFAULT_PROMPTS_DIR),
   };
 

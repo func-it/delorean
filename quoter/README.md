@@ -77,9 +77,9 @@ startup; every wrong one is reported at once, and the service does not start.
 | `JUDGE_THRESHOLD` | `0.5` | lowest judge score priced |
 | `IDENTIFY_CACHE_SIZE` | `10000` | titles whose film is kept in memory across requests (LRU, keyed by merge key, identify version and `JEV_MODEL`); 0 turns it off |
 | `READ_ATTEMPTS` | `3` | most readings of one cart, told what failed, before `unfaithful_reading` |
-| `MODEL_TIMEOUT` | `6s` | most one model call may take, Jev's and the LLMs' (502 past it, or the recount degraded); whole milliseconds, and `MODEL_TIMEOUT` ≤ `RECOUNT_TIMEOUT` ≤ `REQUEST_TIMEOUT`, or the service does not start |
-| `RECOUNT_TIMEOUT` | `6s` | the recount's time, a retry included, before the quote goes on without it |
-| `REQUEST_TIMEOUT` | `15s` | budget of one request, model calls included; durations are a number and a unit (`1m30s`, `500ms`) |
+| `MODEL_TIMEOUT` | `10s` | most one model call may take, Jev's and the LLMs' (502 past it, or the recount degraded); whole milliseconds, and `MODEL_TIMEOUT` ≤ `RECOUNT_TIMEOUT` ≤ `REQUEST_TIMEOUT`, or the service does not start |
+| `RECOUNT_TIMEOUT` | `10s` | the recount's time, a retry included, before the quote goes on without it |
+| `REQUEST_TIMEOUT` | `25s` | budget of one request, model calls included (the web app waits this plus 5 s, compose lets the container stop for 35 s); durations are a number and a unit (`1m30s`, `500ms`) |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` (or `LANGFUSE_HOST`, a URL) | — | traces and scores, when all are set; a half setting is a configuration error |
 | `LANGFUSE_TRACING_ENVIRONMENT`, `LANGFUSE_RELEASE` | — | the traces' environment and release |
 | `PROMPTS_DIR` | the repository's `prompts/` | where the shared prompts are read, at startup; their versions are in `/healthz`; `/app/prompts` in the image |
