@@ -243,6 +243,8 @@ export interface components {
          *     - `quantity_too_large` (422): a title is asked in more than
          *       `limits.max_copies_per_title` copies. Identical titles (case and
          *       spaces aside) are merged first; two spellings of one volume are two titles.
+         *     - `demo_unreadable` (422): the demo reader (the fake engines) cannot read a
+         *       line safely; only the fake engines raise it.
          *     - `unfaithful_reading` (422): the judge does not hold the reading faithful.
          *     - `engine_unavailable` (502): a model engine failed.
          *     - `quantity_unverified` (503): the quantities could not be cross-checked
@@ -250,7 +252,7 @@ export interface components {
          *     - `not_found` (404), `method_not_allowed` (405), `internal` (500).
          * @enum {string}
          */
-        ProblemCode: "malformed_request" | "payload_too_large" | "empty_cart" | "too_long" | "injection" | "invalid_request" | "no_film" | "quantity_too_large" | "unfaithful_reading" | "engine_unavailable" | "quantity_unverified" | "not_found" | "method_not_allowed" | "internal";
+        ProblemCode: "malformed_request" | "payload_too_large" | "empty_cart" | "too_long" | "injection" | "invalid_request" | "no_film" | "quantity_too_large" | "demo_unreadable" | "unfaithful_reading" | "engine_unavailable" | "quantity_unverified" | "not_found" | "method_not_allowed" | "internal";
         Health: {
             /** @constant */
             status: "ok";
@@ -334,7 +336,7 @@ export interface components {
          * @description The request is well formed but the cart is not priced. `code` says
          *     which stage refused it: `empty_cart` and `too_long` (prepare),
          *     `injection` and `invalid_request` (guard), `no_film` and
-         *     `quantity_too_large` (parse), `unfaithful_reading` (judge).
+         *     `quantity_too_large` and `demo_unreadable` (parse), `unfaithful_reading` (judge).
          */
         Rejected: {
             headers: {

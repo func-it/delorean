@@ -27,6 +27,7 @@ export const REJECTED_BY: Partial<Record<ProblemCode, Stage>> = {
   invalid_request: 'guard',
   no_film: 'parse',
   quantity_too_large: 'parse',
+  demo_unreadable: 'parse',
   unfaithful_reading: 'judge',
 };
 
