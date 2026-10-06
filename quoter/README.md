@@ -1,6 +1,6 @@
 # Quoter
 
-The delorean API ([`api/openapi.yaml`](../api/openapi.yaml)) on Node 26: the
+The delorean API ([`api/openapi.yaml`](../api/openapi.yaml)) on Node 22.18 or later, or 26: the
 pipeline, the prompts (read from [`prompts/`](../prompts)) and the fake
 engines. The end-to-end suite ([`e2e/`](../e2e)) holds it to the contract,
 and the system bench measures it on accuracy, latency and cost.
@@ -112,7 +112,7 @@ scripts/e2e-fake.sh       the end-to-end suite against this quoter on fake engin
 
 ## Choices
 
-- **Node 26, TypeScript strict, ESM, no build step.** Node strips the types
+- **Node 22.18+ or 26, TypeScript strict, ESM, no build step.** Node strips the types
   and runs `src/` as written; `tsconfig.json` (`erasableSyntaxOnly`,
   `verbatimModuleSyntax`) keeps the code to what stripping allows. What runs
   is what you read, in development, in tests and in the image.

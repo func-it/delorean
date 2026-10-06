@@ -138,7 +138,7 @@ curl -s localhost:24793/v1/quotes -H 'content-type: application/json' \
 The total is `total_cents`: 5600, that is 56.00 €. (`| jq .total_cents` prints just that
 if you have jq; nothing here needs it.)
 
-Without Docker, Node 26 is the only requirement. With [go-task](https://taskfile.dev):
+Without Docker, Node 22 (22.18 or later) or 26 is the only requirement. With [go-task](https://taskfile.dev):
 
 ```sh
 task setup

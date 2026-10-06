@@ -74,7 +74,7 @@
             <rect class="box code" x="600" y="56" width="250" height="248" rx="8"/>
             <text class="t-title" x="616" y="82">Quoter</text>
             <text class="t-port" x="836" y="82" text-anchor="end">:24793</text>
-            <text class="t-sub" x="616" y="100">TypeScript · Node 26 · Hono</text>
+            <text class="t-sub" x="616" y="100">TypeScript · Node 22 or 26 · Hono</text>
             <text class="t-mono" x="616" y="128">prepare</text>
             <circle class="dot code" cx="718" cy="124" r="4"/>
             <text class="t-body" x="728" y="128">code</text>
@@ -297,7 +297,7 @@
           <tbody>
             <tr><td><strong>Contract</strong></td><td><code>OpenAPI 3.1</code> <code>openapi-typescript 7</code></td><td>The source of truth. The quoter's, the web's and the e2e types are generated from it, and a test refuses any drift. Every word put to a model lives in <code>prompts/</code>.</td></tr>
             <tr><td><strong>Web</strong></td><td><code>Next.js 16.3</code> <code>React 19.3</code> <code>iron-session 9</code> <code>openapi-fetch</code> <code>CSS Modules</code></td><td>The UI and the BFF: the anonymous session, the limits, one French message per refusal.</td></tr>
-            <tr><td><strong>Quoter</strong></td><td><code>Node 26</code> <code>Hono</code> <code>openai</code> <code>Ajv</code> <code>js-tiktoken ranks</code></td><td>The pipeline, pricing in cents, RFC 9457 errors, run from its <code>.ts</code> files with no build step. Every model answer is checked against the schema.</td></tr>
+            <tr><td><strong>Quoter</strong></td><td><code>Node 22 or 26</code> <code>Hono</code> <code>openai</code> <code>Ajv</code> <code>js-tiktoken ranks</code></td><td>The pipeline, pricing in cents, RFC 9457 errors, run from its <code>.ts</code> files with no build step. Every model answer is checked against the schema.</td></tr>
             <tr><td><strong>Agents and models</strong></td><td><code>OpenRouter</code> <code>Jev 1.13</code> <code>GPT-6 Luna</code></td><td>Jev decides (guard, identify, judge); Luna extracts under a strict schema, and recounts with the same prompt, without reasoning; the traces go out as OpenTelemetry.</td></tr>
             <tr><td><strong>Observability</strong></td><td><code>Langfuse 4</code> <code>OpenTelemetry</code> <code>Postgres 17</code> <code>ClickHouse 25.12</code> <code>Redis 7</code> <code>MinIO</code></td><td>One trace per request, one span per stage; the benches keep their datasets and experiments there.</td></tr>
             <tr><td><strong>Tests and benches</strong></td><td><code>Vitest 5</code> <code>Testing Library</code> <code>Playwright</code> <code>Ajv 2020-12</code></td><td>Deterministic fake engines for every test; live benches only with <code>RUN_LIVE=1</code>.</td></tr>
