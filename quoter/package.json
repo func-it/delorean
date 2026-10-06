@@ -4,7 +4,7 @@
   "description": "The delorean quoter: the API of api/openapi.yaml, on Node.",
   "type": "module",
   "engines": {
-    "node": ">=26"
+    "node": ">=22.18"
   },
   "scripts": {
     "start": "node src/main.ts",
