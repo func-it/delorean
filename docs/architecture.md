@@ -696,6 +696,7 @@ Langfuse 24794, documentation 24795, and the end-to-end run on fake engines
 | `MODEL_TIMEOUT` | `10s` | longest one model call may take, Jev's and the LLMs'; past it the call fails as an engine does |
 | `RECOUNT_TIMEOUT` | `10s` | time the recount has, its retry included, before the quote goes on without it |
 | `REQUEST_TIMEOUT` | `25s` | time budget for one request, calls included; the web app waits this plus 5 s (`QUOTER_TIMEOUT_MS`, 30 s), and compose gives the container 35 s to stop (`stop_grace_period`) |
+| `LOG_CARTS` | `false` | `true`, `false`, `1` or `0`: the request's log line of a quote says `outcome` (`priced` or the refusal's code), `total_cents`, `readings`, `cost_usd` and `stage_ms` (the milliseconds of each stage); with `true` it also carries `cart`, the text as the pipeline sees it, cut to 500 characters (`cart_truncated`). The cart is the customer's free text and may hold personal data (GDPR): leave it off unless you need to see what was played, and tell the visitors if you turn it on in public; how long the lines live is the log driver's setting, not the service's |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` | — | traces, when set (local Langfuse: `task langfuse:up`, http://localhost:24794) |
 
 ## Conventions of the answers
