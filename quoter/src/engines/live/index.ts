@@ -1,7 +1,7 @@
 import type { LiveConfig } from '../../config.ts';
 import type { Engines } from '../../pipeline/ports.ts';
 import type { Prompts } from '../../prompts.ts';
-import { Agent } from 'undici';
+import { Agent, fetch as undiciFetch } from 'undici';
 import { cachedIdentifier, Lru } from './cache.ts';
 import { Jev, type JevOptions } from './jev.ts';
 import { jevGuard, jevIdentifier, jevJudge } from './questions.ts';
@@ -68,9 +68,11 @@ export function liveEngines(config: LiveConfig, prompts: Prompts, fetch?: typeof
 /** Connections kept open between calls, a quote's calls coming in bursts. */
 const KEEP_ALIVE = { keepAliveTimeout: 30_000, keepAliveMaxTimeout: 60_000, connections: 32 };
 
-/** Node's fetch, its connections from `agent`'s pool. */
+/**
+ * A fetch whose connections come from `agent`'s pool. It is the npm undici's own fetch that takes the npm
+ * undici's Agent: Node's built-in fetch carries its own undici, of another major version on each Node line, and
+ * refuses a dispatcher from a different one (« invalid onRequestStart method » on Node 22).
+ */
 export function pooled(agent: Agent): typeof globalThis.fetch {
-  // undici's Agent is the dispatcher Node's fetch takes; the npm package's types and Node's bundled ones differ only in name
-  const dispatcher = agent as unknown as NonNullable<RequestInit['dispatcher']>;
-  return (input, init) => globalThis.fetch(input, { ...init, dispatcher });
+  return (input, init) => undiciFetch(input, { ...init, dispatcher: agent });
 }
