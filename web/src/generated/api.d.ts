@@ -245,14 +245,19 @@ export interface components {
          *       spaces aside) are merged first; two spellings of one volume are two titles.
          *     - `demo_unreadable` (422): the demo reader (the fake engines) cannot read a
          *       line safely; only the fake engines raise it.
-         *     - `unfaithful_reading` (422): the judge does not hold the reading faithful.
+         *     - `unfaithful_reading` (422): the judge does not hold the reading faithful;
+         *       also when a reading that follows an unfaithful one fails (a model too
+         *       slow or down), the cart being the likely cause: reword it.
          *     - `engine_unavailable` (502): a model engine failed.
          *     - `quantity_unverified` (503): the quantities could not be cross-checked
          *       (the recount failed) and a line asks for more than one copy; retry.
+         *     - `repeated_titles` (422): the same, on a cart that repeats a title on many
+         *       lines (five or more): a retry would fail the same way; group the
+         *       quantities (`45 x Back to the Future`).
          *     - `not_found` (404), `method_not_allowed` (405), `internal` (500).
          * @enum {string}
          */
-        ProblemCode: "malformed_request" | "payload_too_large" | "empty_cart" | "too_long" | "injection" | "invalid_request" | "no_film" | "quantity_too_large" | "demo_unreadable" | "unfaithful_reading" | "engine_unavailable" | "quantity_unverified" | "not_found" | "method_not_allowed" | "internal";
+        ProblemCode: "malformed_request" | "payload_too_large" | "empty_cart" | "too_long" | "injection" | "invalid_request" | "no_film" | "quantity_too_large" | "demo_unreadable" | "unfaithful_reading" | "engine_unavailable" | "quantity_unverified" | "repeated_titles" | "not_found" | "method_not_allowed" | "internal";
         Health: {
             /** @constant */
             status: "ok";
@@ -336,7 +341,8 @@ export interface components {
          * @description The request is well formed but the cart is not priced. `code` says
          *     which stage refused it: `empty_cart` and `too_long` (prepare),
          *     `injection` and `invalid_request` (guard), `no_film` and
-         *     `quantity_too_large` and `demo_unreadable` (parse), `unfaithful_reading` (judge).
+         *     `quantity_too_large` and `demo_unreadable` (parse), `unfaithful_reading` (judge),
+         *     `repeated_titles` (price).
          */
         Rejected: {
             headers: {

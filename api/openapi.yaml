@@ -23,8 +23,9 @@ info:
     is too slow (retried once when it failed fast) does not fail the quote,
     which goes on with the parse alone and says so (`usage.stages[].degraded`).
     With no recount to count against, a line that asks for more than one copy
-    is not priced: `503 quantity_unverified`, to retry; carts of single copies
-    are priced.
+    is not priced: `503 quantity_unverified`, to retry, or, when the cart
+    repeats a title on many lines, `422 repeated_titles`, to group them; carts
+    of single copies are priced.
     Any stage may reject the cart with a `422` problem that says which and why.
 
     Amounts are integer cents. Errors are RFC 9457 problems
@@ -190,7 +191,8 @@ components:
         The request is well formed but the cart is not priced. `code` says
         which stage refused it: `empty_cart` and `too_long` (prepare),
         `injection` and `invalid_request` (guard), `no_film` and
-        `quantity_too_large` and `demo_unreadable` (parse), `unfaithful_reading` (judge).
+        `quantity_too_large` and `demo_unreadable` (parse), `unfaithful_reading` (judge),
+        `repeated_titles` (price).
       headers:
         X-Request-Id:
           $ref: "#/components/headers/RequestId"
@@ -569,10 +571,15 @@ components:
           spaces aside) are merged first; two spellings of one volume are two titles.
         - `demo_unreadable` (422): the demo reader (the fake engines) cannot read a
           line safely; only the fake engines raise it.
-        - `unfaithful_reading` (422): the judge does not hold the reading faithful.
+        - `unfaithful_reading` (422): the judge does not hold the reading faithful;
+          also when a reading that follows an unfaithful one fails (a model too
+          slow or down), the cart being the likely cause: reword it.
         - `engine_unavailable` (502): a model engine failed.
         - `quantity_unverified` (503): the quantities could not be cross-checked
           (the recount failed) and a line asks for more than one copy; retry.
+        - `repeated_titles` (422): the same, on a cart that repeats a title on many
+          lines (five or more): a retry would fail the same way; group the
+          quantities (`45 x Back to the Future`).
         - `not_found` (404), `method_not_allowed` (405), `internal` (500).
       enum:
         - malformed_request
@@ -587,6 +594,7 @@ components:
         - unfaithful_reading
         - engine_unavailable
         - quantity_unverified
+        - repeated_titles
         - not_found
         - method_not_allowed
         - internal
