@@ -9,7 +9,7 @@ export interface StageUsage {
 }
 
 /** One stage's latency, median and p90, and cost over the plays. */
-export interface StageSummary {
+interface StageSummary {
   p50: number;
   p90: number;
   cost: number;

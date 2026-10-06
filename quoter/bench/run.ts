@@ -24,7 +24,7 @@ export interface Options {
 }
 
 /** One case in one run. */
-export interface Scored {
+interface Scored {
   /** The play was not started: the spend had reached the cap. */
   skipped: boolean;
   passed: boolean;
@@ -37,7 +37,7 @@ export interface Scored {
 }
 
 /** One pass over the dataset. */
-export interface RunResult {
+interface RunResult {
   name: string;
   /** The experiment, in Langfuse. */
   id: string;

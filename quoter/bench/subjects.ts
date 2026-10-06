@@ -73,7 +73,7 @@ export interface Setup {
 }
 
 /** The score of one check of an answer, 0 to 1, and why. */
-export interface Scoring {
+interface Scoring {
   score: number;
   reason: string;
 }
@@ -82,7 +82,7 @@ export interface Scoring {
  * One check of an answer, scored from 0 to 1. A run passes a case when every metric reaches its threshold; a
  * metric at threshold 0 is only reported.
  */
-export interface Metric {
+interface Metric {
   name: string;
   threshold: number;
   /** Scores the answer against the case, in code. */

@@ -49,7 +49,7 @@ export class UsageError extends Error {
   override name = 'UsageError';
 }
 
-export const USAGE =
+const USAGE =
   'usage: bench list | check | run <subject> [--runs 3] [--name …] [--desc …] [--dry-run] [--max-usd 1]' +
   ' | matrix --subject parse [--variants bench/variants.yaml] [--runs 3] [--max-usd 1] [--dry-run]' +
   ' | table --subject parse [--date 2026-10-03] [--variants bench/variants.yaml]';
