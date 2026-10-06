@@ -9,6 +9,7 @@ describe("DemoBanner", () => {
 
     const banner = screen.getByRole("complementary", { name: "Mode démo" });
     expect(banner).toHaveTextContent("Mode démo : lecteur simplifié, pas d'IA.");
+    expect(banner).toHaveTextContent(/un titre par ligne, avec une quantité devant si besoin/);
     expect(banner).toHaveTextContent(/lancez l'application avec une clé/);
     // not announced as news, not something to close
     expect(banner).not.toHaveAttribute("role", "status");

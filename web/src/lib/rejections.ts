@@ -38,6 +38,10 @@ export function explainProblem(problem: Problem): Rejection {
       return refusal("Aucun film à acheter dans ce panier : précisez les titres que vous voulez.");
     case "quantity_too_large":
       return refusal("Plus de 1\u202f000 exemplaires d'un même film : réduisez la quantité.", quantityFacts(problem));
+    case "demo_unreadable":
+      return refusal(
+        "Le mode démo lit un titre par ligne, avec une quantité devant si besoin («\u00a02 Back to the Future 2\u00a0») : écrivez chaque titre sur sa ligne.",
+      );
     case "unfaithful_reading":
       return refusal(
         "Nous ne sommes pas sûrs d'avoir bien lu votre panier : reformulez-le, puis réessayez.",

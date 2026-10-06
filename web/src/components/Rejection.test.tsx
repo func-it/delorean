@@ -26,6 +26,7 @@ const MESSAGES: Record<ProblemCode, [number, string]> = {
   invalid_request: [422, "Nous n'y lisons pas une commande de films : dites-nous quels films vous voulez."],
   no_film: [422, "Aucun film à acheter dans ce panier : précisez les titres que vous voulez."],
   quantity_too_large: [422, "Plus de 1 000 exemplaires d'un même film : réduisez la quantité."],
+  demo_unreadable: [422, "Le mode démo lit un titre par ligne, avec une quantité devant si besoin (« 2 Back to the Future 2 ») : écrivez chaque titre sur sa ligne."],
   unfaithful_reading: [422, "Nous ne sommes pas sûrs d'avoir bien lu votre panier : reformulez-le, puis réessayez."],
   engine_unavailable: [502, OUR_SIDE],
   not_found: [404, OUR_SIDE],

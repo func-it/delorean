@@ -41,6 +41,17 @@ test("says it is a demo, on the fake engines, and offers only the examples they 
   await shot(page, "demo-banner", testInfo.project.name);
 });
 
+test("reads one title per line with a leading quantity, and refuses a line it cannot read", async ({ page }) => {
+  await expect(page.getByRole("complementary", { name: "Mode démo" })).toContainText("un titre par ligne");
+
+  await price(page, "2 Back to the Future 2\nMatrix");
+  await expect(result(page)).toContainText(amount("50,00 €"));
+
+  await price(page, "Back to the Future 1, Back to the Future 2, Back to the Future 3");
+  await expect(refusal(page)).toContainText("Le mode démo lit un titre par ligne");
+  await expect(result(page)).toHaveCount(0);
+});
+
 test("writes the prices of its footer from the quoter's catalog", async ({ page }) => {
   await expect(page.getByRole("contentinfo")).toContainText(
     amount("Chaque volet de la saga : 15,00 € le DVD, tout autre film : 20,00 €."),
