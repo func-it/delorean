@@ -23,7 +23,7 @@ trap 'compose down --volumes --remove-orphans >/dev/null 2>&1 || true' EXIT
 compose up --build --detach --quiet-pull web
 
 run() {
-  docker run --rm --network "${project}_default" --user "$(id -u):$(id -g)" -e HOME=/tmp -e CI \
+  docker run --rm --network "${project}_default" --user "$(id -u):$(id -g)" -e HOME=/tmp \
     -e BASE_URL=http://web:24790 -v "$root/web:/web" -w /web "$playwright" "$@"
 }
 # the stack answers once the web app and its quoter are up

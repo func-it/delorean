@@ -76,10 +76,10 @@ system bench. Each case has a `note` that says which mistake it guards against;
 `input` is the cart, `expect` a total and the films read, or a status and a
 refusal code.
 
-CI (`.github/workflows/ci.yml`, `task ci`) plays on the fake engines the 38
-cases tagged `fake`, out of 85, through the end-to-end suite: they are the cases
-a deterministic reader passes. The other 47 run only at the bench
-(`task bench`), against the real models, at a cost; no CI run plays them. Five
+`task test` plays on the fake engines the 38 cases tagged `fake`, out of 85,
+through the end-to-end suite (`task e2e`): they are the cases a deterministic
+reader passes. The other 47 run only at the bench (`task bench`), against the
+real models, at a cost, and only when you ask. Five
 of the 38 use a fault line: `recomptage-en-desaccord` (`#fake:miscount`) proves that a
 recount in disagreement refuses the cart, `recomptage-hors-schema`
 (`#fake:recount_offschema`) that a recount answering off its schema is left
@@ -371,18 +371,4 @@ times: `parse` and `recount` side by side, a stage read again repeated.
 | A refusal by the guard | 2 Jev | not measured yet; about $0.00003 with the former single request |
 | Guard bench, 113 cases, one pass | 226 Jev | not measured yet; about $0.004 with the former single request |
 | The four component benches (earlier tree), 3 runs per case | about 2,700 Jev, 400 LLM (dry run) | not measured yet; about $0.09 before the recount |
-| Everything in CI | none | $0 |
-
-## CI
-
-GitHub Actions, on every push and pull request:
-
-- **Web**: generated types match the contract, lint, type check, tests, build;
-- **Web end to end**: the Playwright suite against the whole stack on fake
-  engines (`scripts/web-e2e.sh`), its report kept when it fails;
-- **TypeScript quoter**: generated types, lint, types, format, tests, then the
-  end-to-end suite against it and its image;
-- **End-to-end harness**: its lint, types and tests, then the suite against
-  the quoter on fake engines.
-
-`task ci` runs the same steps locally.
+| Everything `task check` runs | none | $0 |

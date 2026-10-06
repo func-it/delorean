@@ -30,11 +30,12 @@ tasks:
       - cd e2e && npm run lint && npm run typecheck && npm run format:check
 
   test:
-    desc: Unit tests of every part — no model is called
+    desc: Unit tests of every part, then the end-to-end suite on the fake engines (the shared `fake` cases) — no model is called
     cmds:
       - task: quoter:test
       - cd web && npm test
       - cd e2e && npm test
+      - task: e2e
 
   e2e:
     desc: The end-to-end suite against the quoter on its fake engines (:24799)
@@ -44,12 +45,11 @@ tasks:
     desc: The web app in a browser (Playwright, desktop and mobile) against the whole stack on fake engines, in Docker
     cmds: ["scripts/web-e2e.sh {{.CLI_ARGS}}"]
 
-  ci:
-    desc: What CI runs
+  check:
+    desc: Everything that needs no model and no Docker: linters, type checks, unit tests, the end-to-end suite on the fake engines
     cmds:
       - task: lint
       - task: test
-      - task: e2e
 
   up:
     desc: "The stack in Docker: web :24790, quoter :24793, docs :24795; fake engines unless ENGINES=live"

@@ -622,11 +622,11 @@ The end-to-end suite and the system bench read the same cases.
 
 - `films` compares the total quantities per film (`other` adds up all the
   other films).
-- **In CI, on the fake engines:** the 38 cases tagged `fake` (of 85), played by
-  the end-to-end suite (`task e2e`, which `task ci` and `.github/workflows/ci.yml`
-  run): each is a case the fake engines pass deterministically.
+- **On the fake engines:** the 38 cases tagged `fake` (of 85), played by the
+  end-to-end suite (`task e2e`, which `task test` runs): each is a case the
+  fake engines pass deterministically.
 - **Only at the bench, against the real models:** the other 47, played by the
-  system bench (`task bench`), which costs money and is never run by CI. They
+  system bench (`task bench`), which costs money and is run on purpose. They
   are the free-text carts a deterministic reader cannot read: other languages,
   stories, quantities in words.
 

@@ -35,7 +35,7 @@ npm run e2e                                   # quoter on http://localhost:24793
 BASE_URL=http://localhost:9000 npm run e2e    # another one
 ```
 
-The suite first reads `GET /healthz`. Quoter in `fake` mode (what CI runs, 38 cases
+The suite first reads `GET /healthz`. Quoter in `fake` mode (what `task test` runs, 38 cases
 of 85): contract + cases tagged `fake`, nothing is billed. Quoter in `live` mode: every request costs
 OpenRouter credits, so the suite refuses to start without `RUN_LIVE=1`, then
 runs every case:
@@ -78,8 +78,8 @@ A file `cases/quote/<id>.json`, with the `id` equal to the file name:
 
 or `"expect": { "status": 422, "code": "injection" }` for a rejection. The
 `fake` tag is reserved for cases that the fake engines pass deterministically
-(see `docs/architecture.md`); the 46 others run only at the bench, against the real
-models, never in CI. `npm test` checks the shape of each case and
+(see `docs/architecture.md`); the 47 others run only at the bench, against the real
+models, only when you run the bench. `npm test` checks the shape of each case and
 that its total follows from its `films`.
 
 ## The harness itself
@@ -88,7 +88,7 @@ that its total follows from its `films`.
 npm test            # harness tests, against an embedded fake quoter
 npm run typecheck
 npm run lint
-npm run format      # Prettier; format:check in CI
+npm run format      # Prettier; npm run format:check only checks
 npm run generate    # after a change to api/openapi.yaml
 ```
 

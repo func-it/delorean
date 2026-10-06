@@ -96,10 +96,13 @@ docker compose up --build
 
 Then open <http://localhost:24790>, paste one of the carts above. Without a
 key the page says so in a banner, « mode démo : lecteur simplifié, pas d'IA »:
-the fake engines are a small deterministic reader that recognises "Back to the
-Future 1/2/3" (or I/II/III) written as is, with free case and spacing, and
-prices the five examples exactly; any other text is not read the way the real
-models read it. The page then offers only the examples the fake can read
+the fake engines are a small deterministic reader. It reads one title per line,
+with an optional quantity in front (`2 Back to the Future 2`, `2 x …`), the
+saga's titles with 1/2/3 or I/II/III, in any case and spacing, and prices the
+five examples exactly; a line of another film (`La chèvre`) is one film at 20 €.
+What it cannot read safely, such as several titles on one line, is refused with
+a sentence (« le mode démo lit un titre par ligne ») instead of a wrong price.
+The page offers only the examples the fake can read
 ([how the fakes work](docs/architecture.md#fake-engines-enginesfake)).
 
 With the real models, add the key and a daily spending cap (the web app does
@@ -177,8 +180,9 @@ been taken again.
   parser read the films right 135 times in 138 on the reading cases.
 - **What is guaranteed, and where.** The five examples (36, 27, 15, 48, 56 €)
   are guaranteed by tests **only on the fake engines** (`brief.test.ts` and the
-  `enonce` cases the end-to-end suite plays, both in CI). With the real models
-  they were checked by hand and by the benches, not by CI: a model can read a
+  `enonce` cases the end-to-end suite plays, both run by `task test`). With
+  the real models they were checked by hand and by the benches, not by a test
+  you can run offline: a model can read a
   cart differently on two calls, which is why the code compares two readings
   and refuses what it cannot read faithfully.
 
@@ -186,15 +190,15 @@ been taken again.
 
 | What | Command | Cost |
 |---|---|---|
-| Unit tests (quoter, web, e2e harness), the five examples included | `task test` | none |
-| End-to-end suite against a running quoter, fake engines | `task e2e` | none |
+| Unit tests (quoter, web, e2e harness) then the end-to-end suite on the fake engines: the five examples and the shared `fake` cases | `task test` | none |
+| Only the end-to-end suite, against a quoter it starts on the fake engines | `task e2e` | none |
 | The web app in a browser (Playwright, desktop and phone), whole stack on fake engines | `task web:e2e` | none |
 | System bench of the quoter (accuracy, latency, cost) | `task bench -- --base-url http://localhost:24793 --runs 3` | OpenRouter if live |
-| Everything CI runs | `task ci` | none |
+| Everything that needs no model: lint, types, unit tests, the end-to-end suite | `task check` | none |
 
-No test calls a model. Of the 81 shared cases, CI plays the 35 tagged `fake`
-on the fake engines; the other 46 (free text, other languages, stories) run only
-at the bench, against the real models. The details, and the results of the
+No test calls a model. Of the 85 shared cases, `task test` plays the 38 tagged
+`fake` on the fake engines; the other 47 (free text, other languages, stories)
+run only at the bench, against the real models. The details, and the results of the
 benches that chose the models, are in [`docs/testing.md`](docs/testing.md).
 
 ## Design decisions
