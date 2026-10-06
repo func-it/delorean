@@ -30,7 +30,7 @@ tasks:
       - cd e2e && npm run lint && npm run typecheck && npm run format:check
 
   test:
-    desc: Unit tests of every part, then the end-to-end suite on the fake engines (the shared `fake` cases) — no model is called
+    desc: "Unit tests of every part, then the end-to-end suite on the fake engines (the shared `fake` cases): no model is called"
     cmds:
       - task: quoter:test
       - cd web && npm test
@@ -46,7 +46,7 @@ tasks:
     cmds: ["scripts/web-e2e.sh {{.CLI_ARGS}}"]
 
   check:
-    desc: Everything that needs no model and no Docker: linters, type checks, unit tests, the end-to-end suite on the fake engines
+    desc: "Everything that needs no model and no Docker: linters, type checks, unit tests, the end-to-end suite on the fake engines"
     cmds:
       - task: lint
       - task: test
