@@ -6,6 +6,7 @@ import { liveEngines } from '../src/engines/live/index.ts';
 import { escapeFence, retryTurn, tidyLabel } from '../src/engines/live/reader.ts';
 import { EngineError } from '../src/pipeline/ports.ts';
 import { loadPrompts } from '../src/prompts.ts';
+import { counter } from './support.ts';
 
 // The live engines against stand-ins of OpenRouter: what each stage sends,
 // and how it reads the answers. No test reaches the network.
@@ -381,5 +382,100 @@ describe('MODEL_TIMEOUT', () => {
       .catch((e: unknown) => e);
     expect(error).toBeInstanceOf(EngineError);
     expect(performance.now() - started).toBeLessThan(2_000);
+  });
+});
+
+describe('the estimate of a reading cut before it was billed (INPUT_USD_PER_MTOK)', () => {
+  /** What the messages sent weigh, as the estimate counts them. */
+  const tokensOf = (body: Record<string, unknown> | undefined) =>
+    (body?.messages as { content: string }[]).reduce((total, m) => total + counter.count(m.content), 0);
+
+  /** Live engines, an OpenRouter that answers `answer` (never, when it does not), and what it was sent. */
+  function engines(usdPerMTok: number, answer?: () => Response, withCounter = true) {
+    const sent: Record<string, unknown>[] = [];
+    const fetch = (_url: string | URL, init?: RequestInit) => {
+      sent.push(JSON.parse(init?.body as string) as Record<string, unknown>);
+      if (answer) return Promise.resolve(answer());
+      return new Promise<Response>((_, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(init.signal?.reason as Error);
+        });
+      });
+    };
+    const live = { ...config, modelTimeoutMs: 50, inputUsdPerMTok: usdPerMTok };
+    return { sent, ...liveEnginesOf(live, fetch as typeof globalThis.fetch, withCounter) };
+  }
+  const liveEnginesOf = (live: typeof config, fetch: typeof globalThis.fetch, withCounter: boolean) => ({
+    engines: liveEngines(live, prompts, fetch, withCounter ? counter : undefined),
+  });
+  /** A chat completion whose message is `content`, billed 0.00031. */
+  const completion = (content: string) => ({
+    id: 'c1',
+    object: 'chat.completion',
+    created: 0,
+    model: 'openai/gpt-6-luna',
+    choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content, refusal: null } }],
+    usage: { prompt_tokens: 812, completion_tokens: 40, total_tokens: 852, cost: 0.00031 },
+  });
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+  it.each(['parser', 'recounter'] as const)(
+    'counts a %s call cut by its time for the tokens it sent, one call',
+    async (reader) => {
+      const { sent, engines: live } = engines(2);
+      const error = (await live[reader].read('Heat', call).catch((e: unknown) => e)) as EngineError;
+      expect(error).toBeInstanceOf(EngineError);
+      const tokens = tokensOf(sent[0]);
+      expect(tokens).toBeGreaterThan(0);
+      expect(error.usage?.calls).toBe(1);
+      expect(error.usage?.costUsd).toBeCloseTo((tokens * 2) / 1_000_000, 12);
+    },
+  );
+
+  it('counts the whole conversation of a re-reading: what it was told weighs too', async () => {
+    const { sent, engines: live } = engines(1);
+    const first = (await live.parser.read('Heat', call).catch((e: unknown) => e)) as EngineError;
+    const retry = {
+      previous: [{ title: 'Heat', quantity: 1 }],
+      failed: [{ check: 'asked' as const, label: 'Heat', score: 0 }],
+    };
+    const again = (await live.parser.read('Heat', call, retry).catch((e: unknown) => e)) as EngineError;
+    expect(tokensOf(sent[1])).toBeGreaterThan(tokensOf(sent[0]));
+    expect(again.usage?.costUsd).toBeGreaterThan(first.usage?.costUsd ?? 0);
+    expect(again.usage?.costUsd).toBeCloseTo(tokensOf(sent[1]) / 1_000_000, 12);
+  });
+
+  it('counts a call that failed after it was sent, on an error status', async () => {
+    const { sent, engines: live } = engines(1, () => json({ error: { message: 'rate limited', code: 429 } }, 429));
+    const error = (await live.parser.read('Heat', call).catch((e: unknown) => e)) as EngineError;
+    expect(error.usage?.costUsd).toBeCloseTo(tokensOf(sent[0]) / 1_000_000, 12);
+  });
+
+  it('keeps the cost OpenRouter billed on an answer off its schema', async () => {
+    const { engines: live } = engines(1, () => json(completion('not json')));
+    const error = (await live.parser.read('Heat', call).catch((e: unknown) => e)) as EngineError;
+    expect(error.usage).toMatchObject({ calls: 1, costUsd: 0.00031 });
+  });
+
+  it('keeps the cost of an answered call', async () => {
+    const { engines: live } = engines(1, () => json(completion('{"films":[{"title":"Heat","quantity":1}]}')));
+    await expect(live.parser.read('Heat', call)).resolves.toMatchObject({ usage: { calls: 1, costUsd: 0.00031 } });
+  });
+
+  it.each([
+    ['at 0', 0, true],
+    ['without a counter', 1, false],
+  ])('counts nothing when it is off: %s', async (_, usdPerMTok, withCounter) => {
+    const { engines: live } = engines(usdPerMTok, undefined, withCounter);
+    const error = (await live.parser.read('Heat', call).catch((e: unknown) => e)) as EngineError;
+    expect(error.usage).toMatchObject({ calls: 1, costUsd: 0 });
+  });
+
+  it("leaves Jev's calls as they are: a cut call costs 0", async () => {
+    const { engines: live } = engines(1);
+    const error = (await live.guard.check('Heat', call).catch((e: unknown) => e)) as EngineError;
+    expect(error).toBeInstanceOf(EngineError);
+    expect(error.usage?.costUsd ?? 0).toBe(0);
   });
 });

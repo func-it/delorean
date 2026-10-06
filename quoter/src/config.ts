@@ -53,6 +53,8 @@ export interface LiveConfig {
   identifyCacheSize: number;
   /** How long one model call may take, Jev's and the LLMs'. */
   modelTimeoutMs: number;
+  /** USD per million input tokens an LLM reading cut before it was billed is counted for; 0 counts nothing. */
+  inputUsdPerMTok: number;
 }
 
 type Env = Record<string, string | undefined>;
@@ -91,6 +93,7 @@ export function loadConfig(env: Env): Config {
       jevModel: string('JEV_MODEL', 'typesafe/jev-1.13'),
       identifyCacheSize: integer('IDENTIFY_CACHE_SIZE', 10_000),
       modelTimeoutMs: duration('MODEL_TIMEOUT', 10_000),
+      inputUsdPerMTok: number('INPUT_USD_PER_MTOK', 1),
     },
     maxBodyBytes: integer('MAX_BODY_BYTES', 8192),
     maxInputTokens: integer('MAX_INPUT_TOKENS', 256),
@@ -108,6 +111,7 @@ export function loadConfig(env: Env): Config {
   check(isUnit(config.guardMinConfidence), 'GUARD_MIN_CONFIDENCE', 'must be between 0 and 1');
   check(isUnit(config.judgeThreshold), 'JUDGE_THRESHOLD', 'must be between 0 and 1');
   check(config.readAttempts >= 1, 'READ_ATTEMPTS', 'must be at least 1');
+  check(config.live.inputUsdPerMTok >= 0, 'INPUT_USD_PER_MTOK', 'must be at least 0 (0 turns the estimate off)');
   check(config.live.identifyCacheSize >= 0, 'IDENTIFY_CACHE_SIZE', 'must be at least 0 (0 turns the cache off)');
   for (const [name, effort] of [
     ['PARSE_EFFORT', config.live.parseEffort],
@@ -176,6 +180,7 @@ const ORDER = [
   'JUDGE_THRESHOLD',
   'READ_ATTEMPTS',
   'IDENTIFY_CACHE_SIZE',
+  'INPUT_USD_PER_MTOK',
   'MODEL_TIMEOUT',
   'RECOUNT_TIMEOUT',
   'REQUEST_TIMEOUT',

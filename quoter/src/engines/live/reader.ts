@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import type { ChatCompletion, ChatCompletionCreateParamsNonStreaming } from 'openai/resources/chat/completions';
 import type { ReasoningEffort } from 'openai/resources/shared';
 import type { Mention } from '../../cart.ts';
+import type { TokenCounter } from '../../prepare/tokens.ts';
 import { EngineError, engineFailure, isCancelled, type Finding, type Reader } from '../../pipeline/ports.ts';
 import type { ReadingPrompt } from '../../prompts.ts';
 import { observe } from '../../telemetry/trace.ts';
@@ -32,6 +33,12 @@ export interface ReaderOptions {
   fetch?: typeof fetch;
   /** The most one call may take, whatever the request's own budget; none when undefined. */
   timeoutMs?: number;
+  /**
+   * What a call that ends without the cost OpenRouter bills (cut by its time, aborted, failed after it was
+   * sent) is counted for: the tokens of what it sent, at `usdPerMTok` per million. An estimate, so that the
+   * daily budget does not take such calls for free; none (cost 0) when undefined or `usdPerMTok` is 0.
+   */
+  estimate?: { counter: TokenCounter; usdPerMTok: number };
 }
 
 /** Reasoning included; a reading is a few hundred tokens. */
@@ -109,12 +116,25 @@ export function llmReader(prompts: ReadingPrompt, options: ReaderOptions): Reade
         } catch (error) {
           if (!isCancelled(signal)) generation.fail(error);
           // a call answered counts, and costs, even off schema
-          // the call went out, answered or not: one cut by its time counts, its cost unknown (0)
-          throw engineFailure(error, usage(1, completion ? (costOf(completion) ?? 0) : 0));
+          // the call went out, answered or not: one cut by its time counts, and costs what its input is
+          // estimated at, as nothing says what it cost
+          const billed = completion ? costOf(completion) : undefined;
+          throw engineFailure(error, usage(1, billed ?? estimatedCost(body.messages, options.estimate)));
         }
       });
     },
   };
+}
+
+/** The estimate of a call's cost from its input: the tokens of its messages × the price per million; 0 when off. */
+function estimatedCost(
+  messages: ChatCompletionCreateParamsNonStreaming['messages'],
+  estimate: ReaderOptions['estimate'],
+) {
+  if (!estimate || estimate.usdPerMTok <= 0) return 0;
+  let tokens = 0;
+  for (const { content } of messages) tokens += typeof content === 'string' ? estimate.counter.count(content) : 0;
+  return (tokens * estimate.usdPerMTok) / 1_000_000;
 }
 
 /** A reading as the model answers it: `{"films":[{"title":…,"quantity":…}]}`, compact. */

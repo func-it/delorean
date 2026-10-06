@@ -53,10 +53,11 @@ async function run(config: Config, log: Logger): Promise<void> {
   const tracing = startTracing(config.langfuse, { version: VERSION, log });
   // read whatever the engines: /healthz names the versions the service runs
   const prompts = loadPrompts(config.promptsDir);
-  const engines = newEngines(config, prompts, log);
+  const counter = new TokenCounter();
+  const engines = newEngines(config, prompts, log, counter);
   const pipeline = new Pipeline({
     engines,
-    counter: new TokenCounter(),
+    counter,
     catalog: DEFAULT_CATALOG,
     maxInputTokens: config.maxInputTokens,
     guardMinConfidence: config.guardMinConfidence,
@@ -106,8 +107,8 @@ async function run(config: Config, log: Logger): Promise<void> {
 }
 
 /** The engines `config` names. */
-function newEngines(config: Config, prompts: Prompts, log: Logger): Engines {
-  if (config.engines === 'live') return liveEngines(config.live, prompts);
+function newEngines(config: Config, prompts: Prompts, log: Logger, counter: TokenCounter): Engines {
+  if (config.engines === 'live') return liveEngines(config.live, prompts, undefined, counter);
   log.log('WARN', 'fake engines: deterministic stand-ins for tests, never in production');
   return fakeEngines();
 }

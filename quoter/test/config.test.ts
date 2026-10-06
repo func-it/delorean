@@ -21,6 +21,7 @@ describe('loadConfig', () => {
         jevModel: 'typesafe/jev-1.13',
         identifyCacheSize: 10_000,
         modelTimeoutMs: 10_000,
+        inputUsdPerMTok: 1,
       },
       maxBodyBytes: 8192,
       maxInputTokens: 256,
@@ -346,5 +347,19 @@ describe('Langfuse in the configuration', () => {
     expect(() => loadConfig({ ...fake, ...set })).toThrow(
       `configuration:\nLangfuse is half configured: ${missing} missing`,
     );
+  });
+});
+
+describe('INPUT_USD_PER_MTOK', () => {
+  const fake = { ENGINES: 'fake' };
+
+  it('is 1 USD per million tokens by default, and may be set, 0 included', () => {
+    expect(loadConfig(fake).live.inputUsdPerMTok).toBe(1);
+    expect(loadConfig({ ...fake, INPUT_USD_PER_MTOK: '0.25' }).live.inputUsdPerMTok).toBe(0.25);
+    expect(loadConfig({ ...fake, INPUT_USD_PER_MTOK: '0' }).live.inputUsdPerMTok).toBe(0);
+  });
+
+  it.each(['-1', 'cheap'])('refuses %s before anything starts', (raw) => {
+    expect(() => loadConfig({ ...fake, INPUT_USD_PER_MTOK: raw })).toThrow('INPUT_USD_PER_MTOK');
   });
 });

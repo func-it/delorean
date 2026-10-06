@@ -100,7 +100,13 @@ after the total crossed the limit. Details: [`web/README.md`](../web/README.md#d
 
 What a failure costs is counted too. A failure spends what it spent: the
 quoters put `usage` on a 502 and a 500 as on a 422, a model call counts when
-it is sent (answered or not), and when nothing came back (the BFF gave up on
+it is sent (answered or not), a model reading (the parse, the recount) cut by
+its time, aborted or failed after it was sent counts an estimate, since
+OpenRouter bills no cost back for it: the tokens of what it sent at
+`INPUT_USD_PER_MTOK` (1.0 USD per million by default, a conservative upper
+bound for the models in use, 0 turns the estimate off), so that the daily
+budget does not take such calls for free (Jev's calls stay as they are), and
+when nothing came back (the BFF gave up on
 the quoter, or a 5xx without usage) the BFF counts a flat estimate,
 `UNANSWERED_QUOTE_COST_USD`. On live engines the web app does not start
 without a cap (`ENGINES=live` with no `DAILY_BUDGET_USD`).
@@ -123,7 +129,7 @@ quoters normalize it, so one visitor's refusal is not served to another.
 | 3 | `parse` | LLM, structured output | `422 no_film` (no film to buy), `422 quantity_too_large` (more than 1000 copies of one film), `422 demo_unreadable` (only the fake engines: a line they cannot read safely) |
 | 3′ | `recount` | a second reader, same instruction and schema, beside `parse` | — (one that fails is left out: degraded) |
 | 4 | `identify` | Jev, one `choice` request per distinct title of both readings, in parallel | — |
-| 5 | `judge` | Jev, one `noul` question per observable fact, in parallel; code compares the two readings; a refused reading is read again, up to 3 readings | `422 unfaithful_reading`; `503 quantity_unverified` (no recount to count against, a line of several copies) |
+| 5 | `judge` | Jev, one `noul` question per observable fact, in parallel; code compares the two readings; a refused reading is read again, up to 3 readings | `422 unfaithful_reading`; `503 quantity_unverified` (no recount to count against, a line of several copies); `422 repeated_titles` (the same, a title written on five lines or more) |
 | 6 | `price` | code | — |
 
 An engine that is unreachable or answers outside its contract gives
@@ -288,9 +294,14 @@ second opinion, not a dependency:
   succeeded in the request, a cart whose lines all ask for one copy is priced
   (a `degraded` quote), and one with a line of several copies (titles merged
   first) is not: `503 quantity_unverified`, usage included (the price stage
-  did not run), final for the request and worth retrying. A judge refusal
-  still comes first, and a recount that succeeded at any reading lifts the
-  rule;
+  did not run), final for the request and worth retrying. When a line was
+  made of five or more mentions of the parse (a title written on five lines
+  or more, `REPEATED_MENTIONS`) the answer is `422 repeated_titles` instead:
+  such a long cart is the one the recount cannot finish at each try, and
+  each try is billed, so « try again » is wrong advice. It asks to group the
+  quantities, quoting the title (`"45 x Back to the Future"`). A judge
+  refusal still comes first, and a recount that succeeded at any reading
+  lifts the rule;
 - the first recount that succeeds is kept for the whole request (its input
   never changes: it reads blind): later readings are compared with it, and
   ask nothing more; a recount left out at a reading is asked again at the
@@ -431,9 +442,20 @@ wrong reading it refuses two times in three would pass 70 % of the time
   `READ_ATTEMPTS=1`, the first is enough. A later reading with no film (after
   one with films) is a failed attempt as well and ends, like any, in
   `unfaithful_reading`.
+- A reading that follows an unfaithful one and fails (the parse, the
+  recount's request, identify or the judge: a model too slow, down, or off
+  its contract) is not an outage to retry: the cart that was refused is the
+  likely cause. It is `422 unfaithful_reading` too, with the last judgement
+  (`judge.attempts` counts the readings that were judged, so it can be below
+  `READ_ATTEMPTS`), the usage of what the failed reading took, and the
+  engine failure as the cause in the log line and the trace (the outcome
+  is `unfaithful_reading`). A failure of the first reading, nothing having
+  been judged, stays `502 engine_unavailable`, and so does a client that went
+  away.
 - Too many copies of one title gives `quantity_too_large` on any attempt: it
   is a safety limit, whichever reading crosses it.
-- On every attempt the order is the same: a parse that fails is a `502`;
+- On every attempt the order is the same: a parse that fails is a `502` (a `422
+  unfaithful_reading` once a reading was judged);
   then a reading refusal (`no_film` after two readings with none,
   `quantity_too_large` on any). A recount that fails, on any attempt, is
   left out of that reading (degraded), never a `502` unless the request is
@@ -597,6 +619,9 @@ production.
   everything on the next: the quote is priced on the second attempt
   (`judge.attempts` 2). `#fake:unfaithful` fails every attempt: `422
   unfaithful_reading` with `judge.attempts` equal to `READ_ATTEMPTS`.
+- **repeated titles**: with `#fake:recount_offschema` and one title on five
+  lines or more, the answer is `422 repeated_titles`; with fewer mentions, or
+  a line of several copies, `503 quantity_unverified`.
 - **outage**: if a line of the text is exactly `#fake:engine_down`, parse
   fails with an engine error → `502 engine_unavailable`.
 - cost 0, engine `fake`, one call per stage.
@@ -622,7 +647,7 @@ The end-to-end suite and the system bench read the same cases.
 
 - `films` compares the total quantities per film (`other` adds up all the
   other films).
-- **On the fake engines:** the 38 cases tagged `fake` (of 85), played by the
+- **On the fake engines:** the 40 cases tagged `fake` (of 87), played by the
   end-to-end suite (`task e2e`, which `task test` runs): each is a case the
   fake engines pass deterministically.
 - **Only at the bench, against the real models:** the other 47, played by the
@@ -667,6 +692,7 @@ Langfuse 24794, documentation 24795, and the end-to-end run on fake engines
 | `JUDGE_THRESHOLD` | `0.5` | lowest judge score accepted |
 | `READ_ATTEMPTS` | `3` | most readings of one cart before `unfaithful_reading` |
 | `IDENTIFY_CACHE_SIZE` | `10000` | titles whose film is kept in memory; 0 turns the cache off |
+| `INPUT_USD_PER_MTOK` | `1` | USD per million input tokens a parse or recount call cut before it was billed (timeout, abort, failure after it was sent) is counted for: an estimate, tokens of its messages × this, a conservative upper bound; `0` counts nothing |
 | `MODEL_TIMEOUT` | `10s` | longest one model call may take, Jev's and the LLMs'; past it the call fails as an engine does |
 | `RECOUNT_TIMEOUT` | `10s` | time the recount has, its retry included, before the quote goes on without it |
 | `REQUEST_TIMEOUT` | `25s` | time budget for one request, calls included; the web app waits this plus 5 s (`QUOTER_TIMEOUT_MS`, 30 s), and compose gives the container 35 s to stop (`stop_grace_period`) |
