@@ -10,7 +10,8 @@ export type RejectionCode =
   | 'quantity_too_large' // parse
   | 'demo_unreadable' // parse: only the fake engines, a line they cannot read safely
   | 'unfaithful_reading' // judge
-  | 'quantity_unverified'; // price: no recount to count the quantities against; retryable
+  | 'quantity_unverified' // price: no recount to count the quantities against; retryable
+  | 'repeated_titles'; // price: the same, on a cart that repeats a title on many lines: group them
 
 export type Verdict = 'valid' | 'injection' | 'invalid';
 
@@ -57,8 +58,9 @@ export class Rejection extends Error {
   readonly facts: RejectionFacts;
   report: Report = { stages: [], ms: 0, costUsd: 0 };
 
-  constructor(code: RejectionCode, detail: string, facts: RejectionFacts = {}) {
-    super(`cart rejected: ${code}: ${detail}`);
+  /** `cause`: what went wrong behind it, for the log and the trace, never shown: the engine failure of a re-reading. */
+  constructor(code: RejectionCode, detail: string, facts: RejectionFacts = {}, cause?: unknown) {
+    super(`cart rejected: ${code}: ${detail}`, cause === undefined ? undefined : { cause });
     this.code = code;
     this.detail = detail;
     this.facts = facts;

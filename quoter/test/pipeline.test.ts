@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Line } from '../src/cart.ts';
-import { DIRECTIVE } from '../src/engines/fake.ts';
+import { DIRECTIVE, fakeEngines } from '../src/engines/fake.ts';
 import {
   EngineError,
   type EngineUsage,
@@ -1109,5 +1109,135 @@ describe('Pipeline.quote, a first reading with no film', () => {
     const refusedSecond = await rejection(quote(newPipeline({ parser: second.parser }), 'Heat'));
     expect(refusedSecond.code).toBe('quantity_too_large');
     expect(second.told).toHaveLength(2);
+  });
+});
+
+// A reading that follows an unfaithful one and fails: the cart is the likely cause, not an outage.
+describe('Pipeline.quote, a re-reading that fails after an unfaithful one', () => {
+  const fake = fakeEngines();
+  const spent: EngineUsage = { engine: 'stub', calls: 1, costUsd: 0.01 };
+  const timedOut = () => Promise.reject(new EngineError('no answer in time', { usage: spent }));
+  /** The fake parser, but its second reading (told what failed) is `second`. */
+  const parseThen = (second: Reader['read']): Reader => ({
+    read: (text, call, retry) => (retry ? second(text, call, retry) : fake.parser.read(text, call, retry)),
+  });
+  const cart = `Heat\n${DIRECTIVE.unfaithful}`;
+  /** A reader that does not answer: it fails when its signal aborts, as a call of the live reader does. */
+  const unansweredUntilAborted = (signal: AbortSignal) =>
+    new Promise<never>((_, reject) => {
+      signal.addEventListener('abort', () => {
+        reject(signal.reason as Error);
+      });
+    });
+
+  it('is refused unfaithful_reading with the last judgement and what the failed reading took', async () => {
+    const rej = await rejection(quote(newPipeline({ parser: parseThen(timedOut) }), cart));
+    expect(rej.code).toBe('unfaithful_reading');
+    expect(rej.facts.judgement?.attempts).toBe(1);
+    expect(rej.facts.judgement?.findings.some((f) => f.score === 0)).toBe(true);
+    expect(rej.report.attempts).toBe(2);
+    expect(rej.report.stages.find((s) => s.stage === 'parse')).toMatchObject({ calls: 2 });
+    expect(rej.report.costUsd).toBeCloseTo(0.01);
+    // what failed stays the cause, for the log and the trace
+    expect(rej.cause).toBeInstanceOf(EngineError);
+    expect(rej.detail).toContain('reword the cart');
+  });
+
+  it('is so when the reader never answers and the request runs out of time', async () => {
+    const silent = parseThen((_, { signal }) => unansweredUntilAborted(signal));
+    const rej = await rejection(newPipeline({ parser: silent }).quote({ cart }, AbortSignal.timeout(150)));
+    expect(rej.code).toBe('unfaithful_reading');
+    expect(rej.facts.judgement?.attempts).toBe(1);
+  });
+
+  it.each([
+    [
+      'identify',
+      {
+        parser: parseThen(() => Promise.resolve({ mentions: [{ title: 'Ronin', quantity: 1 }], usage: free })),
+        identifier: {
+          identify: (titles, call) => (titles.includes('Ronin') ? timedOut() : fake.identifier.identify(titles, call)),
+        } satisfies Identifier,
+      },
+    ],
+    [
+      'judge',
+      {
+        judge: {
+          judge: (() => {
+            let asked = 0;
+            return (text, lines, call) => (++asked === 1 ? fake.judge.judge(text, lines, call) : timedOut());
+          })(),
+        } satisfies Judge,
+        parser: parseThen(() => Promise.resolve({ mentions: [{ title: 'Ronin', quantity: 1 }], usage: free })),
+      },
+    ],
+  ] as const)('is so when its %s fails', async (_, engines) => {
+    const rej = await rejection(quote(newPipeline(engines), cart));
+    expect(rej.code).toBe('unfaithful_reading');
+    expect(rej.facts.judgement?.attempts).toBe(1);
+  });
+
+  it('stays an engine failure when the first reading fails, nothing having been judged', async () => {
+    const down: Reader = { read: timedOut };
+    const error = await quote(newPipeline({ parser: down }), cart).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(EngineError);
+  });
+
+  it('stays an engine failure when the client goes away during the re-reading', async () => {
+    const client = new AbortController();
+    const silent = parseThen((_, { signal }) => {
+      queueMicrotask(() => {
+        client.abort();
+      });
+      return unansweredUntilAborted(signal);
+    });
+    const error = await newPipeline({ parser: silent })
+      .quote({ cart }, client.signal)
+      .then(
+        () => undefined,
+        (e: unknown) => e,
+      );
+    expect(error).toBeInstanceOf(EngineError);
+  });
+});
+
+describe('Pipeline.quote, repeated_titles: a title written on many lines that nothing counted', () => {
+  const down: Reader = { read: () => Promise.reject(new EngineError('recount: down', { usage: free })) };
+  const lines = (n: number, title = 'Back to the Future 1') => Array.from({ length: n }, () => title).join('\n');
+
+  it('refuses a title of five mentions or more, and says how to group it', async () => {
+    const rej = await rejection(quote(newPipeline({ recounter: down }), lines(45)));
+    expect(rej.code).toBe('repeated_titles');
+    expect(rej.detail).toBe(
+      'The cart repeats a title on many lines and its quantities could not be cross-checked in time: group them, for example "45 x Back to the Future 1".',
+    );
+    expect(rej.report.stages.some((s) => s.stage === 'recount' && s.degraded)).toBe(true);
+    expect(rej.report.stages.some((s) => s.stage === 'price')).toBe(false);
+  });
+
+  it('counts the mentions, not the copies: one line of 45 copies is still a retry', async () => {
+    const rej = await rejection(quote(newPipeline({ recounter: down }), '45 x Back to the Future 1'));
+    expect(rej.code).toBe('quantity_unverified');
+  });
+
+  it('counts the spellings of a title as one', async () => {
+    const rej = await rejection(
+      quote(newPipeline({ recounter: down }), `${lines(3)}\nback to the future  1\nBACK TO THE FUTURE 1`),
+    );
+    expect(rej.code).toBe('repeated_titles');
+  });
+
+  it('keeps quantity_unverified under five mentions', async () => {
+    const rej = await rejection(quote(newPipeline({ recounter: down }), lines(4)));
+    expect(rej.code).toBe('quantity_unverified');
+  });
+
+  it('prices the same cart when the recount answers', async () => {
+    const q = await quote(newPipeline(), lines(6));
+    expect(q.price.totalCents).toBe(9000);
   });
 });

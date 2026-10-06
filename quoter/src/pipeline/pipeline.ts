@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { Line, Mention } from '../cart.ts';
 import { normalize } from '../prepare/normalize.ts';
+import { titleKey } from '../text.ts';
 import type { TokenCounter } from '../prepare/tokens.ts';
 import { price, type Catalog, type Price } from '../pricing.ts';
 import { observe, type ObservationType } from '../telemetry/trace.ts';
@@ -189,86 +190,110 @@ export class Pipeline {
     let emptyFirst = false;
 
     for (let attempt = 1; attempt <= readAttempts; attempt++) {
-      const at = run.at(attempt);
-      // A first reading with no film is read once more before the cart is refused no_film (at once when there
-      // is no second reading to make); a second one with none is final.
-      const refuseNoFilm = (attempt === 1 && readAttempts === 1) || (attempt === 2 && emptyFirst);
-      const { decoded, read, recounted } = await this.#readTwice(at, text, retry, refuseNoFilm, kept);
-      if (attempt === 1 && read.length === 0) emptyFirst = true;
-      kept ??= recounted;
-      if (read.length === 0) {
-        // a reading without film, the first included: the text has not changed
-        // since, the model has; a failed attempt, not put to Jev
-        judgement = {
-          score: 0,
-          findings: [{ check: 'missing', label: 'the whole reading', score: 0 }],
-          attempts: attempt,
-        };
-        retry = { previous: decoded, failed: judgement.findings };
-        continue;
-      }
-
-      // titles already identified in this request are not asked again; without a recount, the parse's only
-      const readings = recounted === undefined ? [read] : [read, recounted];
-      const unknown = identifications.unknown(...readings);
-      const [lines, recountedLines] = await at.stage(
-        'identify',
-        (call) =>
-          unknown.length > 0
-            ? engines.identifier.identify(unknown, call)
-            : Promise.resolve({ identifications: [], usage: NOT_ASKED }),
-        ({ identifications: answers }) => {
-          identifications.learn(unknown, answers);
-          return [
-            identifications.lines(read),
-            recounted === undefined ? undefined : identifications.lines(recounted),
-          ] as const;
-        },
-        { show: ([reading, recount]) => ({ reading, recount: recount ?? null }) },
-      );
-
-      const known = judged.get(readingKey(lines));
-      judgement = await at.stage(
-        'judge',
-        (call) =>
-          known
-            ? Promise.resolve({ findings: inLineOrder(known, lines), usage: NOT_ASKED })
-            : engines.judge.judge(text, lines, call),
-        ({ findings }): Judgement => {
-          checkFindings(findings);
-          judged.set(readingKey(lines), findings);
-          // without a recount (degraded) there is nothing to count against
-          const all = [...findings, ...(recountedLines === undefined ? [] : countFindings(lines, recountedLines))];
-          return { score: Math.min(1, ...all.map((f) => f.score)), findings: all, attempts: attempt };
-        },
-      );
-      if (judgement.score >= judgeThreshold) {
-        // No recount succeeded in the request (degraded): nothing counts the quantities. A cart of single
-        // copies is priced; a line of several is not, and the same cart may be priced on a retry.
-        if (kept === undefined && lines.some((l) => l.quantity > 1)) {
-          throw new Rejection(
-            'quantity_unverified',
-            'The quantities could not be cross-checked and a line asks for more than one copy: try again.',
-          );
+      try {
+        const at = run.at(attempt);
+        // A first reading with no film is read once more before the cart is refused no_film (at once when there
+        // is no second reading to make); a second one with none is final.
+        const refuseNoFilm = (attempt === 1 && readAttempts === 1) || (attempt === 2 && emptyFirst);
+        const { decoded, read, recounted } = await this.#readTwice(at, text, retry, refuseNoFilm, kept);
+        if (attempt === 1 && read.length === 0) emptyFirst = true;
+        kept ??= recounted;
+        if (read.length === 0) {
+          // a reading without film, the first included: the text has not changed
+          // since, the model has; a failed attempt, not put to Jev
+          judgement = {
+            score: 0,
+            findings: [{ check: 'missing', label: 'the whole reading', score: 0 }],
+            attempts: attempt,
+          };
+          retry = { previous: decoded, failed: judgement.findings };
+          continue;
         }
-        const priced = await run.stage(
-          'price',
-          () => Promise.resolve({ price: price(this.config.catalog, lines), usage: LOCAL }),
-          (answer) => answer.price,
-          { show: ({ totalCents }) => ({ total_cents: totalCents }) },
+
+        // titles already identified in this request are not asked again; without a recount, the parse's only
+        const readings = recounted === undefined ? [read] : [read, recounted];
+        const unknown = identifications.unknown(...readings);
+        const [lines, recountedLines] = await at.stage(
+          'identify',
+          (call) =>
+            unknown.length > 0
+              ? engines.identifier.identify(unknown, call)
+              : Promise.resolve({ identifications: [], usage: NOT_ASKED }),
+          ({ identifications: answers }) => {
+            identifications.learn(unknown, answers);
+            return [
+              identifications.lines(read),
+              recounted === undefined ? undefined : identifications.lines(recounted),
+            ] as const;
+          },
+          { show: ([reading, recount]) => ({ reading, recount: recount ?? null }) },
         );
-        return { price: priced, judgement };
+
+        const known = judged.get(readingKey(lines));
+        judgement = await at.stage(
+          'judge',
+          (call) =>
+            known
+              ? Promise.resolve({ findings: inLineOrder(known, lines), usage: NOT_ASKED })
+              : engines.judge.judge(text, lines, call),
+          ({ findings }): Judgement => {
+            checkFindings(findings);
+            judged.set(readingKey(lines), findings);
+            // without a recount (degraded) there is nothing to count against
+            const all = [...findings, ...(recountedLines === undefined ? [] : countFindings(lines, recountedLines))];
+            return { score: Math.min(1, ...all.map((f) => f.score)), findings: all, attempts: attempt };
+          },
+        );
+        if (judgement.score >= judgeThreshold) {
+          // No recount succeeded in the request (degraded): nothing counts the quantities. A cart of single
+          // copies is priced; a line of several is not, and the same cart may be priced on a retry.
+          if (kept === undefined && lines.some((l) => l.quantity > 1)) {
+            // a title written on many lines is a cart no recount gets through, one try after another: group it
+            const repeated = repeatedTitle(decoded, lines);
+            throw repeated
+              ? new Rejection(
+                  'repeated_titles',
+                  `The cart repeats a title on many lines and its quantities could not be cross-checked in time: group them, for example ${JSON.stringify(`${repeated.quantity} x ${repeated.title}`)}.`,
+                )
+              : new Rejection(
+                  'quantity_unverified',
+                  'The quantities could not be cross-checked and a line asks for more than one copy: try again.',
+                );
+          }
+          const priced = await run.stage(
+            'price',
+            () => Promise.resolve({ price: price(this.config.catalog, lines), usage: LOCAL }),
+            (answer) => answer.price,
+            { show: ({ totalCents }) => ({ total_cents: totalCents }) },
+          );
+          return { price: priced, judgement };
+        }
+        // the last reading only, as decoded, and the checks under the threshold, in order
+        retry = { previous: decoded, failed: judgement.findings.filter((f) => f.score < judgeThreshold) };
+      } catch (error) {
+        // A reading that follows an unfaithful one and fails (a model too slow, down, off its contract) is
+        // no outage to retry: the cart that was refused is the likely cause, and the customer can reword it.
+        // Only a client that went away, a failure of the first reading, or a bug stays what it is.
+        if (judgement === undefined || !(error instanceof EngineError) || isCancelled(run.signal)) throw error;
+        throw this.#unfaithful(judgement, error);
       }
-      // the last reading only, as decoded, and the checks under the threshold, in order
-      retry = { previous: decoded, failed: judgement.findings.filter((f) => f.score < judgeThreshold) };
     }
 
-    const last = judgement ?? { score: 0, findings: [], attempts: readAttempts };
-    throw new Rejection(
-      'unfaithful_reading',
-      `The judge does not hold the reading faithful to the text: its worst score, ${last.score.toFixed(2)}, is under ${judgeThreshold.toFixed(2)}.`,
-      { judgement: last },
-    );
+    throw this.#unfaithful(judgement ?? { score: 0, findings: [], attempts: readAttempts });
+  }
+
+  /**
+   * The refusal of a cart whose readings were all judged unfaithful, with the last judgement. `failure` is the
+   * engine error of a later reading that did not finish: it stays the refusal's cause, for the log and the trace.
+   */
+  #unfaithful(last: Judgement, failure?: EngineError): Rejection {
+    const { judgeThreshold } = this.config;
+    const why = `its worst score, ${last.score.toFixed(2)}, is under ${judgeThreshold.toFixed(2)}`;
+    const detail =
+      failure === undefined
+        ? `The judge does not hold the reading faithful to the text: ${why}.`
+        : `The judge did not hold the reading faithful to the text (${why}) and the reading that followed did not finish: reword the cart.`;
+    return new Rejection('unfaithful_reading', detail, { judgement: last }, failure);
   }
 
   /**
@@ -401,6 +426,15 @@ export class Pipeline {
         : 'The text does not order films: gibberish, a language not understood, or off topic.';
     throw new Rejection('invalid_request', detail, { guard: v });
   }
+}
+
+/** From how many mentions of one title a cart is said to repeat it, and is asked to group them. */
+export const REPEATED_MENTIONS = 5;
+
+/** The first line of a reading that was made of at least `REPEATED_MENTIONS` mentions of the parse, if any. */
+function repeatedTitle(decoded: readonly Mention[], lines: readonly Line[]): Line | undefined {
+  const mentions = Map.groupBy(decoded, (m) => titleKey(m.title));
+  return lines.find((l) => (mentions.get(titleKey(l.title))?.length ?? 0) >= REPEATED_MENTIONS);
 }
 
 /** Two calls of one engine as one usage: calls and cost added; their time too when both timed themselves. */

@@ -37,6 +37,7 @@ const TITLES: Record<ProblemCode, string> = {
   unfaithful_reading: 'Cart rejected',
   engine_unavailable: 'Engine unavailable',
   quantity_unverified: 'Quantities not verified',
+  repeated_titles: 'Cart rejected',
   not_found: 'Not found',
   method_not_allowed: 'Method not allowed',
   internal: 'Internal error',

@@ -1,12 +1,12 @@
 import { connect, type AddressInfo } from 'node:net';
 import { createAdaptorServer } from '@hono/node-server';
 import { describe, expect, it } from 'vitest';
-import { DIRECTIVE } from '../src/engines/fake.ts';
+import { DIRECTIVE, fakeEngines } from '../src/engines/fake.ts';
 import type { Problem, Quote } from '../src/http/contract.ts';
 import { createApp, type AppConfig } from '../src/http/app.ts';
 import type { Logger } from '../src/log.ts';
 import { silentLogger } from '../src/log.ts';
-import type { Engines, Guard, Reader } from '../src/pipeline/ports.ts';
+import { EngineError, type Engines, type Guard, type Reader } from '../src/pipeline/ports.ts';
 import { counter, newPipeline } from './support.ts';
 
 function newApp(engines: Partial<Engines> = {}, config: Partial<AppConfig> = {}) {
@@ -316,6 +316,49 @@ describe('POST /v1/quotes', () => {
       code: 'engine_unavailable',
       err: 'parse: fake engine unavailable (#fake:engine_down)',
     });
+  });
+
+  it('answers 422 unfaithful_reading, not 502, when the reading that follows an unfaithful one fails; the cause is logged', async () => {
+    const logged: { level: string; attributes: Record<string, unknown> }[] = [];
+    const log: Logger = { log: (level, _msg, attributes = {}) => logged.push({ level, attributes }) };
+    const fake = fakeEngines();
+    const parser: Reader = {
+      read: (text, call, retry) =>
+        retry
+          ? Promise.reject(new EngineError('no answer in time', { usage: { engine: 'fake', calls: 1, costUsd: 0 } }))
+          : fake.parser.read(text, call, retry),
+    };
+    const problem = await problemOf(
+      await postCart(newApp({ parser }, { log }), `Heat\n${DIRECTIVE.unfaithful}`),
+      422,
+      'unfaithful_reading',
+    );
+    expect(problem.judge).toMatchObject({ attempts: 1 });
+    expect(problem.usage?.stages.find((s) => s.stage === 'parse')).toMatchObject({ calls: 2 });
+    expect(logged).toEqual([
+      {
+        level: 'INFO',
+        attributes: expect.objectContaining({
+          status: 422,
+          code: 'unfaithful_reading',
+          err: 'parse: no answer in time',
+        }) as unknown,
+      },
+    ]);
+  });
+
+  it('refuses a title written on many lines that nothing counted: 422 repeated_titles, to group, not a 503 to retry', async () => {
+    const cart = `${Array.from({ length: 6 }, () => 'Heat').join('\n')}\n${DIRECTIVE.recountOffSchema}`;
+    const problem = await problemOf(await postCart(newApp(), cart), 422, 'repeated_titles');
+    expect(problem).toMatchObject({ title: 'Cart rejected', detail: expect.stringContaining('"6 x Heat"') as unknown });
+    expect(problem.usage?.stages.map((s) => s.stage)).toEqual([
+      'prepare',
+      'guard',
+      'parse',
+      'recount',
+      'identify',
+      'judge',
+    ]);
   });
 
   it('answers 502 when the engines outlast the request budget', async () => {

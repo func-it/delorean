@@ -3,7 +3,7 @@ import { context, trace } from '@opentelemetry/api';
 import { LangfuseSpanProcessor } from '@langfuse/otel';
 import { InMemorySpanExporter, NodeTracerProvider, type ReadableSpan } from '@opentelemetry/sdk-trace-node';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { DIRECTIVE } from '../src/engines/fake.ts';
+import { DIRECTIVE, fakeEngines } from '../src/engines/fake.ts';
 import { cachedIdentifier, Lru } from '../src/engines/live/cache.ts';
 import { Jev } from '../src/engines/live/jev.ts';
 import { llmReader } from '../src/engines/live/reader.ts';
@@ -276,6 +276,22 @@ describe('the trace of a quote', () => {
     expect(attribute(root, 'langfuse.observation.level')).toBeUndefined();
     expect(String(attribute(root, 'langfuse.trace.output'))).toContain('quantity_unverified');
     expect(scores()).toMatchObject({ outcome: 'quantity_unverified' });
+  });
+
+  it('traces a re-reading that failed after an unfaithful one as the refusal it answers, its failure on the stage', async () => {
+    const fake = fakeEngines();
+    const parser: Reader = {
+      read: (text, call, retry) =>
+        retry
+          ? Promise.reject(new EngineError('no answer in time', { usage: { engine: 'r', calls: 1, costUsd: 0 } }))
+          : fake.parser.read(text, call, retry),
+    };
+    const { response } = await post(`Heat\n${DIRECTIVE.unfaithful}`, { parser });
+    expect(response.status).toBe(422);
+    const root = named('quote');
+    expect(attribute(root, 'langfuse.trace.metadata.outcome')).toBe('unfaithful_reading');
+    expect(attribute(root, 'langfuse.trace.metadata.attempts')).toBe(2);
+    expect(scores()).toMatchObject({ outcome: 'unfaithful_reading', attempts: 2 });
   });
 
   it('marks a warning only the reading whose recount was left out, not the one whose recount succeeded', async () => {

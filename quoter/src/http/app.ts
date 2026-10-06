@@ -188,7 +188,7 @@ export function createApp(config: AppConfig): Hono<Env> {
     } catch (error) {
       if (error instanceof Rejection) {
         c.var.exchange.degraded = wasDegraded(error.report);
-        return refused(c, contract.rejected(error, context), error.code, error.report);
+        return refused(c, contract.rejected(error, context), error.code, error.report, error.cause);
       }
       if (error instanceof EngineError) {
         const detail = 'A model engine could not be reached, or answered out of contract.';
