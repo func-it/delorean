@@ -35,8 +35,8 @@ npm run e2e                                   # quoter on http://localhost:24793
 BASE_URL=http://localhost:9000 npm run e2e    # another one
 ```
 
-The suite first reads `GET /healthz`. Quoter in `fake` mode (what CI runs, 35 cases
-of 81): contract + cases tagged `fake`, nothing is billed. Quoter in `live` mode: every request costs
+The suite first reads `GET /healthz`. Quoter in `fake` mode (what CI runs, 38 cases
+of 85): contract + cases tagged `fake`, nothing is billed. Quoter in `live` mode: every request costs
 OpenRouter credits, so the suite refuses to start without `RUN_LIVE=1`, then
 runs every case:
 

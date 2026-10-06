@@ -36,7 +36,7 @@ needs no key or network; it prices the five examples without any model. It
 would not read a title in another language, a quantity in words, a story, a
 title with a typo, nor tell a film that is bought from one that is mentioned
 (« je l'ai déjà vu »). The shared cases hold dozens of those
-([`cases/quote`](../../cases/quote): 46 of the 81 need a model; only the 35
+([`cases/quote`](../../cases/quote): 47 of the 85 need a model; only the 38
 tagged `fake` are passed by the small deterministic reader).
 
 **One model that also computes the price**: rejected at once: a model's
@@ -98,7 +98,7 @@ an audit needs the same input to give the same output, byte for byte.
 
 The fake engines (`ENGINES=fake`) contain exactly such a parser: it reads
 titles written as `Back to the Future 1/2/3` (or `I`/`II`/`III`), with free
-case and spacing, and quantities as `N x title`. It is the demo mode (the page
+case and spacing, and quantities as `N x title` or `N title`, one title per line; a line it cannot read safely (several saga titles on one line) is refused with `demo_unreadable`, not priced as another film. It is the demo mode (the page
 says so), it runs the end-to-end suite without a key, and it prices the brief's
 five examples exactly. A product that wants the brief's format only could ship
 it as the reader and keep the models for the carts it cannot parse.

@@ -51,8 +51,11 @@ task quoter:test       # the quoter alone
 
 ## Fake engines
 
-With `ENGINES=fake`, every model stage is answered by a deterministic stand-in. They recognise canonical titles
-("Back to the Future 2", "2 x Back to the Future 2", roman numerals), answer
+With `ENGINES=fake`, every model stage is answered by a deterministic stand-in. They read the brief's format, one title per line with an optional quantity in
+front ("Back to the Future 2", "2 Back to the Future 2", "2 x Back to the Future 2",
+roman numerals); another film's line is one `other` film, and a line that
+mentions the saga without being exactly one of its titles is refused with
+`demo_unreadable` (422) instead of a wrong price. They answer
 the guard's two questions from a few markers (`steer` 0.99 on an injection
 word, `order` 1 when a line has three letters) and derive the verdict from
 them as the live guard does, and accept five fault lines:
@@ -73,11 +76,11 @@ system bench. Each case has a `note` that says which mistake it guards against;
 `input` is the cart, `expect` a total and the films read, or a status and a
 refusal code.
 
-CI (`.github/workflows/ci.yml`, `task ci`) plays on the fake engines the 35
-cases tagged `fake`, out of 81, through the end-to-end suite: they are the cases
-a deterministic reader passes. The other 46 run only at the bench
+CI (`.github/workflows/ci.yml`, `task ci`) plays on the fake engines the 38
+cases tagged `fake`, out of 85, through the end-to-end suite: they are the cases
+a deterministic reader passes. The other 47 run only at the bench
 (`task bench`), against the real models, at a cost; no CI run plays them. Five
-of the 35 use a fault line: `recomptage-en-desaccord` (`#fake:miscount`) proves that a
+of the 38 use a fault line: `recomptage-en-desaccord` (`#fake:miscount`) proves that a
 recount in disagreement refuses the cart, `recomptage-hors-schema`
 (`#fake:recount_offschema`) that a recount answering off its schema is left
 out instead of failing the quote, `recomptage-hors-schema-quantites` that a
@@ -110,7 +113,7 @@ RUN_LIVE=1 BASE_URL=http://localhost:24793 npm run e2e   # against live engines 
 ```
 
 The suite reads `GET /healthz` first. On fake engines it runs the contract
-suites and every `fake` case: 75 tests today. On live engines it refuses to
+suites and every `fake` case: 78 tests today. On live engines it refuses to
 start without `RUN_LIVE=1`, then plays every quote case. It checks:
 
 - malformed requests (400), oversized bodies (413), empty and over-long carts

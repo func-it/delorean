@@ -51,7 +51,7 @@ task e2e                 # the end-to-end suite against this quoter on fake engi
 
 The unit tests cover what decides: normalization and token counts, pricing, the pipeline on the fake engines (refusal codes, the
 stages each refusal reports, the guard and judge thresholds, the parse beside
-the recount), the fake engines' rules, the HTTP surface, and the live engines
+the recount), the fake engines' rules (the brief's format, one title per line, and `demo_unreadable` for a line they cannot read), the HTTP surface, and the live engines
 against stand-ins of OpenRouter (Jev's wire format, retries, cost and tokens;
 the readers' request, schema checks and cost), the trace shape, and the
 configuration.

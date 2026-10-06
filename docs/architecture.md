@@ -120,7 +120,7 @@ quoters normalize it, so one visitor's refusal is not served to another.
 | 0 | HTTP body | code | `400 malformed_request`, `413 payload_too_large` (> `MAX_BODY_BYTES`) |
 | 1 | `prepare` | code | `422 empty_cart`, `422 too_long` (> `MAX_INPUT_TOKENS`) |
 | 2 | `guard` | Jev, two `noul` requests in parallel | `422 injection`, `422 invalid_request` |
-| 3 | `parse` | LLM, structured output | `422 no_film` (no film to buy), `422 quantity_too_large` (more than 1000 copies of one film) |
+| 3 | `parse` | LLM, structured output | `422 no_film` (no film to buy), `422 quantity_too_large` (more than 1000 copies of one film), `422 demo_unreadable` (only the fake engines: a line they cannot read safely) |
 | 3′ | `recount` | a second reader, same instruction and schema, beside `parse` | — (one that fails is left out: degraded) |
 | 4 | `identify` | Jev, one `choice` request per distinct title of both readings, in parallel | — |
 | 5 | `judge` | Jev, one `noul` question per observable fact, in parallel; code compares the two readings; a refused reading is read again, up to 3 readings | `422 unfaithful_reading`; `503 quantity_unverified` (no recount to count against, a line of several copies) |
@@ -561,11 +561,23 @@ production.
   three consecutive letters (`\p{L}{3,}`), otherwise 0. The verdict, its
   confidence and its probabilities follow from them as for the live guard:
   `injection` 0.99, `valid` 0.99 or `invalid` 0.99.
-- **parse**: each non-empty line is a mention, except lines that start with
-  `#fake:`. Quantity: prefix `N x ` / `N × ` or suffix ` x N` / ` × N` (N
-  integer ≥ 1), otherwise 1. Title: the rest, with leading and trailing
-  whitespace removed. No mention → the pipeline reads once more, then answers `no_film`; N > 1000 →
-  `quantity_too_large`.
+- **parse**: the brief's format, one title per line with an optional quantity
+  in front. Each non-empty line is a mention, except lines that start with
+  `#fake:`. Quantity: prefix `N x title`, `N × title` or `N title` (digits,
+  then a space), or suffix `title x N` / `title × N` (N integer ≥ 1),
+  otherwise 1. Title: the rest, with leading and trailing whitespace removed.
+  A line that mentions the saga (case-insensitively `back to the future`,
+  `bttf`, `future`, `futur`, `zukunft` or `futuro`) must be exactly one saga
+  title (`Back to the Future` then 1, 2, 3, I, II or III, an optional `Part`,
+  free case and spacing); anything else on that line, several titles, extra
+  words, is refused with `422 demo_unreadable` at the parse stage, with a
+  sentence that says the demo reads one title per line, instead of a price
+  that would be wrong. A line that does not mention the saga is one `other`
+  film (« La chèvre », « 2 Matrix »), at its quantity. The fake signals it
+  with `unreadable` on its answer, so the stage still counts one fake call.
+  No mention → the pipeline reads once more, then answers `no_film`; N >
+  1000 → `quantity_too_large`. A bare `N title` reads « 12 Angry Men » as 12
+  copies of « Angry Men »: the demo's reader is not the real one.
 - **recount**: the same reading as parse; if a line of the text is exactly
   `#fake:miscount`, one more copy of the first mention, so `count` fails for
   its film; if a line is exactly `#fake:recount_offschema`, it fails at every
@@ -610,10 +622,10 @@ The end-to-end suite and the system bench read the same cases.
 
 - `films` compares the total quantities per film (`other` adds up all the
   other films).
-- **In CI, on the fake engines:** the 35 cases tagged `fake` (of 81), played by
+- **In CI, on the fake engines:** the 38 cases tagged `fake` (of 85), played by
   the end-to-end suite (`task e2e`, which `task ci` and `.github/workflows/ci.yml`
   run): each is a case the fake engines pass deterministically.
-- **Only at the bench, against the real models:** the other 46, played by the
+- **Only at the bench, against the real models:** the other 47, played by the
   system bench (`task bench`), which costs money and is never run by CI. They
   are the free-text carts a deterministic reader cannot read: other languages,
   stories, quantities in words.
