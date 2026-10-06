@@ -131,9 +131,12 @@ The quoter alone, without the web app:
 
 ```sh
 curl -s localhost:24793/v1/quotes -H 'content-type: application/json' \
-  -d '{"cart":"Back to the Future 1\nBack to the Future 2\nBack to the Future 3\nLa chèvre"}' | jq .total_cents
-# 5600
+  -d '{"cart":"Back to the Future 1\nBack to the Future 2\nBack to the Future 3\nLa chèvre"}'
+# {"id":"q_…","currency":"EUR","lines":[…],"total_cents":5600,…}
 ```
+
+The total is `total_cents`: 5600, that is 56.00 €. (`| jq .total_cents` prints just that
+if you have jq; nothing here needs it.)
 
 Without Docker, Node 26 is the only requirement. With [go-task](https://taskfile.dev):
 
