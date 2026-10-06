@@ -303,7 +303,10 @@ export class Pipeline {
       .stage(
         'parse',
         (call) => parser.read(text, call, retry),
-        ({ mentions }) => ({ decoded: mentions, read: merge(mentions) }),
+        ({ mentions, unreadable }) => {
+          if (unreadable !== undefined) throw new Rejection('demo_unreadable', demoUnreadable(unreadable));
+          return { decoded: mentions, read: merge(mentions) };
+        },
         { show: ({ read }) => read },
       )
       .catch((error: unknown) => {
@@ -410,6 +413,14 @@ function added(a: EngineUsage, b: EngineUsage): EngineUsage {
     costUsd: a.costUsd + b.costUsd,
     ...(a.ms !== undefined && b.ms !== undefined && { ms: a.ms + b.ms }),
   };
+}
+
+/** Why the demo mode refuses a line: what it reads, and where to read more. */
+function demoUnreadable(line: string): string {
+  return (
+    `The demo mode cannot read the line ${JSON.stringify(line)}. It reads one title per line, with an optional ` +
+    'quantity in front: "2 x Back to the Future 2". Write one title per line, or run with the real models to read free text.'
+  );
 }
 
 /** What a reading took up to a bug, for its trace: a bug is no error of ours to carry a report. */

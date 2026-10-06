@@ -56,26 +56,48 @@ const guard: Guard = {
 
 const QUANTITY_FIRST = /^(\d+) [x×] (.+)$/su;
 const QUANTITY_LAST = /^(.+) [x×] (\d+)$/su;
+/** A number in front, with no x: « 2 Back to the Future 2 ». */
+const QUANTITY_BARE = /^(\d+) (.+)$/su;
+/** Any way of naming the saga: a line that does and is not exactly one of its titles cannot be read safely. */
+const SAGA_MENTION = /back to the future|bttf|future|futur|zukunft|futuro/u;
+
+interface Reading {
+  mentions: Mention[];
+  /** The first line that cannot be read safely. */
+  unreadable?: string;
+}
 
 /**
- * Each line that is not blank, and not a #fake: directive, is one mention:
- * "N x title", "N × title", "title x N", "title × N", or a title alone for
- * one copy.
+ * Each line that is not blank, and not a #fake: directive, is one mention, a
+ * title with an optional quantity: "N x title", "N × title", "N title",
+ * "title x N", "title × N", or a title alone for one copy. A line that names
+ * the saga but is not exactly one of its titles (several titles, extra words,
+ * another language, an abbreviation) is not read: it is returned as
+ * `unreadable`. A title that does not mention the saga is another film.
  */
-function mentions(text: string): Mention[] {
-  return text
-    .split('\n')
-    .map(trimSpace)
-    .filter((line) => line !== '' && !line.startsWith(DIRECTIVE_PREFIX))
-    .map(mention);
+function readLines(text: string): Reading {
+  const mentions: Mention[] = [];
+  for (const line of text.split('\n').map(trimSpace)) {
+    if (line === '' || line.startsWith(DIRECTIVE_PREFIX)) continue;
+    const found = mention(line);
+    const key = titleKey(found.title);
+    if (!SAGA_TITLE.test(key) && SAGA_MENTION.test(key)) return { mentions, unreadable: line };
+    mentions.push(found);
+  }
+  return { mentions };
 }
 
 function mention(line: string): Mention {
-  const first = QUANTITY_FIRST.exec(line);
-  if (first?.[1] && first[2] && Number(first[1]) >= 1)
-    return { title: trimSpace(first[2]), quantity: Number(first[1]) };
-  const last = QUANTITY_LAST.exec(line);
-  if (last?.[1] && last[2] && Number(last[2]) >= 1) return { title: trimSpace(last[1]), quantity: Number(last[2]) };
+  for (const [pattern, quantityAt] of [
+    [QUANTITY_FIRST, 1],
+    [QUANTITY_LAST, 2],
+    [QUANTITY_BARE, 1],
+  ] as const) {
+    const found = pattern.exec(line);
+    const quantity = Number(found?.[quantityAt]);
+    const title = found?.[quantityAt === 1 ? 2 : 1];
+    if (title && quantity >= 1) return { title: trimSpace(title), quantity };
+  }
   return { title: line, quantity: 1 };
 }
 
@@ -83,13 +105,13 @@ function mention(line: string): Mention {
  * Each mention, or the outage of #fake:engine_down; with `leaveOutLast`, all
  * but the last mention.
  */
-function read(text: string, leaveOutLast: boolean): Promise<Answered<{ mentions: Mention[] }>> {
+function read(text: string, leaveOutLast: boolean): Promise<Answered<Reading>> {
   if (hasLine(text, DIRECTIVE.engineDown)) {
     return Promise.reject(new EngineError(`fake engine unavailable (${DIRECTIVE.engineDown})`, { usage: usage() }));
   }
-  const read = mentions(text);
-  if (leaveOutLast) read.pop();
-  return Promise.resolve({ mentions: read, usage: usage() });
+  const reading = readLines(text);
+  if (leaveOutLast) reading.mentions.pop();
+  return Promise.resolve({ ...reading, usage: usage() });
 }
 
 /** Reads every mention; but for a text with a #fake:reread line, its first reading leaves out the last one. */
@@ -153,7 +175,7 @@ const judge: Judge = {
       { check: 'identity' as const, label: l.title, score: 1 },
     ]);
     const read = new Set(lines.map((l) => titleKey(l.title)));
-    const lacks = mentions(text).some((m) => !read.has(titleKey(m.title)));
+    const lacks = readLines(text).mentions.some((m) => !read.has(titleKey(m.title)));
     findings.push({
       check: 'missing',
       label: 'the whole reading',

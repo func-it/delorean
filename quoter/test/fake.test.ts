@@ -40,6 +40,8 @@ describe('fake parser', () => {
     ['a title alone is one copy', 'Back to the Future 1', [['Back to the Future 1', 1]]],
     ['quantity first with x', '2 x Back to the Future 2', [['Back to the Future 2', 2]]],
     ['quantity first with ×', '12 × Heat', [['Heat', 12]]],
+    ['quantity first with no x', '2 Back to the Future 2', [['Back to the Future 2', 2]]],
+    ['quantity first with no x, another film', '3 Matrix', [['Matrix', 3]]],
     ['quantity last with x', 'Back to the Future 2 x 3', [['Back to the Future 2', 3]]],
     ['quantity last with ×', 'La chèvre × 2', [['La chèvre', 2]]],
     ['zero is part of the title', '0 x Heat', [['0 x Heat', 1]]],
@@ -63,10 +65,65 @@ describe('fake parser', () => {
       ],
     ],
     ['directives only', '#fake:unfaithful', []],
+    [
+      'another film is another film',
+      'Matrix\nLa chèvre',
+      [
+        ['Matrix', 1],
+        ['La chèvre', 1],
+      ],
+    ],
   ] as const)('%s', async (_, text, want) => {
     const { mentions, usage } = await parser.read(text, call);
     expect(mentions).toEqual(want.map(([title, quantity]) => ({ title, quantity })));
     expect(usage).toEqual(oneFreeCall);
+  });
+
+  // the saga's titles it reads: Arabic or Roman numeral, with or without "Part", any case, free spacing
+  it.each([
+    'Back to the Future 1',
+    'back to the future 2',
+    'BACK TO THE FUTURE 3',
+    'Back to the Future I',
+    'Back to the Future ii',
+    'Back   to\tthe  Future   III',
+    'Back to the Future Part 2',
+    'back to the future PART iii',
+    '2 x back  to the future part ii',
+    '2 BACK TO THE FUTURE III',
+    'Back to the Future 2 × 3',
+  ])('reads %j as one saga title', async (text) => {
+    const { mentions, unreadable } = await parser.read(text, call);
+    expect(unreadable).toBeUndefined();
+    expect(mentions).toHaveLength(1);
+  });
+
+  // a line that names the saga without being exactly one of its titles is not read: it is not priced as another film
+  it.each([
+    'Back to the Future 1, Back to the Future 2, Back to the Future 3',
+    'Back to the Future 1 and 2',
+    'Back to the Future 1 Back to the Future 2',
+    'I want Back to the Future 1 please',
+    'Back to the Future 4',
+    'Back to the Future',
+    'Back to the Future: Part II (1989)',
+    'BTTF 2',
+    'Retour vers le futur 2',
+    'Zurück in die Zukunft',
+    'Regreso al futuro',
+    'Ritorno al futuro',
+    '2 x Back to the Future 1, Back to the Future 2',
+    'Future Shock',
+  ])('does not read %j: it is returned as unreadable', async (text) => {
+    const { mentions, unreadable } = await parser.read(`Matrix\n${text}\nHeat`, call);
+    expect(unreadable).toBe(text);
+    // what was read before it stays; what follows is not read
+    expect(mentions).toEqual([{ title: 'Matrix', quantity: 1 }]);
+  });
+
+  it('says the same of the recounter, which reads the same way', async () => {
+    const { unreadable } = await recounter.read('Back to the Future 1, Back to the Future 2', call);
+    expect(unreadable).toBe('Back to the Future 1, Back to the Future 2');
   });
 
   it('reads a number too large for exact integers as a quantity, which the pipeline refuses', async () => {

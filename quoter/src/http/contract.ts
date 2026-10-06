@@ -33,6 +33,7 @@ const TITLES: Record<ProblemCode, string> = {
   invalid_request: 'Cart rejected',
   no_film: 'Cart rejected',
   quantity_too_large: 'Cart rejected',
+  demo_unreadable: 'Cart rejected',
   unfaithful_reading: 'Cart rejected',
   engine_unavailable: 'Engine unavailable',
   quantity_unverified: 'Quantities not verified',

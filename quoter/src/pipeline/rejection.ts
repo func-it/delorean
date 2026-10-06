@@ -8,6 +8,7 @@ export type RejectionCode =
   | 'invalid_request' // guard
   | 'no_film' // parse
   | 'quantity_too_large' // parse
+  | 'demo_unreadable' // parse: only the fake engines, a line they cannot read safely
   | 'unfaithful_reading' // judge
   | 'quantity_unverified'; // price: no recount to count the quantities against; retryable
 

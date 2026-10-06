@@ -63,9 +63,13 @@ export interface Guard {
  * A reading the judge refused is read again: the parser is told what it read
  * and which checks failed (`retry`); the recount never is, so that it stays a
  * second opinion.
+ *
+ * `unreadable` is a line the reader cannot read with certainty: only the
+ * fake engines (the demo mode) say so, and the pipeline then refuses the cart
+ * (`demo_unreadable`) instead of pricing a guess.
  */
 export interface Reader {
-  read(text: string, call: Call, retry?: Retry): Promise<Answered<{ mentions: Mention[] }>>;
+  read(text: string, call: Call, retry?: Retry): Promise<Answered<{ mentions: Mention[]; unreadable?: string }>>;
 }
 
 /** What a new reading is told: the reading before, and the checks of its judgement that failed, in order. */

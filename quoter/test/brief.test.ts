@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newPipeline, quote } from './support.ts';
+import { newPipeline, quote, rejection } from './support.ts';
 
 /**
  * The five examples of the brief, as a customer would type them, through the whole reading (the fake
@@ -41,5 +41,28 @@ describe('the brief', () => {
 
       expect(euros(priced.price.totalCents)).toBe(36);
     }
+  });
+
+  // the demo mode reads one title per line, a quantity in front if wanted; another film is 20 €
+  it.each([
+    ['a quantity in front, no x: 2 × 15 (one volume, no discount) + 20', '2 Back to the Future 2\nMatrix', 50],
+    ['a quantity in front, with x: the same', '2 x Back to the Future 2\nMatrix', 50],
+    ['another film alone', 'La chèvre', 20],
+    ['two copies of another film', '2 La chèvre', 40],
+  ])('%s', async (_, cart, expected) => {
+    const priced = await quote(newPipeline(), cart);
+
+    expect(euros(priced.price.totalCents)).toBe(expected);
+  });
+
+  it.each([
+    'Back to the Future 1, Back to the Future 2, Back to the Future 3',
+    'Back to the Future 1 and Back to the Future 3',
+    'I would like Back to the Future 1 please',
+  ])('refuses %j, which the demo mode cannot read safely, instead of pricing it as another film', async (line) => {
+    const refused = await rejection(quote(newPipeline(), `Matrix\n${line}`));
+
+    expect(refused.code).toBe('demo_unreadable');
+    expect(refused.detail).toContain(JSON.stringify(line));
   });
 });

@@ -276,11 +276,27 @@ describe('POST /v1/quotes', () => {
     ['empty_cart', ' \n ', {}],
     ['too_long', 'film '.repeat(3000), { tokens: { count: 3000, max: 2048 } }],
     ['no_film', '#fake:nothing', {}],
+    ['demo_unreadable', 'Back to the Future 1, Back to the Future 2', {}],
     ['quantity_too_large', '1001 x Heat', { quantity: { title: 'Heat', count: 1001, max: 1000 } }],
     ['unfaithful_reading', `Heat\n${DIRECTIVE.unfaithful}`, { judge: { score: 0, threshold: 0.5 } }],
   ])('answers %s with 422 and its facts', async (code, cart, facts) => {
     const problem = await problemOf(await postCart(newApp(), cart), 422, code);
     expect(problem).toMatchObject({ title: 'Cart rejected', ...facts });
+  });
+
+  it('says what the demo mode reads when it refuses a line, and what the refusal cost', async () => {
+    const problem = await problemOf(
+      await postCart(newApp(), 'Matrix\nBack to the Future 1, Back to the Future 2'),
+      422,
+      'demo_unreadable',
+    );
+    expect(problem.detail).toBe(
+      'The demo mode cannot read the line "Back to the Future 1, Back to the Future 2". It reads one title per line, ' +
+        'with an optional quantity in front: "2 x Back to the Future 2". Write one title per line, or run with the real models to read free text.',
+    );
+    expect(Object.keys(problem)).toEqual(['type', 'title', 'status', 'code', 'detail', 'request_id', 'usage']);
+    expect(problem.usage?.stages.map((s) => s.stage)).toEqual(['prepare', 'guard', 'parse', 'recount']);
+    expect(problem.usage?.stages.find((s) => s.stage === 'parse')).toMatchObject({ engine: 'fake', calls: 1 });
   });
 
   it('answers an engine failure with 502, its cause logged and never shown', async () => {
