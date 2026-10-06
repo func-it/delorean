@@ -2,6 +2,22 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach } from 'vitest';
+import { loadConfig } from '../src/config.ts';
+import { fakeEngines } from '../src/engines/fake.ts';
+import type { Engines } from '../src/pipeline/ports.ts';
+import { DEFAULT_PROMPTS_DIR, loadPrompts } from '../src/prompts.ts';
+import { setupOf } from '../bench/setup.ts';
+import type { Setup } from '../bench/subjects.ts';
+
+export const prompts = loadPrompts(DEFAULT_PROMPTS_DIR);
+
+/** The service's default configuration, on fake engines: no key needed. */
+export const config = loadConfig({ ENGINES: 'fake' });
+
+/** A subject's setup on `engines`, the fake ones unless a test swaps some. */
+export function setup(engines: Partial<Engines> = {}, changes: Partial<Setup> = {}): Setup {
+  return { ...setupOf(config, prompts), engines: { ...fakeEngines(), ...engines }, ...changes };
+}
 
 const dirs: string[] = [];
 
