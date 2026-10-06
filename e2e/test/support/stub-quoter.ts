@@ -39,6 +39,9 @@ const ID_HEADERS: Record<string, RegExp> = {
 const INJECTION_MARKERS = ['ignore', 'disregard', 'oublie', 'instruction', 'system prompt', '<script', 'drop table'];
 const PREFIX_QUANTITY = /^([1-9]\d*) [x×] (.+)$/u;
 const SUFFIX_QUANTITY = /^(.+) [x×] ([1-9]\d*)$/u;
+const BARE_QUANTITY = /^([1-9]\d*) (.+)$/u;
+/** What makes a line speak of the saga: such a line must be exactly one saga title, or the demo reader refuses it. */
+const SAGA_MENTION = /back to the future|bttf|future|futur|zukunft|futuro/u;
 const SAGA_TITLE = /^back to the future (?:part )?(1|2|3|i|ii|iii)$/;
 const VERDICTS = ['injection', 'invalid', 'valid'] as const;
 const FILMS: readonly Film[] = ['bttf_1', 'bttf_2', 'bttf_3', 'other'];
@@ -193,6 +196,12 @@ export async function startStubQuoter(options: StubOptions = {}): Promise<Stub> 
       } else if (attempt === 1) {
         ran('recount');
       }
+      // The demo reader refuses a line that speaks of the saga without being exactly one of its titles.
+      const unreadable = all.find((m) => {
+        const key = normalizeTitle(m.title);
+        return !SAGA_TITLE.test(key) && SAGA_MENTION.test(key);
+      });
+      if (unreadable) return reject('demo_unreadable');
       const tooMany = parsed.find((m) => m.quantity > maxCopies);
       if (tooMany) {
         return reject('quantity_too_large', {
@@ -307,12 +316,14 @@ function merge(mentions: { title: string; quantity: number }[]): { title: string
   return [...merged.values()];
 }
 
-/** `N x title`, `title x N` (or ×), else one copy. */
+/** `N x title`, `title x N` (or ×), `N title`, else one copy. */
 function mention(line: string): { title: string; quantity: number } {
   const prefix = PREFIX_QUANTITY.exec(line);
   if (prefix) return { title: prefix[2]?.trim() ?? '', quantity: Number(prefix[1]) };
   const suffix = SUFFIX_QUANTITY.exec(line);
   if (suffix) return { title: suffix[1]?.trim() ?? '', quantity: Number(suffix[2]) };
+  const bare = BARE_QUANTITY.exec(line);
+  if (bare) return { title: bare[2]?.trim() ?? '', quantity: Number(bare[1]) };
   return { title: line, quantity: 1 };
 }
 

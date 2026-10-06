@@ -1,0 +1,18 @@
+{
+  "id": "demo-quantite-avec-x",
+  "note": "Quantité en tête avec « x » (« 2 x Back to the Future 1 ») : même lecture que sans le x. 2×15 = 30 €, un seul volet, pas de remise.",
+  "tags": [
+    "demo",
+    "fake"
+  ],
+  "input": {
+    "cart": "2 x Back to the Future 1"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 3000,
+    "films": {
+      "bttf_1": 2
+    }
+  }
+}

@@ -1,10 +1,9 @@
 {
   "id": "volet-4-ne-fait-pas-trois-volets",
-  "note": "Un « volet 4 » qui n'existe pas à côté des volets 1 et 2 : deux volets distincts, -10 % et non -20 %, le 4 facturé comme autre film ((15 × 2) × 0,9 + 20 = 27 + 20 = 47 €). Garde contre le palier de trois volets atteint par un faux volet.",
+  "note": "Un « volet 4 » qui n'existe pas à côté des volets 1 et 2 : deux volets distincts, -10 % et non -20 %, le 4 facturé comme autre film ((15 × 2) × 0,9 + 20 = 27 + 20 = 47 €). Garde contre le palier de trois volets atteint par un faux volet. Hors mode démo : le lecteur du mode démo refuse une ligne de la saga qu'il ne reconnaît pas (demo_unreadable), donc ce cas ne tourne qu'avec les vrais modèles.",
   "tags": [
     "remise",
-    "numero-hors-saga",
-    "fake"
+    "numero-hors-saga"
   ],
   "input": {
     "cart": "Back to the Future 1\nBack to the Future 2\nBack to the Future 4"

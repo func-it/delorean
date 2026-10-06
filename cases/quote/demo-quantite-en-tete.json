@@ -1,0 +1,19 @@
+{
+  "id": "demo-quantite-en-tete",
+  "note": "Format de l'énoncé lu par le lecteur du mode démo : une quantité devant le titre (« 2 Back to the Future 2 »), un titre par ligne ; un autre film reste à 20 €. 2×15 + 20 = 50 € (un seul volet : pas de remise).",
+  "tags": [
+    "demo",
+    "fake"
+  ],
+  "input": {
+    "cart": "2 Back to the Future 2\nMatrix"
+  },
+  "expect": {
+    "status": 200,
+    "total_cents": 5000,
+    "films": {
+      "bttf_2": 2,
+      "other": 1
+    }
+  }
+}

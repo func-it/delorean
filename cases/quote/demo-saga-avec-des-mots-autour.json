@@ -1,0 +1,15 @@
+{
+  "id": "demo-saga-avec-des-mots-autour",
+  "note": "Un titre de la saga entouré d'autres mots : le lecteur du mode démo ne lit que le titre seul sur sa ligne, il refuse (demo_unreadable) plutôt que de chiffrer la ligne comme un autre film. Ne vaut que sur les moteurs factices.",
+  "tags": [
+    "invalide",
+    "fake"
+  ],
+  "input": {
+    "cart": "Je voudrais Back to the Future 2 s'il vous plaît"
+  },
+  "expect": {
+    "status": 422,
+    "code": "demo_unreadable"
+  }
+}

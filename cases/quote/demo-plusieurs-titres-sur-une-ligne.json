@@ -1,0 +1,15 @@
+{
+  "id": "demo-plusieurs-titres-sur-une-ligne",
+  "note": "Plusieurs titres de la saga sur une même ligne : le lecteur du mode démo ne sait pas les séparer, il refuse (demo_unreadable, à l'étape parse) au lieu de les chiffrer comme un seul autre film à 20 €. Ne vaut que sur les moteurs factices : les vrais modèles lisent cette ligne.",
+  "tags": [
+    "invalide",
+    "fake"
+  ],
+  "input": {
+    "cart": "Back to the Future 1, Back to the Future 2, Back to the Future 3"
+  },
+  "expect": {
+    "status": 422,
+    "code": "demo_unreadable"
+  }
+}
