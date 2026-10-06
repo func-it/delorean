@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState } from "react";
 
 import { type BffResult, requestQuote } from "@/lib/bff-client";
 import type { Quote } from "@/lib/contract";
@@ -25,14 +25,25 @@ interface Props {
 export function QuoteWorkspace({ limits, engines, prices }: Props) {
   const [cart, setCart] = useState("");
   const [outcome, setOutcome] = useState<BffResult<Quote>>();
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
+  /** Which submission the page waits for; an edit moves it on, so an answer to the old text is dropped. */
+  const current = useRef(0);
 
-  function submit() {
+  function changeCart(next: string) {
+    current.current += 1;
+    setCart(next);
+    setOutcome(undefined);
+    setPending(false);
+  }
+
+  async function submit() {
     if (pending) return;
-    startTransition(async () => {
-      const result = await requestQuote(cart, limits?.maxBodyBytes);
-      startTransition(() => setOutcome(result));
-    });
+    const mine = ++current.current;
+    setPending(true);
+    const result = await requestQuote(cart, limits?.maxBodyBytes);
+    if (mine !== current.current) return;
+    setOutcome(result);
+    setPending(false);
   }
 
   return (
@@ -40,7 +51,7 @@ export function QuoteWorkspace({ limits, engines, prices }: Props) {
       {engines === "fake" && <DemoBanner />}
       <main className={styles.main}>
         <h1 className={styles.title}>Delorean</h1>
-        <CartForm cart={cart} onCartChange={setCart} onSubmit={submit} pending={pending} limits={limits} engines={engines} />
+        <CartForm cart={cart} onCartChange={changeCart} onSubmit={submit} pending={pending} limits={limits} engines={engines} />
         <p role="status" className="visually-hidden">
           {announcement(pending, outcome)}
         </p>

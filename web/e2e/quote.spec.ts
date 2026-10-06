@@ -169,6 +169,22 @@ test("does not send a cart over 8 KB: the button is off and a sentence says why"
   expect(sent).toBe(0);
 });
 
+test("clears the previous refusal when the cart is edited", async ({ page }, testInfo) => {
+  await price(page, "12 ab ?? 7");
+  await expect(refusal(page)).toContainText("Nous n'y lisons pas une commande de films");
+  await page.getByLabel("Votre panier").fill("12 ab ?? 8");
+  await expect(refusal(page)).toHaveCount(0);
+
+  // refused as too long, then edited past 8 KB: only the new sentence stays
+  await page.getByLabel("Votre panier").fill("Back to the Future 1 ".repeat(100));
+  await page.getByRole("button", { name: "Calculer le prix" }).click();
+  await expect(refusal(page)).toContainText("Votre panier est trop long");
+  await page.getByLabel("Votre panier").fill("a".repeat(9000));
+  await expect(size(page)).toContainText("Votre panier dépasse 8 Ko");
+  await expect(refusal(page)).toHaveCount(0);
+  await shot(page, "cleared-on-edit", testInfo.project.name);
+});
+
 test("explains a proxy's own 413 page as a cart too large", async ({ page }) => {
   await page.route("**/api/quotes", (route) =>
     route.fulfill({ status: 413, contentType: "text/html", body: "<html><h1>413 Request Entity Too Large</h1></html>" }),

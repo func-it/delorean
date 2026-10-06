@@ -91,6 +91,54 @@ describe("QuoteWorkspace", () => {
     expect(screen.getByRole("button", { name: "Calculer le prix" })).toBeEnabled();
   });
 
+  it("clears the result, and the sentence read aloud, when the cart is edited", async () => {
+    render(<QuoteWorkspace />);
+    const box = screen.getByRole("textbox", { name: "Votre panier" });
+
+    await userEvent.type(box, "Back to the Future 1");
+    await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
+    expect(await screen.findByRole("region", { name: "Prix de la commande" })).toBeInTheDocument();
+
+    await userEvent.type(box, "2");
+
+    expect(screen.queryByRole("region", { name: "Prix de la commande" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+  });
+
+  it("clears a refusal when the cart is edited or an example is picked", async () => {
+    stubBff(() => problemAnswer("empty_cart", 422));
+    render(<QuoteWorkspace />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
+    expect(await screen.findByRole("region", { name: "Refus" })).toBeInTheDocument();
+    await userEvent.type(screen.getByRole("textbox", { name: "Votre panier" }), "a");
+    expect(screen.queryByRole("region", { name: "Refus" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
+    expect(await screen.findByRole("region", { name: "Refus" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Les trois volets" }));
+    expect(screen.queryByRole("region", { name: "Refus" })).not.toBeInTheDocument();
+  });
+
+  it("drops the answer to a cart that was edited while it was being priced", async () => {
+    let answer!: (response: Response) => void;
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(() => new Promise<Response>((resolve) => (answer = resolve))));
+    render(<QuoteWorkspace />);
+    const box = screen.getByRole("textbox", { name: "Votre panier" });
+
+    await userEvent.type(box, "Back to the Future 1");
+    await userEvent.click(screen.getByRole("button", { name: "Calculer le prix" }));
+    expect(screen.getByRole("button", { name: "Calcul en cours…" })).toBeDisabled();
+
+    await userEvent.type(box, "2");
+    expect(screen.getByRole("button", { name: "Calculer le prix" })).toBeEnabled();
+    answer(Response.json(quote));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(screen.queryByRole("region", { name: "Prix de la commande" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+  });
+
   it("tells the visitor to come back tomorrow when the budget is spent", async () => {
     stubBff(() => problemAnswer("daily_budget_exhausted", 503));
     render(<QuoteWorkspace />);
