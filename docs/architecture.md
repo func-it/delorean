@@ -629,7 +629,8 @@ production.
 ## Shared cases (`cases/`)
 
 One case per JSON file. The file name is the `id`.
-The end-to-end suite and the system bench read the same cases.
+The end-to-end suite and the system bench read `quote/`; the stage benches read
+the other folders.
 
 ```json
 {
@@ -644,6 +645,10 @@ The end-to-end suite and the system bench read the same cases.
 | Folder | Subject | `input` | `expect` |
 |---|---|---|---|
 | `quote/` | the API end to end | `{cart}` | `{status: 200, total_cents, films?}` or `{status, code}` |
+| `guard/` | the guard alone | `{text}` | `{verdict}`: `valid`, `injection` or `invalid` |
+| `identify/` | one title | `{title}` | `{film}`: `bttf_1`, `bttf_2`, `bttf_3` or `other` |
+| `reading/` | the pipeline's reading (and the parse alone) | `{text}` | `{films}`: copies per film, `{}` when nothing is bought |
+| `judge/` | the judge, with the recount | `{text, lines: [{title, quantity, film}]}` | `{faithful, check?}`: the check (`asked`, `identity`, `missing`, `count`) that must catch an unfaithful reading |
 
 - `films` compares the total quantities per film (`other` adds up all the
   other films).
@@ -654,17 +659,22 @@ The end-to-end suite and the system bench read the same cases.
   system bench (`task bench`), which costs money and is run on purpose. They
   are the free-text carts a deterministic reader cannot read: other languages,
   stories, quantities in words.
+- **The stage folders** (262 cases) need models too: the stage benches play
+  them (`task bench:stage`). `task bench:stage -- check` and `task test` read
+  them offline and refuse a case that is off its folder's format: an id that is
+  not its file name, an empty note, an unknown film, verdict or check.
 
 ## Benches
 
 - **System bench** (`e2e/`, black box): the `quote/` cases run N times against
   the quoter; correct price rate, correct rejection rate, p50 / p90 latency,
   cost per cart and per stage.
-- **Component benches** (guard, identify, reading, judge, a matrix of parser
-  models) were run by a tool of an earlier tree, on `guard/`,
-  `identify/`, `reading/` and `judge/` cases that went with it (they are in
-  git history). Their results, and what they decided, are kept in
-  [testing](testing.md#results-kept-from-the-earlier-benches).
+- **Stage benches** (`quoter/bench/`, `task bench:stage`): each stage played
+  alone on the quoter's own engines (guard, identify, parse, reading, judge)
+  against the `guard/`, `identify/`, `reading/` and `judge/` cases, and a matrix
+  of parser variants. A dry run counts the calls and the cost before anything is
+  spent, and `--max-usd` caps a run. How to run them, and their results:
+  [testing](testing.md#stage-benches).
 
 No bench runs without `RUN_LIVE=1` and an OpenRouter key.
 
@@ -853,6 +863,8 @@ TypeScript, because the web app and the quoter then share a language, and
 Node is what the brief names. The Go and Python quoters, the parity suite, the
 Go component benches and the load bench of the three images were removed from
 the tree; `git log --diff-filter=D -- quoters/go quoters/python` finds them.
+The component benches were then ported to TypeScript, on the quoter's own
+engines (`quoter/bench/`); the load bench was not.
 
 ## Design decisions
 

@@ -195,9 +195,14 @@ scripts/e2e-fake.sh       the end-to-end suite against this quoter on fake engin
 - **The system bench** (`e2e/`, `task bench -- --base-url
   http://localhost:24793`) runs the shared `cases/quote` against this quoter and
   measures accuracy, latency and cost.
-- **The component benches** (guard, identify, reading, judge) were run with a
-  tool in another language that is no longer in this repository; their results
-  are in [`docs/testing.md`](../docs/testing.md).
+- **The stage benches** (`bench/`, `task bench:stage -- list`, or
+  `npm run bench:stage -- list`) play each stage alone (guard, identify, parse,
+  reading, judge) on this quoter's own engines, against the `cases/<stage>/`
+  folders, and compare parser variants (`bench/variants.yaml`).
+  `check` reads the cases offline; `run <subject> --dry-run` counts the calls
+  and tokens before anything is sent; a live run needs `RUN_LIVE=1` and an
+  OpenRouter key, and `--max-usd` caps it. The commands, the reports and the
+  results are in [`docs/testing.md`](../docs/testing.md#stage-benches).
 
 One thing JavaScript cannot do: a quantity past 2^53 loses
 precision instead of saturating. Such a cart is refused as

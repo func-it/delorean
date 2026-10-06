@@ -64,7 +64,7 @@ The five carts are [`quoter/test/brief.test.ts`](quoter/test/brief.test.ts) and
 the shared cases [`cases/quote/enonce-*.json`](cases/quote). No test calls a
 model: with the real models the examples were checked by hand and by the
 benches, not by a test ([what is guaranteed, and where](docs/testing.md#what-live-mode-costs-and-what-it-guarantees)).
-Other commands (`task web:e2e` in a browser, `task bench`, `task check`):
+Other commands (`task web:e2e`, `task check`, the benches `task bench` and `task bench:stage`):
 [`docs/testing.md`](docs/testing.md).
 
 ## Design choices
