@@ -33,7 +33,7 @@ docker run -p 24790:24790 -e SESSION_SECRET=… -e QUOTER_URL=http://quoter:2479
 | `SESSION_SECRET` | development secret, with a warning | seals the session cookie; at least 32 characters, **required in production** |
 | `QUOTER_URL` | `http://localhost:24793` | the quoter the BFF calls, from the environment only: the browser names nothing about where a request goes |
 | `SESSION_COOKIE_SECURE` | `true` in production | `false` when the app is served over plain HTTP (`docker compose` locally): some browsers reject a `Secure` cookie received over HTTP, even from localhost |
-| `QUOTER_TIMEOUT_MS` | `20000` | maximum wait for a quoter (a little more than its 15 s) |
+| `QUOTER_TIMEOUT_MS` | `30000` | maximum wait for the quoter: its 25 s request limit (`REQUEST_TIMEOUT`) plus 5 s |
 | `STRIKE_LIMIT` | `3` | injection refusals that block a session or a username ([strike rule](#strike-rule)) |
 | `IP_STRIKE_LIMIT` | `10` | injection refusals that block a client address, which a carrier's NAT may share between many customers |
 | `IP_MAX_IN_FLIGHT` | `4` | quotes in flight at once from one client address (a session or a username: one) |

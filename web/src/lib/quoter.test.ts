@@ -25,7 +25,7 @@ describe("the configured quoter", () => {
 describe("quoterTimeoutMs", () => {
   it("leaves the quoter's 15 s budget room to answer first", () => {
     vi.stubEnv("QUOTER_TIMEOUT_MS", "");
-    expect(quoterTimeoutMs()).toBe(20_000);
+    expect(quoterTimeoutMs()).toBe(30_000);
   });
 
   it("reads QUOTER_TIMEOUT_MS", () => {
